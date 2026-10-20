@@ -19,13 +19,14 @@ test('the opening stays unchanged and ordinary threat ramps smoothly to twenty p
  assert.equal(ordinaryThreatScale(NaN),1);
 });
 
-test('ordinary difficulty applies once to damage without stacking health, speed or spawn buffs',()=>{
+test('time increases enemy endurance while ordinary damage and movement keep their established ramps',()=>{
  const s=new Simulation(7,99).state,rng=new RNG(4),sp=getSpecies(19);
  for(const elapsed of [0,120,150,180,600,900]){
   s.stats.elapsed=elapsed;const minutes=elapsed/60,enemy=createEnemy(s,rng,19,'normal',0,0);
   const baseDamage=6+sp.stage*2.7+minutes*.46;
   assert.equal(enemy.damage,baseDamage*ordinaryThreatScale(elapsed));
-  assert.equal(enemy.maxHp,(18+sp.stage*10+minutes*1.25)*(1+minutes*.07));
+  const timeHealth=1+.4*Math.max(0,elapsed-120)/780;
+  assert.ok(Math.abs(enemy.maxHp-(18+sp.stage*10+minutes*1.25)*(1+minutes*.07)*timeHealth)<1e-9);
   assert.equal(enemy.speed,2.7+sp.stage*.2+minutes*.055);
  }
 });
@@ -41,14 +42,24 @@ test('elite encounters have substantial endurance and the final boss keeps reada
  assert.ok(BOSS_RULES.volleyWindup>=.7&&BOSS_RULES.ringWindup>=1.1&&BOSS_RULES.summonWindup>=1.5);
 });
 
-test('both landmark guardians scale their durability with run level and elapsed time',()=>{
+test('both landmark guardians scale with average personal level and elapsed time',()=>{
  const s=new Simulation(7,99).state,rng=new RNG(4);
  for(const elapsed of [0,180,600,900])for(const level of [1,8,20]){
-  s.stats.elapsed=elapsed;s.stats.level=level;
+  s.stats.elapsed=elapsed;s.stats.level=999;s.party[0].level=level;
   for(const shrine of [false,true]){
    const guardian=createGuardian(s,rng,26,4,4,shrine);
    assert.ok(guardian.maxHp>=600+level*200+elapsed*1.5);
    assert.equal(guardian.shrineGuardian,shrine);assert.equal(guardian.elite,true);assert.equal(guardian.isBoss,false);
   }
  }
+});
+
+test('party strength has a small bounded influence on future spawns and cannot change existing enemies',()=>{
+ const s=new Simulation(7,99).state,rng=new RNG(4);s.stats.elapsed=600;
+ const weak=createEnemy(s,rng,19,'normal',0,0),snapshot=structuredClone(weak);
+ s.party[0].level=50;s.party[0].attackLevel=8;s.buffs.power=4;
+ while(s.party.length<6)s.party.push({...s.party[0],uid:s.idCounter++,learnedMoves:[{moveId:'swift',rank:12,cooldown:0}]});
+ const strong=createEnemy(s,rng,19,'normal',0,0);
+ assert.ok(Math.abs(strong.maxHp/weak.maxHp-1.2)<1e-9);assert.ok(Math.abs(strong.damage/weak.damage-1.08)<1e-9);
+ assert.equal(strong.speed,weak.speed);assert.deepEqual(weak,snapshot);
 });

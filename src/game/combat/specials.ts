@@ -1,5 +1,5 @@
 import {ELEMENT_COLORS,type Element} from '../../data/kanto.ts';
-import type {SpecialProfile} from '../../data/specials.ts';
+import {specialAimMode,type SpecialProfile} from '../../data/specials.ts';
 import {segmentDistanceSquared} from '../../utils/geometry.ts';
 import type {Enemy,PartyMember,RunState,Vec2} from '../types.ts';
 import type {StatusProc} from '../../data/attacks.ts';
@@ -22,7 +22,7 @@ export interface SpecialContext {
 }
 function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
  const {state,member,profile,element}=context,count=Math.min(SPECIAL_LIMITS.projectiles,profile.projectiles+context.extraProjectiles);
- const facing=state.player.aimFacing;
+ const facing=specialAimMode(profile.kind)==='automatic'?undefined:state.player.aimFacing;
  const targets=state.enemies.filter(e=>!e.dead&&Math.hypot(e.x-origin.x,e.z-origin.z)<=profile.range&&(facing===undefined||(e.x-origin.x)*Math.sin(facing)+(e.z-origin.z)*Math.cos(facing)>=Math.hypot(e.x-origin.x,e.z-origin.z)*Math.cos(Math.PI/6))).sort((a,b)=>Math.hypot(a.x-origin.x,a.z-origin.z)-Math.hypot(b.x-origin.x,b.z-origin.z));
  const heading=Math.atan2(aim.z-origin.z,aim.x-origin.x);
  for(let i=0;i<count;i++){
@@ -40,9 +40,10 @@ function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
    status:profile.kind==='web'?{slow:1,stun:1}:orbit?{burn:1}:{},allowProcs:true});
  }
 }
-function lineHit(context:SpecialContext,from:Vec2,to:Vec2,radius:number,scale:number,status:StatusProc={}):void {
+function lineHit(context:SpecialContext,from:Vec2,to:Vec2,radius:number,scale:number,status:StatusProc={},forward?:Vec2):void {
  for(const enemy of context.state.enemies){
   if(context.state.result!==null)return;
+  if(forward&&(enemy.x-from.x)*forward.x+(enemy.z-from.z)*forward.z<0)continue;
   if(!enemy.dead&&segmentDistanceSquared(enemy,from,to)<=(radius+enemy.size*.4)**2)context.hit(enemy,context.damage*scale,context.element,context.member.uid,status);
  }
 }
@@ -52,7 +53,7 @@ export function castSpecial(context:SpecialContext):void {
  const {state,member,element}=context;
  const profile={...context.profile,range:context.profile.range*context.radiusScale,radius:context.profile.radius*context.radiusScale,duration:context.profile.duration*context.durationScale};
  context={...context,profile};
- const manualFacing=state.player.aimFacing;
+ const manualFacing=specialAimMode(profile.kind)==='automatic'?undefined:state.player.aimFacing;
  const origin={x:state.player.x,z:state.player.z},target=manualFacing===undefined?nearestEnemy(state.enemies,origin,profile.range):enemyInAim(state.enemies,origin,profile.range,manualFacing);
  const length=target?Math.hypot(target.x-origin.x,target.z-origin.z):1;
  const dx=manualFacing!==undefined?Math.sin(manualFacing):target?(target.x-origin.x)/(length||1):Math.sin(state.player.facing),dz=manualFacing!==undefined?Math.cos(manualFacing):target?(target.z-origin.z)/(length||1):Math.cos(state.player.facing);
@@ -69,7 +70,7 @@ export function castSpecial(context:SpecialContext):void {
   }
   member.x=state.player.x;member.z=state.player.z;
   const destination={x:member.x,z:member.z};
-  lineHit(context,origin,destination,profile.radius,profile.kind==='quickstep'?profile.damageScale:1,{burn:profile.kind==='charge'?1:0});
+  lineHit(context,origin,destination,profile.radius,profile.kind==='quickstep'?profile.damageScale:1,{burn:profile.kind==='charge'?1:0},{x:dx,z:dz});
   visual(profile.kind==='charge'?'trail':'dash',origin,{toX:destination.x,toZ:destination.z,duration:profile.kind==='charge'?profile.duration:.3});
   if(state.result!==null)return;
   if(profile.kind==='quickstep'){projectileVolley(context,destination,aim);return;}
@@ -167,7 +168,7 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
      visual('column',center,profile.radius,.3);break;
     }
     case 'charge':
-     for(const enemy of state.enemies)if(!enemy.dead&&segmentDistanceSquared(enemy,effect,{x:effect.toX,z:effect.toZ})<=(profile.radius+enemy.size*.4)**2)hit(enemy,profile.damageScale,{burn:1});
+     for(const enemy of state.enemies)if(!enemy.dead&&(enemy.x-effect.x)*effect.dx+(enemy.z-effect.z)*effect.dz>=0&&segmentDistanceSquared(enemy,effect,{x:effect.toX,z:effect.toZ})<=(profile.radius+enemy.size*.4)**2)hit(enemy,profile.damageScale,{burn:1});
      break;
    }
   }

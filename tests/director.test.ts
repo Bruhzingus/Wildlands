@@ -55,7 +55,7 @@ test('legendary warning emits once, spawn is distant and simultaneous level-up r
  s.stats.elapsed=899.99;sim.debugLevel();sim.update(.02,idle);
  const boss=s.enemies.find(enemy=>enemy.isBoss)!;assert.equal(boss.speciesId,150);
  assert.ok(Math.hypot(boss.x-s.player.x,boss.z-s.player.z)>=30);assert.equal(s.phase,'choice');
- assert.equal(boss.hp,BOSS_RULES.baseHp+s.stats.level*BOSS_RULES.hpPerLevel-BOSS_RULES.hpPerLevel);
+ assert.equal(boss.hp,BOSS_RULES.baseHp+BOSS_RULES.hpPerLevel,'Boss endurance uses the party level at spawn, not aggregate reward counts');
  sim.choose(s.upgradeChoices[0].id);assert.equal(s.phase,'boss');
 });
 
@@ -110,7 +110,7 @@ test('variant contact poison persists on followers and can faint them without by
 test('variant rewards split one exact XP total between instant and drop portions',()=>{
  const {sim,s}=arena();const enemy=createEnemy(s,sim.rng,19,'rocket',2,0);enemy.hp=1;enemy.speed=0;s.enemies=[enemy];
  const total=variantRewardXP(enemy);sim.update(.02,{...idle,special:true});
- assert.ok(Math.abs(s.stats.xp+s.drops.reduce((sum,drop)=>sum+drop.value,0)-total)<1e-9);
+ assert.ok(Math.abs(s.stats.xp+s.drops.filter(drop=>drop.kind==='xp').reduce((sum,drop)=>sum+drop.value,0)-total)<1e-9);
 });
 
 test('boss defeat preserves complete party/build state into endless and clears hostile boss hazards',()=>{
@@ -126,6 +126,6 @@ test('endless remains bounded beyond twenty minutes while late recruitment gates
  const early=updateDirector(s);s.stats.elapsed=1200;const late=updateDirector(s);
  assert.ok(late.endlessScale>early.endlessScale);assert.ok(late.spawnInterval<early.spawnInterval);assert.ok(late.enemyBudget<=DESIGN.maxEnemies);
  s.recruitCount=4;s.stats.level=29;s.stats.elapsed=1199;assert.equal(canRecruit(s),false);s.stats.elapsed=1200;assert.equal(canRecruit(s),true);
- s.player.iframes=1000;for(let i=0;i<1500;i++){sim.update(.04,idle);assert.ok(s.enemies.length<=DESIGN.maxEnemies);assert.ok(Number.isFinite(s.player.x+s.stats.elapsed));}
+ s.player.iframes=1000;for(let i=0;i<1500;i++){if(s.phase==='choice')sim.choose(s.upgradeChoices[0].id);sim.update(.04,idle);assert.ok(s.enemies.length<=DESIGN.maxEnemies);assert.ok(Number.isFinite(s.player.x+s.stats.elapsed));}
  assert.ok(s.stats.elapsed>=1259.9);assert.equal(s.result,null);assert.equal(s.phase,'playing');
 });

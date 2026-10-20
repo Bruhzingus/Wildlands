@@ -90,13 +90,16 @@ test('party and enemy attacks play once, face their targets and freeze when paus
  await start(page);await pause(page);
  await game(page,`g=>{
   const s=g.sim.state,p=s.player,e=s.enemies[0],m=s.party[0];
-  s.enemies=[{...e,x:p.x+2,z:p.z,hp:10000,maxHp:10000,speed:0,stunTime:0,hitCooldown:0}];
+  s.enemies=[{...e,speciesId:19,variant:'normal',x:p.x+2,z:p.z,hp:10000,maxHp:10000,speed:0,
+   stunTime:0,hitCooldown:0,attackCooldown:0,attackTimer:0,animation:'idle',windup:undefined}];
+  g.sim.spawnAccum=-1000;
   s.player.facing=0;m.cooldown=0;m.attackTimer=0;
   s.phase='playing';g.sim.update(.02,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});s.phase='paused';
   g.visuals.sync(s.party,s.enemies,0,-g.camera.alpha-Math.PI/2,(x,z)=>g.world.height(x,z),s.player.y);
  }`);
  const attack=await game(page,'g=>({party:g.sim.state.party[0],enemy:g.sim.state.enemies[0]})');
  expect(attack.party.animation).toBe('attack');expect(attack.enemy.animation).toBe('attack');
+ expect(attack.enemy.windup?.moveName).toBe('Quick Attack');
  expect(attack.party.attackTimer).toBeGreaterThan(0);expect(attack.enemy.attackTimer).toBeGreaterThan(0);
  expect(attack.party.facing).toBeCloseTo(Math.PI/2,4);expect(attack.enemy.facing).toBeCloseTo(-Math.PI/2,4);
  await expect.poll(()=>game(page,`g=>g.visuals.inspect().every(a=>a.requested==='attack'&&a.resolved!=='artwork')`)).toBe(true);
@@ -132,7 +135,9 @@ test('party and enemy attacks play once, face their targets and freeze when paus
  expect(advanced.some((a:any,i:number)=>a.frame>first[i].frame)).toBe(true);
  await game(page,`g=>{
   const s=g.sim.state;s.enemies[0].hitCooldown=10;s.party[0].cooldown=10;
-  s.phase='playing';for(let i=0;i<5;i++)g.sim.update(.04,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});s.phase='paused';
+  // Let the committed enemy windup and its release finish, not only the
+  // manually sampled body timer. Recovery begins when the attack releases.
+  s.phase='playing';for(let i=0;i<20;i++)g.sim.update(.04,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});s.phase='paused';
   g.visuals.sync(s.party,s.enemies,0,-g.camera.alpha-Math.PI/2,(x,z)=>g.world.height(x,z),s.player.y);
  }`);
  expect(await game(page,'g=>g.sim.state.party[0].animation')).toBe('idle');

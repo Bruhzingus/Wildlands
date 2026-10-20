@@ -16,8 +16,8 @@ test('selecting a real recruit applies welcome effects once using the newly expa
  const choices=makeChoices(s,simulation.rng);assert.ok(choices.every(choice=>choice.kind==='recruit'));
  simulation.enterChoice(choices);simulation.choose(choices[0].id);
  assert.equal(s.party.length,2);assert.equal(s.stats.recruits,1);assert.equal(s.player.hp,74);
- assert.ok(Math.abs(s.party.reduce((total,member)=>total+(member.xp??0),0)-26.4)<1e-10,'shared welcome XP should include the expanded two-member EXP Share');
- assert.ok(Math.abs(s.stats.xp-13.2)<1e-10,'the leader receives half of the shared XP');
+ assert.equal(s.party.reduce((total,member)=>total+(member.xp??0),0),48,'Both level-one members receive full welcome XP');
+ assert.equal(s.stats.xp,24,'The leader receives the full shared XP amount');
  assert.equal(s.stats.elapsed,165);assert.equal(s.phase,'playing');
  const before={hp:s.player.hp,xp:s.stats.xp};simulation.choose(choices[0].id);
  assert.deepEqual({hp:s.player.hp,xp:s.stats.xp},before,'repeated UI input must not replay the recruitment reward');
@@ -48,7 +48,7 @@ test('busy combat cannot suppress guaranteed recruit and evolution rewards durin
  const simulation=new Simulation(1,904),s=simulation.state;s.items=['kings-rock','frost-charm','toxic-barb','welcome-basket','growth-charm'];
  s.player.hp=50;s.stats.elapsed=165;s.stats.level=4;exhaustOffensiveBudget(simulation);
  const choices=makeChoices(s,simulation.rng);simulation.enterChoice(choices);simulation.choose(choices[0].id);
- assert.equal(s.player.hp,74);assert.equal(s.stats.xp,12);assert.equal(s.party[1].xp,12);assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow);
+ assert.equal(s.player.hp,74);assert.equal(s.stats.xp,24);assert.equal(s.party[1].xp,24);assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow);
  s.stats.elapsed=170;s.party[0].level=5;s.player.specialCooldown=12;exhaustOffensiveBudget(simulation);
  const evolution:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([evolution]);simulation.choose(evolution.id);

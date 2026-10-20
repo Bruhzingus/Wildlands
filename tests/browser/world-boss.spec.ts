@@ -17,7 +17,7 @@ test('four biomes and optional discoveries have grounded landmarks and a readabl
  expect(await page.locator('#minimap').evaluate((el:any)=>Number(el.dataset.markers))).toBeGreaterThan(10);
  expect(await game(page,'g=>g.scene.meshes.filter(m=>m.name.startsWith("great-pine")||m.name.startsWith("gate-pillar")||m.name.startsWith("watchstone")).length')).toBe(6);
  await game(page,'g=>{const s=g.sim.state,p=s.pois.find(p=>p.kind==="cache");s.player.x=p.x;s.player.z=p.z;s.party[0].x=p.x;s.party[0].z=p.z;}');
- await expect(page.locator('#interaction')).toContainText('Open cache');await page.keyboard.press('e');await expect(page.locator('.choice-card')).toHaveCount(3);
+ await expect(page.locator('#interaction')).toContainText('Open free cache');await page.keyboard.press('e');await expect(page.locator('.choice-card')).toHaveCount(3);
  const snapshot=await game(page,'g=>JSON.stringify(g.sim.state)');await page.waitForTimeout(150);expect(await game(page,'g=>JSON.stringify(g.sim.state)')).toBe(snapshot);
  expect(await game(page,'g=>g.sim.state.pois.find(p=>p.kind==="cache").used')).toBe(true);
  await page.keyboard.press('1');await captured(page);expect(await game(page,'g=>g.sim.state.items.length')).toBe(1);

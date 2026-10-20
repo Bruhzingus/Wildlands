@@ -1,6 +1,7 @@
 import {ATTACK_ARCHETYPES,ELEMENT_PROCS,type AttackDefinition} from './attacks.ts';
 import {getSpecies,type AttackKind,type Element} from './kanto.ts';
 import {PROGRESSION} from './progression.ts';
+import {SPECIES_LEARNSETS} from './learnsets.ts';
 
 export interface LearnableMove {
  id:string;name:string;element:Element;power:number;description:string;
@@ -8,7 +9,8 @@ export interface LearnableMove {
 }
 /** The species' signature attack occupies the first of four total move slots. */
 export const MAX_LEARNED_MOVES=3;
-export const MAX_LEARNED_MOVE_RANK=PROGRESSION.moves.learnedMaxRank;
+/** Highest supported rank; upgrade offers enforce each species' own limit. */
+export const MAX_LEARNED_MOVE_RANK=Math.max(PROGRESSION.moves.maxRank,PROGRESSION.moves.soloMaxRank);
 type MoveInput={id:string;name:string;element:Element;kind:AttackKind;power:number;description:string;cooldown:number;overrides?:Partial<AttackDefinition>};
 function move(input:MoveInput):LearnableMove {
  const base=ATTACK_ARCHETYPES[input.kind];
@@ -18,9 +20,18 @@ function move(input:MoveInput):LearnableMove {
    status:{...ELEMENT_PROCS[input.element],...base.status,...input.overrides?.status}}};
 }
 
-/** Extra attacks run on independent cooldowns. Names are Pokémon moves;
- * learnsets and numerical values are deliberately adapted to this arcade game. */
+/** Extra attacks run on independent cooldowns. Names and species eligibility
+ * come from real learnsets; run-level gates and combat values are adapted. */
 export const LEARNABLE_MOVES:readonly LearnableMove[]=[
+ move({id:'razor-leaf',name:'Razor Leaf',element:'grass',kind:'bolt',power:22,cooldown:3.2,description:'Fires two sharp leaves through nearby targets.',overrides:{projectiles:2,pierce:1,silhouette:'needle'}}),
+ move({id:'ember',name:'Ember',element:'fire',kind:'lob',power:22,cooldown:3.1,description:'Lobs a small burning ember.',overrides:{radius:2.4}}),
+ move({id:'water-gun',name:'Water Gun',element:'water',kind:'beam',power:23,cooldown:3,description:'Fires a narrow stream through two enemies.',overrides:{pierce:2}}),
+ move({id:'thunder-shock',name:'Thunder Shock',element:'electric',kind:'chain',power:21,cooldown:3.2,description:'Shocks two nearby enemies.',overrides:{chains:2}}),
+ move({id:'gust',name:'Gust',element:'flying',kind:'beam',power:22,cooldown:3.1,description:'Sends a piercing gust through a line of enemies.',overrides:{pierce:2}}),
+ move({id:'tackle',name:'Tackle',element:'normal',kind:'slash',power:23,cooldown:2.6,description:'Strikes nearby enemies with a quick body charge.'}),
+ move({id:'quick-attack',name:'Quick Attack',element:'normal',kind:'slash',power:24,cooldown:2.5,description:'Sweeps nearby enemies with a fast close-range strike.'}),
+ move({id:'bug-bite',name:'Bug Bite',element:'bug',kind:'slash',power:25,cooldown:2.8,description:'Bites enemies in a short forward sweep.'}),
+ move({id:'confusion',name:'Confusion',element:'psychic',kind:'burst',power:24,cooldown:3,description:'Strikes a small area with psychic force.'}),
  move({id:'swift',name:'Swift',element:'normal',kind:'bolt',power:20,cooldown:2.7,description:'Fires a quick three-star spread.',overrides:{projectiles:3,speed:23}}),
  move({id:'body-slam',name:'Body Slam',element:'normal',kind:'burst',power:30,cooldown:3.4,description:'Slams nearby enemies and can briefly stun them.',overrides:{range:7,radius:4.8,status:{stun:.22}}}),
  move({id:'hyper-beam',name:'Hyper Beam',element:'normal',kind:'beam',power:43,cooldown:4.8,description:'Fires a powerful piercing beam.',overrides:{pierce:6,range:22}}),
@@ -56,9 +67,14 @@ export const LEARNABLE_MOVES:readonly LearnableMove[]=[
 ];
 const BY_ID=new Map(LEARNABLE_MOVES.map(definition=>[definition.id,definition]));
 export function getMoveDefinition(id:string):LearnableMove|undefined{return BY_ID.get(id);}
-export function learnableMoves(speciesId:number):LearnableMove[] {
+export function moveLearnLevel(id:string):number {
+ return ['hyper-beam','solar-beam','fire-blast','blizzard','earthquake','hurricane','future-sight','focus-blast','stone-edge'].includes(id)?10:
+  ['razor-leaf','ember','water-gun','thunder-shock','gust','tackle','quick-attack','bug-bite','confusion','swift','water-pulse','mud-shot','psybeam','dragon-breath','poison-jab','pin-missile'].includes(id)?3:5;
+}
+export function learnableMoves(speciesId:number,level=Infinity):LearnableMove[] {
  const species=getSpecies(speciesId);
- return LEARNABLE_MOVES.filter(definition=>(definition.element==='normal'||species.types.includes(definition.element))&&definition.name!==species.moveName);
+ const known=new Set(SPECIES_LEARNSETS[speciesId]||[]);
+ return LEARNABLE_MOVES.filter(definition=>known.has(definition.id)&&definition.name!==species.moveName&&moveLearnLevel(definition.id)<=level);
 }
 export function getLearnedMoveProfile(id:string,rank=1):AttackDefinition {
  const definition=getMoveDefinition(id);if(!definition)throw new Error(`Unknown learned move: ${id}`);

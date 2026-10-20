@@ -4,6 +4,7 @@ import {KANTO,getSpecies} from '../data/kanto.ts';
 import {getAttackProfile} from '../data/attacks.ts';
 import {getSpeciesCombat,ROLE_LABELS} from '../data/rosterContent.ts';
 import {evolutionRequirement} from '../data/evolutions.ts';
+import {PROGRESSION} from '../data/progression.ts';
 import {ENCOUNTER_TABLES} from '../data/encounters.ts';
 import type {Variant} from '../game/types.ts';
 
@@ -91,7 +92,7 @@ export class AssetGallery {
   const species=getSpecies(this.speciesId),combat=getSpeciesCombat(this.speciesId),profile=getAttackProfile(this.speciesId);
   const encounters=Object.entries(ENCOUNTER_TABLES).filter(([,ids])=>ids.includes(species.id)).map(([table])=>table).join(', ');
   this.root.querySelector<HTMLElement>('[data-roster]')!.textContent=`${species.types.join(' / ').toUpperCase()} · Stage ${species.stage} · ${ROLE_LABELS[combat.role]} · ${species.moveName} (${profile.kind})\nArcade power ${species.power} · cadence ${profile.cooldown.toFixed(2)}s · reach ${profile.range.toFixed(1)}m · encounters: ${encounters}`;
-  this.root.querySelector<HTMLElement>('[data-evolutions]')!.textContent=species.evolvesTo.length?species.evolvesTo.map(id=>`${getSpecies(id).name}: ${evolutionRequirement(species.id,id)}.`).join(' '):'Final or single-stage form. Single-stage partners have 12 move ranks.';
+  this.root.querySelector<HTMLElement>('[data-evolutions]')!.textContent=species.evolvesTo.length?species.evolvesTo.map(id=>`${getSpecies(id).name}: ${evolutionRequirement(species.id,id)}.`).join(' '):species.stage===1?`Single-stage mastery: all moves reach rank ${PROGRESSION.moves.soloMaxRank}; training grants +${PROGRESSION.moves.soloRankGain} ranks from Pokémon level ${PROGRESSION.moves.soloTrainingLevel}.`:`Final evolved form: all moves reach rank ${PROGRESSION.moves.maxRank}.`;
   this.root.querySelector<HTMLAnchorElement>('[data-source]')!.href=`https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/${String(this.speciesId).padStart(4,'0')}`;
  }
  inspect(){return {open:this.root?.open??false,speciesId:this.speciesId,animation:this.animation,variant:this.variant,compareVariants:this.compareVariants,actors:this.avatars.map(a=>a.inspect()),engineActive:!!this.engine};}

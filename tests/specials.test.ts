@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {getSpecialProfile,describeSpecialUpgrade} from '../src/data/specials.ts';
+import {getSpecialProfile,describeSpecialUpgrade,specialAimMode} from '../src/data/specials.ts';
 import {KANTO,starterChoices} from '../src/data/kanto.ts';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
@@ -96,6 +96,24 @@ test('traveling waves exclude nearby enemies behind the cast even when their wid
  }
 });
 
+test('forward dashes retain their width without hitting behind the cast origin',()=>{
+ for(const starter of [58,133]){
+  const {sim}=arena(starter),front=foe(sim,0,7),side=foe(sim,1.2,5),rear=foe(sim,0,-.75);
+  sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});
+  assert.ok(front.hp<front.maxHp);assert.ok(side.hp<side.maxHp,'The dash still hits the width beside its forward path');
+  assert.equal(rear.hp,rear.maxHp,'The initial sweep must exclude the rounded overlap behind its origin');
+ }
+});
+
+test('Flame Charge trail pulses hit forward newcomers while excluding the rear overlap',()=>{
+ const {sim}=arena(58);foe(sim,0,7);
+ sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});
+ const front=foe(sim,0,4),side=foe(sim,1.2,6),rear=foe(sim,0,-.75);
+ advance(sim,.7);
+ assert.ok(front.hp<front.maxHp);assert.ok(side.hp<side.maxHp,'The retained fire trail keeps its full width');
+ assert.equal(rear.hp,rear.maxHp,'A later trail pulse must preserve the original forward boundary');
+});
+
 test('Teleport Lance retains enough reach to hit the selected distant target after blinking away',()=>{
  const {sim,s,events}=arena(63),target=foe(sim,0,18);
  sim.update(.02,{...idle,special:true});
@@ -119,6 +137,29 @@ test('Thunder Circuit strikes separate remote enemies over time and stuns its ta
  advance(sim,.5);assert.ok(targets.some(enemy=>enemy.stunTime>0));advance(sim,.9);
  assert.ok(targets.every(enemy=>enemy.hp<enemy.maxHp));
  assert.ok(events.filter(event=>event.shape==='column').length>=targets.length);
+});
+
+test('Thunder Circuit automatically chains on every side regardless of mouse aim',()=>{
+ const {sim,s}=arena(25),rear=foe(sim,0,-3),front=foe(sim,0,10),side=foe(sim,9,0);
+ assert.equal(specialAimMode(getSpecialProfile(25).kind),'automatic');
+ sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});
+ assert.ok(rear.hp<rear.maxHp,'The closest automatic strike may be behind the mouse');
+ assert.equal(s.activeSpecials?.[0].manualAim,false);
+ for(let i=0;i<65;i++)sim.update(.02,{...idle,aimX:0,aimZ:1});
+ assert.ok(front.hp<front.maxHp);assert.ok(side.hp<side.maxHp);
+});
+
+test('self-centered foxfire distributes its orbit around the leader independently of mouse aim',()=>{
+ const launch=(aimX:number,aimZ:number)=>{
+  const {sim,s}=arena(37);foe(sim,0,-8);foe(sim,0,12);
+  sim.update(.02,{...idle,aimX,aimZ,special:true});
+  return s.projectiles.map(({x,z,vx,vz,targetId,behavior,orbitCenterX,orbitCenterZ})=>({x,z,vx,vz,targetId,behavior,orbitCenterX,orbitCenterZ}));
+ };
+ const ahead=launch(0,1),behind=launch(0,-1);
+ assert.equal(specialAimMode(getSpecialProfile(37).kind),'automatic');
+ assert.deepEqual(ahead,behind);assert.equal(ahead.length,getSpecialProfile(37).projectiles);
+ assert.ok(ahead.every(p=>p.behavior==='orbit'&&p.targetId===undefined&&p.orbitCenterX===0&&p.orbitCenterZ===0));
+ assert.ok(ahead.some(p=>p.z>0)&&ahead.some(p=>p.z<0),'The orbit protects both sides of the leader');
 });
 
 test('Swift Step follows a swept obstacle-safe path and sends seeking stars at separate targets',()=>{

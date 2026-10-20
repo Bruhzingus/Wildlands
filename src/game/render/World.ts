@@ -82,6 +82,7 @@ export class World{
   for(const poi of pois){const mesh=bases[poi.kind].createInstance(`POI ${poi.kind} ${poi.uid}`);
    const root=new TransformNode(`landmark-${poi.uid}`,this.scene);mesh.parent=root;root.position.set(poi.x,this.height(poi.x,poi.z),poi.z);
    mesh.position.y={cache:.85,shrine:1.4,elite:1.15,healing:.35}[poi.kind];
+   if(poi.price!==undefined)mesh.scaling.set(1.2,.8,1.2);
    const ring=ringBases[poi.kind].createInstance(`marker-ring-${poi.uid}`);ring.parent=root;ring.position.y=.08;this.landmarks.set(poi.uid,{marker:root,mesh:ring});this.spawned.push(mesh,ring);
   }
  }

@@ -2,6 +2,14 @@ import {DESIGN} from './config.ts';
 import {getSpecies} from './kanto.ts';
 
 export type SpecialKind='garden'|'flamethrower'|'surf'|'thunder'|'quickstep'|'web'|'whirlwind'|'fissure'|'foxfire'|'sleep'|'payday'|'charge'|'teleport'|'flurry'|'curse'|'lance'|'volley'|'mend';
+export type SpecialAimMode='automatic'|'directional'|'placement';
+const SPECIAL_AIM_MODES:Readonly<Record<SpecialKind,SpecialAimMode>>={
+ garden:'placement',flamethrower:'directional',surf:'directional',thunder:'automatic',quickstep:'directional',web:'directional',
+ whirlwind:'directional',fissure:'directional',foxfire:'automatic',sleep:'placement',payday:'directional',charge:'directional',
+ teleport:'directional',flurry:'directional',curse:'placement',lance:'directional',volley:'directional',mend:'automatic',
+};
+/** Only specials with a direction or remote footprint consume the player's aim. */
+export function specialAimMode(kind:SpecialKind):SpecialAimMode {return SPECIAL_AIM_MODES[kind];}
 export interface SpecialProfile {
  kind:SpecialKind;name:string;description:string;range:number;radius:number;duration:number;pulses:number;projectiles:number;
  damageScale:number;cooldown:number;angle:number;knockback:number;

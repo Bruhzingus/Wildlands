@@ -1,6 +1,7 @@
 import {ATTACK_POSES} from '../../data/config.ts';
 import type {AttackKind} from '../../data/kanto.ts';
 import type {EnemyAttackRole} from '../../data/enemyAttacks.ts';
+import type {SpecialKind} from '../../data/specials.ts';
 
 export type AnimationName = 'idle' | 'walk' | 'attack';
 export type AttackStyle = keyof typeof ATTACK_POSES;
@@ -9,6 +10,14 @@ export interface AttackPose {forward:number;lift:number;scaleX:number;scaleY:num
 export function attackStyle(kind:AttackKind):AttackStyle {
  return kind==='slash'?'melee':kind==='bolt'||kind==='beam'||kind==='lob'?'ranged':'pulse';
 }
+const SPECIAL_ATTACK_STYLES:Record<SpecialKind,AttackStyle>={
+ garden:'pulse',flamethrower:'ranged',surf:'ranged',thunder:'pulse',quickstep:'quick',web:'ranged',
+ whirlwind:'ranged',fissure:'heavy',foxfire:'pulse',sleep:'pulse',payday:'ranged',charge:'quick',
+ teleport:'ranged',flurry:'heavy',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
+};
+/** Specials follow their actual cast: a charge, heavy combo and sanctuary retain
+ * their own body motion even when the species' ordinary attack has another shape. */
+export function specialAttackStyle(kind:SpecialKind):AttackStyle {return SPECIAL_ATTACK_STYLES[kind];}
 /** A ranged caster, heavy swing, thrown bomb and healing pulse each retain a
  * distinct silhouette while native Pokémon attack frames are playing. */
 export function enemyAttackStyle(role:EnemyAttackRole):AttackStyle {

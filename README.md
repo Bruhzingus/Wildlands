@@ -17,9 +17,13 @@ Open http://localhost:5173. To test rapidly use `http://localhost:5173/?dev=1&sp
 
 **Controls:** WASD move, FPS-style mouse look (cursor captured automatically when starting, resuming or choosing an upgrade), wheel zoom, Space jump, Shift dodge, Q special, E interact, ESC pause/release mouse, 1/2/3 choose level-up card. Click **Resume** to capture the mouse and return to play. Mouse sensitivity and invert-Y are saved from the title/pause settings. With `?dev=1`: `]` advances 2 minutes; `[` grants a level, `\` heals. The developer asset gallery previews all 151 species in eight directions using the live game renderer.
 
+Primary and learned attacks automatically target nearby enemies. Mouse look aims directional and placed Q specials; lightning chains, orbiting effects and healing stay automatic.
+
 **Tests:** `npm test`, `npm run typecheck`, `npm run build`, `npm run test:browser`. Browser checks use installed Chrome on Windows or Playwright Chromium elsewhere (`npx playwright install chromium`). Screenshots/traces are ignored under `artifacts/browser/`.
 
-Each Pokémon earns its own XP and levels. Shared XP is split between living teammates, and later levels cost progressively more. A Pokémon can know **four total moves**: its starting attack and three learned attacks, each with its own rank and cooldown. Level-up cards train the Pokémon that earned the level, with squad training as an alternative; caches offer distinctive passive relics. HP, defense, healing and most damage bonuses scale by percentage. See [the upgrade rework](docs/UPGRADE_REWORK.md) for tuning and verification details.
+Each living Pokémon receives full shared XP and levels independently during gameplay, gaining modest HP and damage without pausing. Pokémon choices happen at **levels 3, 5, 10, 15…** and offer real species-appropriate moves, move upgrades and eligible evolutions. Each Pokémon knows at most four moves, with independent ranks and cooldowns. Elite rewards offer squad training; enemies drop coins and rare items, and supply chests sell more upgrades. Exp. Share helps teammates behind the leader catch up. Enemy scaling follows time with a small capped response to party strength. See [the upgrade rework](docs/UPGRADE_REWORK.md) for tuning and verification details.
+
+Evolution grants +25% max HP, +25% permanent attack damage and +1 rank to every known move, capped at rank 8. Single-stage Pokémon instead train all four moves up to rank 12 and gain +2 ranks per move training choice from their own level 5.
 
 ## Documentation
 

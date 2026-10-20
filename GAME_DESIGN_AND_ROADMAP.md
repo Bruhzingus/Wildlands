@@ -43,7 +43,7 @@ A low-poly third-person Pokémon action roguelite. Start with one first-stage Po
 ### Design pillars (ordered)
 
 1. **Easy to play, rewarding to master:** Relaxed traversal, forgiving aiming, automatic attacks. Manual jump, dodge and a single Q ability for tactical spikes.
-2. **Reward pauses:** Time, enemies, cooldowns and projectiles freeze for level-up/item choices. No decision timer. Each upgrade card is clear, numeric where possible, and immediately noticeable.
+2. **Reward pauses:** Ordinary Pokémon levels happen during combat with small stat gains. Time, enemies, cooldowns and projectiles freeze for milestone, recruitment, elite and chest choices. No decision timer. Each upgrade card is clear, numeric where possible, and immediately noticeable.
 3. **Escalating sensory impact:** Quiet green woodland and sparse enemies → stronger attackers and thicker crowds → visible synergies and big hits → one readable late boss; keep a hard VFX budget.
 4. **Party-first builds:** Starter, recruits, evolutions, 8 move ranks (12 for non-evolving first-stage species), global bonuses, one-time relics, elemental interactions, optional team compositions.
 5. **Meaningful risk, not homework:** Up to five non-leading Pokémon can permanently faint for the run; teammates still attack automatically. No manual menu micromanagement, item crafting, resource inventory, or extraction routine.
@@ -62,11 +62,11 @@ Multiplayer, real-time Pokémon move PP / turns, overworld NPC quest trees, catc
 |---|---|
 | Camera | Behind-and-above, rotatable Megabonk-style camera |
 | Controls | WASD, jump, dodge, Q special, E interact, mouse camera orbit |
-| Attack aiming | All standard and special attacks automatically target / center appropriately |
+| Attack aiming | Standard and learned attacks auto-target nearby enemies. Only directional or placed Q specials use mouse aim; lightning chains, orbiting effects and support specials remain automatic. |
 | Starter roster | Small permanently unlocked roster, expanded by winning |
 | Recruitment method | Level-up selection; mixture of guaranteed/time-gated and randomized availability |
 | Recruitment pacing | First recruit after multiple minutes; typical 15-minute run ~4 total Pokémon |
-| Evolution | Evolution choices offered through level-up when time + level prerequisites are met; rarer than normal training |
+| Evolution | Eligible evolutions reliably offered at personal level milestones after time + level prerequisites; evolution remains optional |
 | Single-stage Pokémon | Strong starting profile and specialized growth options (future balancing pass) |
 | Follower health | Followers can take damage and **faint for the remainder of the run** |
 | Stats/type chart | Simplified arcade balancing; intuitive Pokémon type advantages |
@@ -91,7 +91,7 @@ If a future agent interprets any default in contradiction with this section, **t
 
 ### First 2:45 — Find your footing
 
-Player selects starter from an unlockable roster, appears in the forest, can freely orbit the camera, move, jump, dodge, trigger an automatically centered special ability, and attack nearby targets without input. Weak wild Pokémon spawn at the fringes; XP crystals fall. Low density, gentle audio and VFX. First 2–3 levels present training choices. Exploration items may be found, but nothing is mandatory.
+Player selects starter from an unlockable roster, appears in the forest, can freely orbit the camera, move, jump, dodge, trigger a Q special ability, and automatically attack nearby targets without aiming. Weak wild Pokémon spawn at the fringes; XP crystals and coins fall. Low density, gentle audio and VFX. Ordinary levels add 2% HP and damage without pausing; the first Pokémon choice arrives at level 3, followed by levels 5, 10, 15 and so on. Exploration items may be found, but nothing is mandatory.
 
 ### 2:45–7:00 — First partnership
 
@@ -121,7 +121,7 @@ Located in `src/data/config.ts`:
 | 4 | 16:00 | 22 | 5 |
 | 5 | 20:00 | 29 | 6 |
 
-These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment selection occurs **on a subsequent level-up after eligibility**. Adjust using session telemetry; do not hardcode unlocks in UI code. The game should never offer an evolved form as a new recruit. Pokémon with branches (notably Eevee) must show distinct evolution choices.
+These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment opens **when eligible, after any current choice**, without spending a Pokémon milestone. Minimum levels use aggregate earned squad progress. Every living teammate receives full shared XP and levels independently; Exp. Share boosts teammates below the leader's level. Pokémon milestones offer moves and evolution; elite/boss rewards offer squad training. Enemy coins fund supply chests, while free caches and rare enemy drops award relics. Adjust using session telemetry; do not hardcode unlocks in UI code. Recruitment remains first-stage only. Branching species show every evolution plus an option to keep training. See [the current progression rules](docs/UPGRADE_REWORK.md).
 
 ---
 
@@ -130,6 +130,10 @@ These gates are tuning targets, not promises that every playthrough hits them ex
 **Controls:** FPS-style mouse look automatically captures/hides the cursor when starting, resuming or choosing an upgrade. Camera rotation uses relative mouse deltas only while the browser actually owns pointer lock. Escape pauses and releases capture; click Resume to capture again. Lost or blocked capture keeps the game paused with a visible retry message. Moving the mouse up looks toward the horizon by default; invert-Y reverses it. WASD moves relative to the camera (A left, D right); the wheel zooms. Space jumps. Shift dodges in the initial input direction with a cooldown and temporary invulnerability. Q activates the leader's special on cooldown. E interacts within `DESIGN.interactionRadius`. Numeric keys select paused level-up options. One press activates one action: holding Q, Shift or Space does **not** automatically repeat it. Camera sensitivity and invert-Y persist locally and can be changed on the title and pause screens.
 
 **Input invariants:** Inputs are sampled once per visual frame. Simulation updates are dt-limited. Pausing halts all movement, enemy AI, cooldowns, projectiles, XP collection and timer. Blur pauses; resumed play should not retain stuck movement keys. Menus cannot accidentally activate in-world input. Entity IDs are unique and monotonic within a run.
+
+**Targeting:** Every party member's primary and learned attacks select nearby enemies automatically, regardless of camera direction or movement. Mouse look supplies aim only to directional Q specials (cones, waves, fans, dashes and lances) or placed Q fields (garden, powder and hex). Thunder Circuit, orbiting Foxfire and healing remain automatic. The aiming mode for each special is explicit in `src/data/specials.ts`.
+
+The October 20, 2026 targeting correction and verification are recorded in [the auto-aim follow-up](docs/AUTO_AIM_FOLLOWUP.md).
 
 **Combat model:** Each party member has one named primary auto-attack defined by a reusable archetype: bolt, burst, slash, aura, chain, beam, lob, heal. The engine uses shared implementation; Pokémon IDs only select parameters and VFX. Damage may scale with a simplified element advantage. Optional status interactions include wet + electric, poison + fire, etc. Do not copy canon turn-based moveset rules.
 
@@ -209,6 +213,8 @@ The exact multipliers are provisional and are intended to be tuned with real-run
 
 Audio refinement (2026-10-19): `src/data/audio.ts` owns species tonal profiles and an original 100 BPM musical phrase. Simulation emits successful `cast`, `jump` and `dash` events; visual chains and projectile effects do not retrigger party attack audio. Enemy defeats use a quiet, shared-budget pop. Sound/music reserve 8/4 voices within the existing 12-voice maximum; distance attenuation, overlap attenuation and shared impact timing keep crowds restrained. Existing quiet volume defaults and gesture/pause lifecycle remain. Verification and listening limitations are recorded in [audio polish](docs/AUDIO_POLISH.md). This is a requested audio refinement, not completion of a new roadmap phase.
 
+Attack animation integration (2026-10-20): Party body poses now follow the actual learned move or special being cast. Overlapping automatic casts share a complete body motion while retaining independent damage, effects and cooldowns; Q starts its own pose immediately. Slash effects retain their own aim, and forward dash/trail damage is clipped ahead of its origin. Native sheets and reduced-motion behavior are preserved. Recovery notes, verification and remaining limits are in [the animation follow-up](docs/ATTACK_ANIMATION_FOLLOWUP.md).
+
 ### Future data schema
 
 For future content expansion, migrate species definitions to JSON content packs validated by Zod or TypeBox at load time. Suggested example:
@@ -246,10 +252,10 @@ JSON values shown are example design data, not canon stats. Version schemas, wri
 - Difficulty phases at 3/7/11/13/15 minutes, adaptive future-arrival budgets, runtime faction weights, spawn telemetry and stronger endless scaling after victory.
 - Data-driven Dark/Rocket/Rabid/Poisoned factions with non-color glyphs, correct XP and persistent contact poison; normal factions retain shared attacks and species types.
 - Mewtwo warning before 15:00, three pausable/stunnable tells, aimed volley, jump/dodgeable expanding psychic ring and bounded distant reinforcements.
-- Time- and level-gated first-stage recruitment, level-up evolutions (including branch choices).
+- Time- and level-gated first-stage recruitment; non-pausing personal levels and choices at levels 3, 5, 10, 15…; reliable optional milestone evolution (including branches).
 - 36 unique passive items, 12 composition synergies and seven build event hooks; item tradeoffs, stat/proc caps and pause/result build summaries.
-- Ten ranked global training upgrades; eight move ranks for evolving lines and twelve for non-evolving first-stage species, with faster late-run rank gains for the latter.
-- Treasure caches, shrines, healing springs and elite challenge sites.
+- Nine ranked global training upgrades; eight move ranks for evolving lines and twelve for non-evolving first-stage species across signature and learned moves. Evolution grants +25% maximum HP, +25% permanent attack damage and +1 rank to every known move. Non-evolving species gain +2 ranks per move training choice from their own level 5.
+- Free treasure caches, coin-funded supply chests, enemy coin/item drops, shrines, healing springs and elite squad-training rewards.
 - Win/loss screens, endless continuation, unlocked starter progression and local saves.
 - Clear health/XP hierarchy, numeric party HP/critical and permanent-faint notices, cooldown-ready feedback and numeric upgrade cards with semantic icons.
 - Original quiet synth cues and a gentle ambient motif; gesture unlock, independent volume sliders, bounded voices and complete pause/blur cleanup.
@@ -460,7 +466,7 @@ Design and development cadence: implement → browser test → telemetry → adj
 - Evolved Pokémon never appear among first-stage recruits.
 - A fainting follower disappears from world/HUD, its auto-attack stops, and later choices never target its old UID.
 - If a follower faints directly before a scheduled recruitment event, recruitment tally does not reset.
-- An XP crystal collected near the threshold triggers **one** paused selection and remembers excess XP.
+- An XP crystal crossing an ordinary level threshold keeps combat running; crossing a milestone queues exactly one personal choice and remembers excess XP.
 - Pausing on top of a chest does not repeatedly grant chest loot.
 - Boss special projectiles stop moving behind a pause modal.
 - Restart 10 times and confirm texture/mesh/session listeners do not grow continuously.

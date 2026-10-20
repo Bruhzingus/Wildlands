@@ -116,7 +116,7 @@ test('DoT kills award XP and count damage exactly once without flooding hit visu
  const {sim,s}=arena(),enemy=foe(sim,8);enemy.hp=.05;enemy.poisonTime=.1;
  const events:GameEvent[]=[];sim.onEvent=event=>events.push(event);sim.update(.04,idle);
  assert.equal(s.stats.kills,1);assert.equal(s.stats.damageDealt,.05);assert.ok(s.stats.xp>0);
- assert.equal(s.drops.length,1);assert.equal(s.enemies.length,0);
+ assert.equal(s.drops.filter(drop=>drop.kind==='xp').length,1);assert.equal(s.enemies.length,0);
  assert.equal(events.filter(event=>event.kind==='hit'&&event.amount!==undefined).length,0);
  sim.update(.04,idle);assert.equal(s.stats.kills,1);
 });
@@ -162,10 +162,11 @@ test('event-driven items affect actual attacks, critical procs, kills and the le
  sim.update(.02,idle);assert.ok(a.hp<a.maxHp&&b.hp<b.maxHp);assert.ok(events.some(event=>event.kind==='chain'));
  assert.ok(s.player.specialCooldown<7.98,'Critical hits reduce the ability cooldown');
  s.player.specialCooldown=0;sim.update(.02,{...idle,special:true});assert.equal(s.player.hp,60+s.player.maxHp*.12);
- const kills=arena();kills.s.player.hp=50;kills.s.items=['shell-bell'];
+ const kills=arena();kills.s.player.hp=50;kills.s.items=['shell-bell'];const baseHp=kills.s.player.maxHp;
  for(let i=0;i<15;i++){const enemy=foe(kills.sim,3);enemy.hp=1;}
  addProjectile(kills.s,shot({vx:1000,penetration:20}));kills.sim.update(.02,idle);
- assert.equal(kills.s.stats.kills,15);assert.equal(kills.s.player.hp,50+kills.s.player.maxHp*.1);
+ assert.equal(kills.s.stats.kills,15);
+ assert.ok(Math.abs(kills.s.player.hp/kills.s.player.maxHp-(50/baseHp+.1))<1e-9,'Shell Bell healing retains its percentage through an automatic level');
 });
 
 test('a percentage-of-hit proc keeps its stated fraction after type and wet damage are resolved',()=>{

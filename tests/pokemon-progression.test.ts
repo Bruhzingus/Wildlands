@@ -20,7 +20,7 @@ function cacheOffers(state:RunState):UpgradeChoice[]{
  return Array.from({length:60},(_,seed)=>makeChoices(state,new RNG(seed+40),'cache')).flat();
 }
 
-test('four total moves include the signature attack and do not gain slots on evolution',()=>{
+test('evolution improves all known moves and base stats while preserving level, XP and four slots',()=>{
  const state=new Simulation(4,8).state,member=state.party[0];
  state.recruitCount=5;member.level=PROGRESSION.evolution.firstLevel;state.stats.elapsed=300;
  const moves=learnableMoves(member.speciesId);
@@ -33,7 +33,9 @@ test('four total moves include the signature attack and do not gain slots on evo
  const evolution:UpgradeChoice={id:'evolve-1-5',kind:'evolve',speciesId:1,sourceSpeciesId:4,targetId:5,title:'Evolution',description:'',rarity:'epic'};
  assert.equal(applyChoice(state,evolution).applied,true);
  assert.equal(member.speciesId,5);assert.equal(member.level,before.level);assert.equal(member.xp,before.xp);
- assert.equal(member.attackLevel,before.attackLevel);assert.deepEqual(member.learnedMoves,before.learnedMoves);
+ assert.equal(member.attackLevel,before.attackLevel+1);
+ assert.deepEqual(member.learnedMoves,before.learnedMoves!.map(move=>({...move,rank:move.rank+1})));
+ close(getBuildModifiers(state,member).power,.25);
  assert.equal(learnedMoveSlots(member),3);close(member.maxHp,before.maxHp*1.25);close(member.hp/member.maxHp,hpFraction);
  assert.ok(allOffers(state).every(choice=>choice.kind!=='learn'));
 });
@@ -42,15 +44,15 @@ test('evolution merges a duplicate signature move, preserves the highest rank, a
  for(const [signatureRank,learnedRank] of [[2,6],[7,3]]){
   const state=new Simulation(4,8).state,member=state.party[0];
   state.recruitCount=5;state.stats.elapsed=300;member.level=PROGRESSION.evolution.firstLevel;
-  for(const moveId of ['swift','flame-burst','hyper-beam'])assert.equal(applyChoice(state,learnCard(member,moveId)).applied,true);
+  for(const moveId of ['swift','flame-burst','brick-break'])assert.equal(applyChoice(state,learnCard(member,moveId)).applied,true);
   member.attackLevel=signatureRank;member.learnedMoves![1].rank=learnedRank;
   const retained=structuredClone(member.learnedMoves!.filter(move=>move.moveId!=='flame-burst'));
-  const rank=Math.max(signatureRank,learnedRank),evolution=allOffers(state).find(choice=>choice.targetId===5)!;
+  const rank=Math.min(8,Math.max(signatureRank,learnedRank)+1),evolution=allOffers(state).find(choice=>choice.targetId===5)!;
   assert.ok(evolution);assert.match(evolution.description,new RegExp(`signature attack at rank ${rank}, freeing 1 move slot`));
   const result=applyChoice(state,evolution);
   assert.equal(result.applied,true);assert.match(result.event,/1 move slot freed/);
   assert.equal(member.attackLevel,rank);assert.equal(member.level,PROGRESSION.evolution.firstLevel);
-  assert.deepEqual(member.learnedMoves,retained);assert.equal(1+member.learnedMoves!.length,3);
+  assert.deepEqual(member.learnedMoves,retained.map(move=>({...move,rank:move.rank+1})));assert.equal(1+member.learnedMoves!.length,3);
   assert.ok(!member.learnedMoves!.some(move=>move.moveId==='flame-burst'));
   const newMove=allOffers(state).find(choice=>choice.kind==='learn')!;
   assert.ok(newMove);assert.notEqual(newMove.moveId,'flame-burst');assert.equal(applyChoice(state,newMove).applied,true);
@@ -58,14 +60,47 @@ test('evolution merges a duplicate signature move, preserves the highest rank, a
  }
 });
 
-test('level-up move cards target only their owner and reserve two distinct move options',()=>{
+test('evolution bonuses stop at the move cap and cannot be claimed twice',()=>{
+ const state=new Simulation(4,8).state,member=state.party[0];
+ state.recruitCount=5;member.level=5;state.stats.elapsed=300;member.attackLevel=8;
+ member.learnedMoves=[{moveId:'swift',rank:8,cooldown:1.5},{moveId:'hyper-beam',rank:7,cooldown:2}];
+ const evolution=allOffers(state).find(choice=>choice.kind==='evolve')!;
+ assert.ok(evolution);assert.match(evolution.description,/\+1 rank to every known move/);
+ assert.equal(applyChoice(state,evolution).applied,true);
+ assert.equal(member.attackLevel,8);assert.deepEqual(member.learnedMoves.map(move=>move.rank),[8,8]);
+ assert.deepEqual(member.learnedMoves.map(move=>move.cooldown),[1.5,2]);
+ const after=structuredClone(member);
+ assert.equal(applyChoice(state,evolution).applied,false);assert.deepEqual(member,after);
+});
+
+test('single-stage mastery applies to learned moves with accurate offers, caps and stale-card guards',()=>{
+ const state=new Simulation(123,31).state,member=state.party[0];state.recruitCount=5;member.level=5;
+ for(const move of learnableMoves(member.speciesId,member.level).slice(0,3))assert.equal(applyChoice(state,learnCard(member,move.id)).applied,true);
+ const learned=member.learnedMoves![0];
+ const card=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===learned.moveId)!;
+ assert.ok(card);assert.equal(card.amount,2);assert.equal(card.rank,3);assert.equal(card.maxRank,12);
+ assert.match(card.description,/\+40\.0% damage/);assert.match(card.description,/13\.8% shorter cooldown/);
+ assert.match(card.description,/Rank 1 to 3\/12/);
+ assert.equal(applyChoice(state,{...card,amount:1,rank:2}).applied,false);
+ assert.equal(applyChoice(state,card).applied,true);assert.equal(learned.rank,3);
+ assert.equal(applyChoice(state,card).applied,false);
+ learned.rank=11;
+ const last=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===learned.moveId)!;
+ assert.equal(last.amount,1);assert.equal(last.rank,12);assert.equal(applyChoice(state,last).applied,true);
+ assert.ok(allOffers(state).every(choice=>choice.moveId!==learned.moveId));
+ const normal=new Simulation(6,32).state;normal.recruitCount=5;normal.party[0].level=99;
+ normal.party[0].learnedMoves=[{moveId:learned.moveId,rank:8,cooldown:0}];
+ assert.ok(allOffers(normal).every(choice=>choice.moveId!==learned.moveId),'Fully evolved species retain the eight-rank limit');
+});
+
+test('milestone cards target only their owner and reserve moves without squad training',()=>{
  const state=new Simulation(1,9).state,leader=state.party[0];state.recruitCount=5;
  const follower={...structuredClone(leader),uid:42,speciesId:4,level:3};state.party.push(follower);state.levelUpMemberId=42;
  for(let seed=1;seed<=30;seed++){
   const choices=makeChoices(state,new RNG(seed));
   assert.equal(choices.length,3);assert.equal(new Set(choices.map(choice=>choice.id)).size,3);
   const moves=choices.filter(choice=>choice.kind==='learn'||choice.kind==='attack');
-  assert.equal(moves.length,2);assert.ok(moves.every(choice=>choice.speciesId===42));
+  assert.equal(moves.length,3);assert.ok(moves.every(choice=>choice.speciesId===42));
   assert.ok(moves.some(choice=>choice.kind==='attack'),'Existing moves remain a regular training option');
   assert.ok(choices.every(choice=>choice.kind!=='item'));
  }
@@ -89,17 +124,17 @@ test('HP training scales base health in percentages and recruits inherit the sam
  state.player.hp=state.player.maxHp*.35;member.hp=member.maxHp*.6;
  const baseLeader=state.player.maxHp,baseMember=member.maxHp,health=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='health')!;
  for(let rank=1;rank<=2;rank++)assert.equal(applyChoice(state,{...health,kind:'stat',rank}).applied,true);
- close(state.player.maxHp,baseLeader*1.4);close(member.maxHp,baseMember*1.4);
+ close(state.player.maxHp,baseLeader*1.24);close(member.maxHp,baseMember*1.24);
  close(state.player.hp/state.player.maxHp,.35);close(member.hp/member.maxHp,.6);
  state.stats.level=4;state.stats.elapsed=165;
  const recruit=makeChoices(state,new RNG(4))[0];assert.equal(recruit.kind,'recruit');
  assert.equal(applyChoice(state,recruit).applied,true);
- const follower=state.party[1];close(follower.maxHp,155*1.4);
+ const follower=state.party[1];close(follower.maxHp,155*1.24);
  assert.equal(follower.level,1);assert.equal(follower.xp,0);assert.equal(follower.xpToNext,xpThreshold(1));
 });
 
 test('learned move upgrades apply the percentage gains printed on their cards',()=>{
- const state=new Simulation(4,31).state,member=state.party[0];state.recruitCount=5;
+ const state=new Simulation(4,31).state,member=state.party[0];state.recruitCount=5;member.level=5;
  for(const move of learnableMoves(member.speciesId).slice(0,3))assert.equal(applyChoice(state,learnCard(member,move.id)).applied,true);
  const moveId=member.learnedMoves![0].moveId;
  const card=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===moveId)!;
@@ -129,7 +164,7 @@ test('cache relics match current attack mechanics, including learned moves and l
  const state=new Simulation(66,63).state,member=state.party[0];state.recruitCount=5;
  state.itemUnlocks=['storm-coil','multi-lens','piercing-fang'];
  assert.ok(cacheOffers(state).every(choice=>choice.kind!=='item'),'Machop has no chain, projectile, or projectile special to improve');
- assert.equal(applyChoice(state,learnCard(member,'swift')).applied,true);
+ member.level=5;assert.equal(applyChoice(state,learnCard(member,'rock-slide')).applied,true);
  const withProjectiles=new Set(cacheOffers(state).map(choice=>choice.id));
  assert.ok(withProjectiles.has('multi-lens'));assert.ok(withProjectiles.has('piercing-fang'));assert.ok(!withProjectiles.has('storm-coil'));
  // A retained learned attack can differ from its owner's current element.

@@ -9,9 +9,9 @@ export const DESIGN = {
  spawnStartInterval:1.35, spawnEndInterval:.19,
  maxActiveDrops:165,
 } as const;
-/** A single damage ramp supplies the post-opening difficulty increase. Keeping
- * health, movement and director density unchanged avoids multiplying buffs. */
-export const DIFFICULTY = {rampStartsAt:120,rampEndsAt:180,ordinaryDamage:1.20,eliteHp:5,eliteDamage:1.35,guardianBaseHp:600,guardianHpPerLevel:200,guardianHpPerSecond:1.5,guardianDamage:1.2} as const;
+/** The opening damage ramp stays separate from the slower endurance increase
+ * and capped party response in spawning.ts. Movement and tells stay stable. */
+export const DIFFICULTY = {rampStartsAt:120,rampEndsAt:180,ordinaryDamage:1.20,healthAt15Minutes:1.4,partyHealthCap:.2,partyDamageCap:.08,eliteHp:5,eliteDamage:1.35,guardianBaseHp:600,guardianHpPerLevel:200,guardianHpPerSecond:1.5,guardianDamage:1.2} as const;
 export function ordinaryThreatScale(elapsed:number):number {
  const progress=Number.isFinite(elapsed)?Math.min(1,Math.max(0,(elapsed-DIFFICULTY.rampStartsAt)/(DIFFICULTY.rampEndsAt-DIFFICULTY.rampStartsAt))):0;
  return 1+(DIFFICULTY.ordinaryDamage-1)*progress*progress*(3-2*progress);

@@ -1,11 +1,11 @@
 import {getSpecies,type Element} from '../../data/kanto.ts';
 import {typeMultiplier} from '../../data/config.ts';
-import {PROGRESSION} from '../../data/progression.ts';
+import {PROGRESSION,levelPowerMultiplier} from '../../data/progression.ts';
 import type {StatusProc} from '../../data/attacks.ts';
 import type {Enemy,PartyMember} from '../types.ts';
 
 export function memberDamage(member:PartyMember,_growthDamage:number,power:number):number {
- return (getSpecies(member.speciesId).power+9)*(1+PROGRESSION.moves.damagePerRank*Math.max(0,member.attackLevel-1))*(1+power);
+ return (getSpecies(member.speciesId).power+9)*levelPowerMultiplier(member.level)*(1+PROGRESSION.moves.damagePerRank*Math.max(0,member.attackLevel-1))*(1+power);
 }
 export function elementalDamage(amount:number,type:Element,enemy:Enemy,matchup=true):number {
  let total=amount*(matchup?typeMultiplier(type,getSpecies(enemy.speciesId).types):1);

@@ -2,7 +2,7 @@ import type {Element} from './kanto.ts';
 import type {UpgradeChoice} from '../game/types.ts';
 
 /** All bonuses are additive; the build engine applies the shared final caps. */
-export type BuildStat='power'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
+export type BuildStat='power'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'xpCatchup'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
 export interface StatModifier {
  stat:BuildStat;amount:number;scale?:'party';evolution?:'unevolved'|'evolved';healthBelow?:number;
 }
@@ -38,7 +38,7 @@ export const ITEM_DEFINITIONS:readonly ItemDefinition[]=[
  item({id:'multi-lens',title:'Loaded Dice',description:'Bolt, beam and lob attacks fire +1 projectile.',rarity:'epic',modifiers:[{stat:'projectiles',amount:1}]}),
  item({id:'static-orb',title:'Zap Plate',description:'Critical hits arc for 25% of hit damage through up to 2 enemies within 4.7m. 0.15s cooldown.',rarity:'rare',effects:[{event:'onCrit',cooldown:.15,action:{kind:'chain',damageScale:.25,jumps:2,range:4.7,element:'electric'}}]}),
  item({id:'leftovers',title:'Leftovers',description:'Each squad member restores 0.8% of their own max HP each second.',rarity:'rare',modifiers:[{stat:'regenerationPercent',amount:.008},{stat:'partyRegenerationPercent',amount:.008}]}),
- item({id:'exp-share',title:'Exp. Share',description:'Gain +5% XP per living squad member (up to +30%).',rarity:'rare',modifiers:[{stat:'xp',amount:.05,scale:'party'}]}),
+ item({id:'exp-share',title:'Exp. Share',description:'Teammates below the leader’s level earn 35% more shared XP. Everyone already receives full shared XP.',rarity:'rare',modifiers:[{stat:'xpCatchup',amount:.35}]}),
  item({id:'life-orb',title:'Life Orb',description:'+32% squad damage. Every 25 squad attacks costs the leader 2 HP.',rarity:'epic',modifiers:[{stat:'power',amount:.32}],effects:[{event:'onAttack',every:25,action:{kind:'selfDamage',amount:2}}]}),
  item({id:'kings-rock',title:"King's Rock",description:'Hits have an 8% chance to stun for 0.7s. Item damage cannot trigger it.',rarity:'rare',effects:[{event:'onHit',chance:.08,action:{kind:'status',status:'stun',duration:.7}}]}),
  item({id:'shell-bell',title:'Shell Bell',description:'Every 15 defeated enemies restore 10% of the leader\'s max HP.',rarity:'rare',effects:[{event:'onDeath',every:15,maxDepth:1,action:{kind:'heal',amount:0,maxHpFraction:.1,target:'leader'}}]}),

@@ -2,6 +2,7 @@ import {DESIGN} from '../../data/config.ts';
 import {RNG,clamp} from '../../utils/random.ts';
 import type {POI,Vec2} from '../types.ts';
 import {WORLD,LANDMARKS,type BiomeId} from '../../data/world.ts';
+import {ECONOMY} from '../../data/economy.ts';
 
 export type WorldProp={kind:'rock'|'bush'|'tree'|'flower'|'ruin';x:number;z:number;scale:number;scaleY?:number;rotation?:number;landmark?:boolean};
 export type Obstacle=({kind:'circle';radius:number}|{kind:'box';halfWidth:number;halfDepth:number;rotation:number})&Vec2;
@@ -70,7 +71,8 @@ export function createPOIs(seed:number):POI[] {
    if(valid(point)){candidate=point;break;}
   }
   if(!candidate)throw new Error(`No reachable exploration site for ${kind} in ${biome}`);
-  pois.push({uid:20+pois.length,...candidate,kind,used:false});
+  const paid=kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
+  pois.push({uid:20+pois.length,...candidate,kind,used:false,...(paid?{price:ECONOMY.chestBaseCost}:{})});
  }
  return pois;
 }

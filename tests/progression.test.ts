@@ -58,7 +58,8 @@ test('every Eevee branch is explicit and only the selected branch evolves',()=>{
  for(const target of [134,135,136]){
   const state=new Simulation(133,10).state;state.stats.elapsed=300;state.stats.level=10;state.party[0].level=PROGRESSION.evolution.firstLevel;state.recruitCount=1;
   const choices=makeChoices(state,new RNG(1));
-  assert.deepEqual(choices.map(choice=>choice.targetId).sort((a,b)=>a!-b!),[134,135,136]);
+  assert.deepEqual(choices.filter(choice=>choice.kind==='evolve').map(choice=>choice.targetId).sort((a,b)=>a!-b!),[134,135,136]);
+  assert.ok(choices.some(choice=>choice.kind==='attack'||choice.kind==='learn'),'An Eevee milestone can be spent without evolving');
   assert.equal(state.party[0].speciesId,133,'Displaying cards must not evolve');
   assert.equal(applyChoice(state,{id:'evolve-1',kind:'evolve',speciesId:1,title:'Evolve',description:'',rarity:'epic'}).applied,false);
   const result=applyChoice(state,choices.find(choice=>choice.targetId===target)!);
@@ -82,6 +83,8 @@ test('second evolution requires new maturity and a fresh card for the current sp
  const fresh:UpgradeChoice={...legacy,id:'evolve-1-6',targetId:6,sourceSpeciesId:5};
  assert.equal(applyChoice(state,{...fresh,sourceSpeciesId:4}).applied,false);
  assert.equal(applyChoice(state,fresh).applied,true);assert.equal(state.party[0].speciesId,6);
+ assert.equal(state.party[0].attackLevel,3);assert.equal(state.party[0].evolutionPower,.5);
+ assert.equal(state.player.maxHp,previousMaxHp*1.25*1.25);
 });
 
 test('a follower evolution affects only that member, and a fainted owner cannot spend a card',()=>{
@@ -93,26 +96,35 @@ test('a follower evolution affects only that member, and a fainted owner cannot 
  const leader=structuredClone(state.party[0]),player=structuredClone(state.player),previousHp=follower.hp;
  assert.equal(applyChoice(state,evolution).applied,true);
  assert.equal(follower.speciesId,5);assert.equal(follower.hp,previousHp*1.25);
+ assert.equal(follower.attackLevel,2);assert.equal(follower.evolutionPower,.25);
  assert.deepEqual(state.party[0],leader);assert.deepEqual(state.player,player);
  const next={...evolution,id:`evolve-${follower.uid}-6`,sourceSpeciesId:5,targetId:6};
  state.party.splice(1);state.stats.elapsed=600;
  assert.equal(applyChoice(state,next).applied,false);
 });
 
-test('every species trains moves one rank at a time up to rank eight',()=>{
+test('single-stage species gain faster move training at their own level five and cap at twelve',()=>{
  for(const species of KANTO.filter(species=>species.stage===1&&!species.evolvesTo.length)){
-  const state=new Simulation(species.id,10).state,member=state.party[0];state.stats.elapsed=420;
-  assert.equal(maxMoveRank(species),8);assert.equal(moveRankGain(state,member),1);
+  const state=new Simulation(species.id,10).state,member=state.party[0];state.stats.elapsed=9000;state.stats.level=99;
+  assert.equal(maxMoveRank(species),12);assert.equal(moveRankGain(state,member),1,'Elapsed time and squad levels do not grant mastery');
   const upgrade:UpgradeChoice={id:'attack-1-1',kind:'attack',speciesId:1,sourceSpeciesId:species.id,rank:2,
    amount:1,title:'Move',description:'',rarity:'common'};
   assert.equal(applyChoice(state,{...upgrade,amount:999}).applied,false);
   assert.equal(applyChoice(state,upgrade).applied,true);assert.equal(member.attackLevel,2);
   assert.equal(applyChoice(state,upgrade).applied,false,'Repeated move card is stale');
-  member.attackLevel=7;assert.equal(moveRankGain(state,member),1);
-  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-7',amount:1,rank:8}).applied,true);
+  member.level=5;state.stats.elapsed=0;assert.equal(moveRankGain(state,member),2,'Personal training unlocks mastery even early in the run');
+  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-2',amount:1,rank:3}).applied,false,'Old single-rank cards cannot bypass mastery');
+  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-2',amount:2,rank:4}).applied,true);
+  member.attackLevel=11;assert.equal(moveRankGain(state,member),1);
+  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-11',amount:1,rank:12}).applied,true);
   assert.equal(moveRankGain(state,member),0);
  }
  assert.equal(maxMoveRank(getSpecies(1)),8);
+ for(const species of KANTO.filter(species=>species.stage>1)){
+  const state=new Simulation(species.id,10).state;state.party[0].level=99;state.stats.elapsed=9000;
+  assert.equal(maxMoveRank(species),8,'Final evolved forms do not count as single-stage species');
+  assert.equal(moveRankGain(state,state.party[0]),1);
+ }
 });
 
 test('training uses canonical amounts, rank caps and stale-card guards',()=>{
@@ -144,8 +156,8 @@ test('upgrade rarity follows configured weights and luck improves high rarity od
 });
 
 test('owned items and capped training/moves disappear; all cards are unique and categorized',()=>{
- const state=new Simulation(113,3).state;state.party[0].attackLevel=8;
- state.party[0].learnedMoves=learnableMoves(113).slice(0,3).map(move=>({moveId:move.id,rank:8,cooldown:0}));
+ const state=new Simulation(113,3).state;state.party[0].attackLevel=12;
+ state.party[0].learnedMoves=learnableMoves(113).slice(0,3).map(move=>({moveId:move.id,rank:12,cooldown:0}));
  for(const definition of TRAINING_UPGRADES)state.buffs[definition.stat]=definition.amount*definition.maxRank;
  state.items=ITEMS.slice(1).map(item=>item.id);
  assert.deepEqual(makeChoices(state,new RNG(8)),[],'Relics are reserved for discovery caches');

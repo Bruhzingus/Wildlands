@@ -2,11 +2,24 @@ import type {UpgradeChoice} from '../game/types.ts';
 
 /** Recruitment gates remain in DESIGN. Evolution and upgrade tuning live here. */
 export const PROGRESSION = {
- evolution: {firstLevel:5, finalLevel:10, maturitySeconds:170, offerChance:.85, healthGain:.25, powerGain:.25},
- moves: {maxRank:8, soloMaxRank:8, soloCatchupSeconds:420, soloRankGain:1, learnedSlots:3, learnedMaxRank:8,damagePerRank:.2,speedPerRank:.08,rangePerRank:.06},
+ leveling:{maxLevel:50,healthPerLevel:.02,powerPerLevel:.02,firstMilestone:3,milestoneInterval:5},
+ evolution: {firstLevel:5, finalLevel:10, maturitySeconds:170, healthGain:.25, powerGain:.25, moveRankGain:1},
+ moves: {maxRank:8, soloMaxRank:12, soloTrainingLevel:5, soloRankGain:2, learnedSlots:3,damagePerRank:.2,speedPerRank:.08,rangePerRank:.06},
  rarityWeights: {common:70, rare:25, epic:5},
  luckRareScale:2, luckEpicScale:4,
 } as const;
+
+export function isMilestone(level:number):boolean {
+ return level===PROGRESSION.leveling.firstMilestone||level>=PROGRESSION.leveling.milestoneInterval&&level%PROGRESSION.leveling.milestoneInterval===0;
+}
+export function nextMilestone(level:number):number|null {
+ const next=level<PROGRESSION.leveling.firstMilestone?PROGRESSION.leveling.firstMilestone:
+  (Math.floor(level/PROGRESSION.leveling.milestoneInterval)+1)*PROGRESSION.leveling.milestoneInterval;
+ return next<=PROGRESSION.leveling.maxLevel?next:null;
+}
+export function levelPowerMultiplier(level:number):number {
+ return 1+Math.max(0,Math.min(PROGRESSION.leveling.maxLevel,level)-1)*PROGRESSION.leveling.powerPerLevel;
+}
 
 export const UPGRADE_TAXONOMY = {
  recruitment:'Add a first-stage teammate after the scheduled time and level gates.',
@@ -23,10 +36,10 @@ export interface TrainingUpgrade {
 
 /** Descriptions report additive changes, rather than compounded percentages. */
 export const TRAINING_UPGRADES:readonly TrainingUpgrade[] = [
- {id:'power',stat:'power',amount:.24,title:'Swords Dance',description:'+24 percentage points of squad attack damage, including learned moves.',rarity:'common',maxRank:8},
- {id:'haste',stat:'haste',amount:.2,title:'Tailwind',description:'+20 percentage points of squad attack speed for every move.',rarity:'common',maxRank:6},
+ {id:'power',stat:'power',amount:.12,title:'Swords Dance',description:'+12 percentage points of squad attack damage, including learned moves.',rarity:'common',maxRank:8},
+ {id:'haste',stat:'haste',amount:.1,title:'Tailwind',description:'+10 percentage points of squad attack speed for every move.',rarity:'common',maxRank:6},
  {id:'speed',stat:'speed',amount:.12,title:'Agility',description:'+12 percentage points of movement speed.',rarity:'common',maxRank:4},
- {id:'health',stat:'health',amount:.2,title:'HP Up',description:'+20% of base maximum HP for the squad. Keeps current health percentages.',rarity:'common',maxRank:6},
+ {id:'health',stat:'health',amount:.12,title:'HP Up',description:'+12% of base maximum HP for the squad. Keeps current health percentages.',rarity:'common',maxRank:6},
  {id:'armor',stat:'damageReduction',amount:.08,title:'Iron Defense',description:'Reduce incoming damage by an additional 8% for the whole squad.',rarity:'common',maxRank:5},
  {id:'stamina',stat:'stamina',amount:.22,title:'Endure',description:'+22 percentage points of stamina recovery: dodge recharges faster.',rarity:'common',maxRank:5},
  {id:'special',stat:'specialHaste',amount:.25,title:'Calm Mind',description:'+25 percentage points of special ability recharge speed.',rarity:'common',maxRank:5},

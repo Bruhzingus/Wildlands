@@ -31,10 +31,10 @@ export interface BuildSummary {
 }
 /** The shared window limits extra combat effects. Guaranteed resource changes always apply. */
 export const BUILD_LIMITS={maxProcDepth:2,maxActionsPerEvent:8,windowSeconds:.1,maxActionsPerWindow:12,maxEffectDamage:2000,maxEffectRadius:12,maxEffectJumps:8,maxStatusSeconds:8} as const;
-export const BUILD_STAT_CAPS:BuildModifiers={power:4,haste:4,speed:.75,armor:12,damageReduction:.6,xp:1.5,critChance:.8,critDamage:4,radius:1.25,magnet:10,specialHaste:1.5,stamina:1.5,regeneration:12,partyRegeneration:6,regenerationPercent:.04,partyRegenerationPercent:.03,projectiles:3,pierce:6,chains:6,projectileSpeed:1,duration:1.5};
+export const BUILD_STAT_CAPS:BuildModifiers={power:4,haste:4,speed:.75,armor:12,damageReduction:.6,xp:1.5,xpCatchup:1,critChance:.8,critDamage:4,radius:1.25,magnet:10,specialHaste:1.5,stamina:1.5,regeneration:12,partyRegeneration:6,regenerationPercent:.04,partyRegenerationPercent:.03,projectiles:3,pierce:6,chains:6,projectileSpeed:1,duration:1.5};
 const CAP_DESCRIPTIONS:Record<BuildStat,string>={
  power:'Damage bonus capped at +400%',haste:'Attack speed bonus capped at +400%',speed:'Movement speed bonus capped at +75%',
- armor:'Armor capped at 12',damageReduction:'Damage reduction capped at 60%',xp:'XP bonus capped at +150%',critChance:'Critical chance capped at 80%',critDamage:'Critical damage capped at 4x',
+ armor:'Armor capped at 12',damageReduction:'Damage reduction capped at 60%',xp:'XP bonus capped at +150%',xpCatchup:'Catch-up XP bonus capped at +100%',critChance:'Critical chance capped at 80%',critDamage:'Critical damage capped at 4x',
  radius:'Attack range and area bonus capped at +125%',magnet:'Pickup radius bonus capped at +10m',specialHaste:'Special recharge bonus capped at +150%',stamina:'Dodge recovery bonus capped at +150%',
  regeneration:'Leader recovery capped at 12 HP/s',partyRegeneration:'Follower recovery capped at 6 HP/s',regenerationPercent:'Leader recovery capped at 4% max HP/s',partyRegenerationPercent:'Follower recovery capped at 3% max HP/s',projectiles:'Extra projectiles capped at +3',
  pierce:'Extra projectile pierces capped at +6',chains:'Extra chain jumps capped at +6',projectileSpeed:'Projectile speed bonus capped at +100%',duration:'Status duration bonus capped at +150%',
@@ -42,7 +42,7 @@ const CAP_DESCRIPTIONS:Record<BuildStat,string>={
 const STAT_MIN:Partial<BuildModifiers>={power:-.6,haste:-.65,speed:-.5,critDamage:1,radius:-.5,projectileSpeed:-.5};
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const finite=(value:number|undefined,fallback=0)=>value!==undefined&&Number.isFinite(value)?value:fallback;
-const initialModifiers=():BuildModifiers=>({power:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
+const initialModifiers=():BuildModifiers=>({power:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,xpCatchup:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
 const buffAliases:Record<string,BuildStat>={power:'power',haste:'haste',speed:'speed',armor:'armor',damageReduction:'damageReduction',xp:'xp',crit:'critChance',radius:'radius',magnet:'magnet',stamina:'stamina',specialHaste:'specialHaste',regenerationPercent:'regenerationPercent',partyRegenerationPercent:'partyRegenerationPercent'};
 
 function ownedItems(state:RunState,source?:number):ItemDefinition[]{

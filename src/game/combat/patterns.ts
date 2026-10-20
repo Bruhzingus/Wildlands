@@ -9,11 +9,11 @@ const fanOffset=(index:number,spread:number)=>index===0?0:Math.ceil(index/2)*(in
 
 export interface CombatVisual {
  kind:'attack'|'chain'|'status';x:number;z:number;color:string;amount?:number;
- sourceId?:number;targetId?:number;toX?:number;toZ?:number;shape?:string;duration?:number;radius?:number;
+ sourceId?:number;targetId?:number;toX?:number;toZ?:number;shape?:string;duration?:number;radius?:number;facing?:number;
 }
 export type AttackTarget=Pick<Enemy,'uid'|'x'|'z'|'dead'>;
 export interface PatternContext {
- member:PartyMember;target:AttackTarget;aim?:Vec2;enemies:readonly Enemy[];profile:AttackDefinition;element:Element;
+ member:PartyMember;target:AttackTarget;enemies:readonly Enemy[];profile:AttackDefinition;element:Element;
  damage:number;crit:boolean;depth:number;radiusScale:number;extraProjectiles:number;extraPierce:number;
  extraChains:number;projectileSpeedScale:number;
  hit:(enemy:Enemy,damage:number)=>void;projectile:(projectile:ProjectileSpawn)=>void;
@@ -30,7 +30,7 @@ export function executeChain(enemies:readonly Enemy[],start:Enemy,damage:number,
 }
 export function executePattern(context:PatternContext):void {
  const {member,target,enemies,profile,element}=context,damage=context.damage*profile.damageScale,color=ELEMENT_COLORS[element];
- const focus=context.aim??target;
+ const focus=target;
  const radius=profile.radius*context.radiusScale;
  if(profile.pattern&&executeSignature(context,damage,color))return;
  if(profile.kind==='heal'){
@@ -51,7 +51,7 @@ export function executePattern(context:PatternContext):void {
    }
    context.hit(enemy,damage);
   }
-  context.visual({kind:'attack',x:center.x,z:center.z,color,amount:radius,radius,shape:profile.kind,sourceId:member.uid,targetId:target.uid});return;
+  context.visual({kind:'attack',x:center.x,z:center.z,color,amount:radius,radius,shape:profile.kind,facing:Math.atan2(fx,fz),sourceId:member.uid,targetId:target.uid});return;
  }
  const count=Math.min(12,Math.max(1,profile.projectiles+context.extraProjectiles));
  for(let shot=0;shot<count;shot++){
@@ -68,7 +68,7 @@ export function executePattern(context:PatternContext):void {
  * data supplies the handling and milestones, rather than damage-only recolors. */
 function executeSignature(context:PatternContext,damage:number,color:string):boolean {
  const {member,target,enemies,profile,element}=context,pattern=profile.pattern;
- const focus=context.aim??target;
+ const focus=target;
  const heading=Math.atan2(focus.z-member.z,focus.x-member.x),range=profile.range*context.radiusScale;
  const count=Math.min(12,Math.max(1,profile.projectiles+context.extraProjectiles));
  const width=(profile.width??profile.radius??.4)*context.radiusScale;
@@ -115,7 +115,7 @@ function executeSignature(context:PatternContext,damage:number,color:string):boo
   sourceId:member.uid,targetId:aim&&aim.uid>=0?aim.uid:undefined,poisonChance:0,silhouette:profile.silhouette,radius:profile.radius*context.radiusScale,
   crit:context.crit,status:profile.status,allowProcs:context.depth===0,...extra,
  });
- const targets=[target,...enemies.filter(enemy=>!enemy.dead&&enemy.uid!==target.uid&&(enemy.x-member.x)**2+(enemy.z-member.z)**2<=range**2&&(!context.aim||((enemy.x-member.x)*Math.cos(heading)+(enemy.z-member.z)*Math.sin(heading))>=Math.hypot(enemy.x-member.x,enemy.z-member.z)*Math.cos(Math.PI/6)))
+ const targets=[target,...enemies.filter(enemy=>!enemy.dead&&enemy.uid!==target.uid&&(enemy.x-member.x)**2+(enemy.z-member.z)**2<=range**2)
   .sort((a,b)=>(a.x-member.x)**2+(a.z-member.z)**2-((b.x-member.x)**2+(b.z-member.z)**2))];
  if(pattern==='foxfire'||pattern==='haunt'){
   const center=pattern==='foxfire'?focus:member,orbitRadius=(profile.orbitRadius||2)*context.radiusScale;
@@ -137,7 +137,7 @@ function executeSignature(context:PatternContext,damage:number,color:string):boo
  }
  for(let index=0;index<count;index++){
   const aim=pattern==='swift'||pattern==='spores'?targets[index%targets.length]:target;
-  const angle=(context.aim?heading:Math.atan2(aim.z-member.z,aim.x-member.x))+fanOffset(index,profile.spread??.17);
+  const angle=Math.atan2(aim.z-member.z,aim.x-member.x)+fanOffset(index,profile.spread??.17);
   spawn(member,angle,aim,{
    behavior:pattern==='flame-fan'||pattern==='gust'?'straight':pattern==='ricochet'?'ricochet':'homing',
    turnRate:profile.turnRate,splashRadius:(profile.splashRadius||0)*context.radiusScale,

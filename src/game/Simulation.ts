@@ -1,7 +1,8 @@
-import {getSpecies, type Element} from '../data/kanto.ts';
+import {getSpecies, type AttackKind,type Element} from '../data/kanto.ts';
 import {ATTACK_ANIMATION,DESIGN} from '../data/config.ts';
 import {BOSS_RULES} from '../data/director.ts';
-import {PROGRESSION} from '../data/progression.ts';
+import {PROGRESSION,isMilestone,nextMilestone,levelPowerMultiplier} from '../data/progression.ts';
+import {ECONOMY,chestCost} from '../data/economy.ts';
 import {ENCOUNTER_TABLES} from '../data/encounters.ts';
 import {getVariant,variantRewardXP} from '../data/variants.ts';
 import {RNG,distance2} from '../utils/random.ts';
@@ -11,33 +12,35 @@ import {castSpecial,stepSpecials} from './combat/specials.ts';
 import {getMoveDefinition,getLearnedMoveProfile,learnedMovePower} from '../data/moves.ts';
 import {memberDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpeedFactor} from './combat/damage.ts';
 import {executePattern,executeChain,type AttackTarget} from './combat/patterns.ts';
-import {nearestEnemy,enemiesInRadius,enemyInAim} from './combat/targeting.ts';
+import {nearestEnemy,enemiesInRadius} from './combat/targeting.ts';
 import {addProjectile,stepProjectiles} from './combat/projectiles.ts';
 import {getEnemyAttackProfile,getEliteAreaMove} from '../data/enemyAttacks.ts';
 import {canStartEnemyMove,enemyMovementIntent,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
 import {getBuildModifiers,dispatchBuildEvent,type BuildEvent,type BuildAction} from './systems/builds.ts';
-import {applyChoice,makeChoices,xpThreshold} from './systems/progression.ts';
-import {createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
+import {applyChoice,availableItemChoices,canRecruit,makeChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
+import {averagePartyLevel,enemyProgressionScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
-import type {Enemy,LearnedMove,PartyMember,POI,RunState,UpgradeChoice,Variant} from './types.ts';
+import type {Drop,Enemy,LearnedMove,PartyMember,POI,RewardSource,RunState,UpgradeChoice,Variant} from './types.ts';
 export interface MoveInput {mx:number;mz:number;aimX?:number;aimZ?:number;jump:boolean;dodge:boolean;special:boolean;interact:boolean;}
 export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';variant?:Variant;speciesId?:number};
 export type EventListener=(ev:GameEvent)=>void;
 export type RunConfiguration=Pick<RunState,'challenge'|'mapId'|'recruitUnlocks'|'itemUnlocks'>;
 export class Simulation {
  readonly rng:RNG;readonly state:RunState; onEvent:EventListener=()=>{};
+ private readonly lootRng:RNG;
  private spawnAccum=0;private readonly statusOwners=new Map<number,number>();
  private readonly obstacles:ObstacleField;private velocity={x:0,z:0};private dodgeDirection={x:0,z:1};
  private heldActions={jump:false,dodge:false,special:false,interact:false};
  constructor(starterId:number,seed=Math.floor(Date.now()%2147483647),configuration:RunConfiguration={}){
   this.rng=new RNG(seed);
+  this.lootRng=new RNG(seed^0x5f3759df);
   const starter:PartyMember={uid:1,speciesId:starterId,joinedAt:0,level:1,xp:0,xpToNext:xpThreshold(1),hp:165,maxHp:165,iframes:0,attackLevel:1,cooldown:.35,x:0,z:0,facing:0,animation:'idle',attackTimer:0};
   const pois=createPOIs(seed);
   this.obstacles=new ObstacleField(createEnvironment(seed,pois).obstacles);
   this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:120,maxHp:120,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
    party:[starter],enemies:[],projectiles:[],drops:[],pois,stats:{elapsed:0,kills:0,recruits:0,evolutions:0,level:1,xp:0,xpToNext:xpThreshold(1),damageDealt:0,damageTaken:0,faints:0,bossKilled:false,highestCombo:0},
-   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',pendingLevelUps:[],bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],...configuration};
+   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],...configuration};
   for(let i=0;i<8;i++){
    const pos=enemySpawnPosition(this.state.player,this.rng);const e=createEnemy(this.state,this.rng,this.rng.pick([10,13,16,19,21,29,43]),'normal',pos.x,pos.z);this.state.enemies.push(e);
   }
@@ -50,25 +53,31 @@ export class Simulation {
   const c=s.upgradeChoices.find(c=>c.id===choiceId);if(!c)return false;
   const result=applyChoice(s,c);
   if(!result.applied){
-   const source=s.levelUpMemberId===undefined&&/cache/i.test(s.choiceTitle)?'cache':'level';
+   const source=s.choiceSource??'level';
    this.emit({kind:'log',label:result.event});s.upgradeChoices=makeChoices(s,this.rng,source);
-   if(!s.upgradeChoices.length){delete s.levelUpMemberId;s.phase=this.activePhase();this.openNextLevelUp();}return false;
+   if(!s.upgradeChoices.length){delete s.levelUpMemberId;delete s.choiceSource;s.phase=this.activePhase();this.openNextLevelUp();}return false;
   }
   this.emit({kind:c.kind==='evolve'?'evolve':'log',label:result.event});
   if(result.applied&&(c.kind==='recruit'||c.kind==='evolve'))this.buildEvent({kind:c.kind==='recruit'?'onRecruit':'onEvolve',sourceId:result.sourceUid});
-  s.upgradeChoices=[];delete s.levelUpMemberId;s.phase=this.activePhase();
+  s.upgradeChoices=[];delete s.levelUpMemberId;delete s.choiceSource;s.phase=this.activePhase();
   this.queueLevelUps();this.openNextLevelUp();return true;
  }
  continueEndless(){const s=this.state;if(s.result==='victory'){s.result=null;s.endless=true;s.endlessStartedAt=s.stats.elapsed;s.phase='playing';updateDirector(s);this.emit({kind:'log',label:'Endless mode: the wilds grow stronger!'});}}
- enterChoice(choices:UpgradeChoice[],title?:string){const s=this.state;s.upgradeChoices=choices;s.choiceTitle=title||s.choiceTitle;s.phase='choice';this.emit({kind:'level'});}
- /** One shared XP pool is split between living teammates, rather than multiplied by squad size. */
+ enterChoice(choices:UpgradeChoice[],title?:string,source?:RewardSource){const s=this.state;s.upgradeChoices=choices;s.choiceTitle=title||s.choiceTitle;
+  s.choiceSource=source??(choices.every(c=>c.kind==='item')?'cache':choices.every(c=>c.kind==='stat')?'squad':choices.every(c=>c.kind==='recruit')?'recruit':'level');
+  s.phase='choice';this.emit({kind:'level'});
+ }
+ /** Every living member receives full shared XP; personal XP targets one owner. */
  gainXP(amount:number,memberUid?:number){
   if(!Number.isFinite(amount)||amount<=0||this.state.result!==null)return;
   const s=this.state,living=s.party.filter((member,index)=>(index===0?s.player.hp:member.hp)>0);
   const recipients=memberUid===undefined?living:living.filter(member=>member.uid===memberUid);
   if(!recipients.length)return;
   for(const member of recipients){
-   member.xp=(member.xp??0)+amount/recipients.length*(1+getBuildModifiers(s,member).xp);
+   if(member.level>=PROGRESSION.leveling.maxLevel)continue;
+   const modifiers=getBuildModifiers(s,member);
+   const catchup=memberUid===undefined&&member!==s.party[0]&&member.level<s.party[0].level?modifiers.xpCatchup:0;
+   member.xp=(member.xp??0)+amount*(1+modifiers.xp)*(1+catchup);
    member.xpToNext=xpThreshold(member.level);
   }
   this.syncLeaderXP();
@@ -78,20 +87,36 @@ export class Simulation {
   const s=this.state,queue=s.pendingLevelUps??=[];
   for(const [index,member] of s.party.entries()){
    member.xp??=0;member.xpToNext=xpThreshold(member.level);
-   if((index===0?s.player.hp:member.hp)<=0||member.uid===s.levelUpMemberId||queue.includes(member.uid)||member.xp<member.xpToNext)continue;
-   member.xp-=member.xpToNext;member.level++;member.xpToNext=xpThreshold(member.level);
-   s.stats.level++;queue.push(member.uid);
+   if((index===0?s.player.hp:member.hp)<=0||member.uid===s.levelUpMemberId||queue.includes(member.uid))continue;
+   while(member.level<PROGRESSION.leveling.maxLevel&&member.xp>=member.xpToNext){
+    const previous=1+(member.level-1)*PROGRESSION.leveling.healthPerLevel;
+    member.xp-=member.xpToNext;member.level++;member.xpToNext=xpThreshold(member.level);s.stats.level++;
+    const health=(1+(member.level-1)*PROGRESSION.leveling.healthPerLevel)/previous;
+    member.maxHp*=health;member.hp*=health;
+    if(index===0){s.player.maxHp*=health;s.player.hp*=health;}
+    if(isMilestone(member.level)){queue.push(member.uid);break;}
+   }
   }
   this.syncLeaderXP();
  }
  private openNextLevelUp():boolean {
   const s=this.state,queue=s.pendingLevelUps??=[];
+  // Scheduled recruitment and squad rewards never consume an earned milestone.
+  if(canRecruit(s)){
+   const choices=makeChoices(s,this.rng,'recruit');
+   if(choices.length){this.enterChoice(choices,undefined,'recruit');return true;}
+  }
+  while((s.pendingSquadRewards??0)>0){
+   s.pendingSquadRewards=(s.pendingSquadRewards??0)-1;
+   const choices=makeChoices(s,this.rng,'squad');
+   if(choices.length){this.enterChoice(choices,undefined,'squad');return true;}
+  }
   while(queue.length){
    const uid=queue.shift()!,member=s.party.find(member=>member.uid===uid);
    if(!member||member.hp<=0)continue;
    s.levelUpMemberId=uid;
    const choices=makeChoices(s,this.rng);
-   if(choices.length){this.enterChoice(choices);return true;}
+   if(choices.length){this.enterChoice(choices,undefined,'level');return true;}
    delete s.levelUpMemberId;
   }
   return false;
@@ -124,7 +149,8 @@ export class Simulation {
   }}
   if(!s.bossSpawned && s.stats.elapsed>=DESIGN.bossAtSeconds){
    s.bossSpawned=true;s.phase='boss';const pos=enemySpawnPosition(s.player,this.rng,30,38);const e=createEnemy(s,this.rng,ENCOUNTER_TABLES.boss[0],'legendary',pos.x,pos.z,true,true);
-   e.hp=e.maxHp=BOSS_RULES.baseHp+s.stats.level*BOSS_RULES.hpPerLevel;e.damage=BOSS_RULES.contactDamage;e.speed=BOSS_RULES.speed*(s.challenge==='quickened'?1.2:1);e.bossCycle=0;e.attackCooldown=1.6;s.enemies.push(e);
+   const partyScale=enemyProgressionScale(s);
+   e.hp=e.maxHp=(BOSS_RULES.baseHp+averagePartyLevel(s)*BOSS_RULES.hpPerLevel)*(1+partyScale.party);e.damage=BOSS_RULES.contactDamage*partyScale.damage;e.speed=BOSS_RULES.speed*(s.challenge==='quickened'?1.2:1);e.bossCycle=0;e.attackCooldown=1.6;s.enemies.push(e);
    updateDirector(s);this.emit({kind:'boss',label:'MEWTWO HAS AWAKENED'});
   }
   if(this.finishDefeat())return;
@@ -166,6 +192,7 @@ export class Simulation {
  private moveTeam(dt:number){const s=this.state;const count=s.party.length;
   [...s.party].forEach((m,index)=>{
    m.attackTimer=Math.max(0,m.attackTimer-dt);
+   if(m.attackTimer===0){delete m.attackKind;delete m.attackSpecial;}
    m.iframes=Math.max(0,m.iframes-dt);
    if(index>0){const poison=m.poisonTime||0;m.hp-=Math.min(dt,poison)*getVariant('poisoned').contactPoison!.damagePerSecond;m.poisonTime=Math.max(0,poison-dt);if(m.hp<=0){this.faintCompanion(m);return;}if(s.challenge!=='famine')m.hp=Math.min(m.maxHp,m.hp+.65*dt);}
    if(index===0){m.hp=m.maxHp*s.player.hp/s.player.maxHp;m.x=s.player.x;m.z=s.player.z;if(m.attackTimer===0)m.facing=s.player.facing;m.animation=m.attackTimer>0?'attack':Math.hypot(s.player.vy,s.player.dodgeTime)>0||this.walking?'walk':'idle';return;}
@@ -268,15 +295,7 @@ export class Simulation {
   s.enemies=s.enemies.filter(e=>!e.dead);
  }
  private attackTarget(member:PartyMember,range:number):AttackTarget|undefined {
-  const s=this.state,facing=member===s.party[0]?s.player.aimFacing:undefined;
-  if(facing===undefined)return nearestEnemy(s.enemies,member,range);
-  return enemyInAim(s.enemies,member,range,facing)??{uid:-1,x:member.x+Math.sin(facing)*range,z:member.z+Math.cos(facing)*range,dead:false};
- }
- private attackAim(member:PartyMember,target:AttackTarget){
-  const facing=member===this.state.party[0]?this.state.player.aimFacing:undefined;
-  if(facing===undefined)return undefined;
-  const range=Math.hypot(target.x-member.x,target.z-member.z);
-  return {x:member.x+Math.sin(facing)*range,z:member.z+Math.cos(facing)*range};
+  return nearestEnemy(this.state.enemies,member,range);
  }
  private updateAttacks(dt:number){const s=this.state;
   for(const m of s.party){
@@ -287,7 +306,7 @@ export class Simulation {
    const target=this.attackTarget(m,profile.range*(1+mod.radius));
    if(!target){m.cooldown=Math.min(.3,dt+.12);continue;}
    const cadence=Math.max(.2,profile.cooldown/(1+mod.haste)/(1+PROGRESSION.moves.speedPerRank*Math.max(0,m.attackLevel-1)));m.cooldown=cadence;
-   this.animateAttack(m,m===s.party[0]&&s.player.aimFacing!==undefined?s.player.aimFacing:Math.atan2(target.x-m.x,target.z-m.z),Math.min(ATTACK_ANIMATION.seconds,cadence*ATTACK_ANIMATION.cadenceFraction));
+   this.animatePartyAttack(m,profile.kind,Math.atan2(target.x-m.x,target.z-m.z),Math.min(ATTACK_ANIMATION.seconds,cadence*ATTACK_ANIMATION.cadenceFraction));
    this.fireFromMember(m,target);
    if(s.result!==null)return;
   }
@@ -302,8 +321,8 @@ export class Simulation {
    if(!target&&profile.kind!=='heal'){learned.cooldown=.15;continue;}
    if(profile.kind==='heal'&&s.player.hp>=s.player.maxHp&&s.party.every(m=>m.hp>=m.maxHp)){learned.cooldown=.3;continue;}
    const cadence=Math.max(.35,profile.cooldown/(1+mod.haste));learned.cooldown=cadence;
-   const facing=member===s.party[0]&&s.player.aimFacing!==undefined?s.player.aimFacing:target?Math.atan2(target.x-member.x,target.z-member.z):member.facing;
-   this.animateAttack(member,facing,Math.min(ATTACK_ANIMATION.seconds,cadence*.9));
+   const facing=target?Math.atan2(target.x-member.x,target.z-member.z):member.facing;
+   this.animatePartyAttack(member,profile.kind,facing,Math.min(ATTACK_ANIMATION.seconds,cadence*ATTACK_ANIMATION.cadenceFraction));
    this.fireLearnedMove(member,learned,target);
    if(s.result!==null)return;
   }
@@ -317,9 +336,9 @@ export class Simulation {
   const livingTarget=target&&!target.dead?target:this.attackTarget(member,profile.range*(1+mod.radius));
   if(!livingTarget&&profile.kind!=='heal')return;
   const crit=depth===0&&profile.kind!=='heal'&&this.rng.next()<mod.critChance;
-  const damage=learnedMovePower(move.id,learned.rank)*(1+mod.power)*damageScale*(crit?mod.critDamage:1);
+  const damage=learnedMovePower(move.id,learned.rank)*levelPowerMultiplier(member.level)*(1+mod.power)*damageScale*(crit?mod.critDamage:1);
   if(depth===0)this.emit({kind:'cast',sourceId:member.uid,speciesId:member.speciesId});
-  executePattern({member:{...member,attackLevel:learned.rank},target:livingTarget||{...member,dead:false},aim:livingTarget?this.attackAim(member,livingTarget):undefined,
+  executePattern({member:{...member,attackLevel:learned.rank},target:livingTarget||{...member,dead:false},
    enemies:s.enemies,profile,element:move.element,damage,crit,depth,radiusScale:1+mod.radius,
    extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,projectileSpeedScale:1+mod.projectileSpeed,
    hit:(enemy,amount)=>this.damageEnemy(enemy,amount,move.element,member.uid,profile.status,crit,depth===0),
@@ -327,6 +346,13 @@ export class Simulation {
    visual:event=>this.emit({...event,label:move.name}),
    heal:(leader,squad)=>{if(s.challenge==='famine')return;s.player.hp=Math.min(s.player.maxHp,s.player.hp+leader);for(const m of s.party)m.hp=Math.min(m.maxHp,m.hp+squad);}});
   for(const action of actions)if(action.kind==='echo'&&s.result===null)this.fireLearnedMove(member,learned,livingTarget,action.damageScale,action.depth);
+ }
+ private animatePartyAttack(member:PartyMember,kind:AttackKind,facing:number,duration:number){
+  // Independent casts keep their damage/cooldowns, but share the current body
+  // motion until recovery finishes. Repeated casts must not pin it at frame zero.
+  if(member.attackTimer>0)return;
+  member.attackKind=kind;delete member.attackSpecial;
+  this.animateAttack(member,facing,duration);
  }
  private animateAttack(actor:PartyMember|Enemy,facing:number,duration:number=ATTACK_ANIMATION.seconds){
   actor.attackTimer=duration;actor.attackDuration=duration;actor.animation='attack';actor.facing=facing;
@@ -340,7 +366,7 @@ export class Simulation {
   const crit=depth===0&&this.rng.next()<mod.critChance;
   const damage=memberDamage(m,profile.growth.damage,mod.power)*damageScale*(crit?mod.critDamage:1);
   if(depth===0)this.emit({kind:'cast',sourceId:m.uid,speciesId:m.speciesId});
-  executePattern({member:m,target,aim:this.attackAim(m,target),enemies:s.enemies,profile,element:type,damage,crit,depth,
+  executePattern({member:m,target,enemies:s.enemies,profile,element:type,damage,crit,depth,
    radiusScale:1+mod.radius,extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,
    projectileSpeedScale:1+mod.projectileSpeed,
    hit:(enemy,amount)=>this.damageEnemy(enemy,amount,type,m.uid,profile.status,crit,depth===0),
@@ -375,19 +401,49 @@ export class Simulation {
   this.emit({kind:'kill',variant:e.variant,speciesId:e.speciesId,targetId:e.uid,sourceId});
   const gain=variantRewardXP(e);
   this.gainXP(gain*.52);
-  if(s.drops.length<DESIGN.maxActiveDrops)s.drops.push({uid:s.idCounter++,x:e.x,z:e.z,value:gain*.48,age:0,kind:'xp'});
-  else this.gainXP(gain*.48);
+  this.spawnDrop({x:e.x,z:e.z,value:gain*.48,kind:'xp'});
+  if(e.elite||this.lootRng.next()<ECONOMY.coinChance)this.spawnDrop({x:e.x,z:e.z,kind:'coin',value:e.elite?ECONOMY.eliteCoins:e.variant==='normal'?ECONOMY.normalCoins:ECONOMY.variantCoins});
+  if(this.lootRng.next()<(e.elite?ECONOMY.eliteItemDropChance:ECONOMY.itemDropChance)){
+   const groundItems=new Set(s.drops.filter(drop=>drop.kind==='item').map(drop=>drop.itemId));
+   const item=weightedUpgradeChoices(availableItemChoices(s).filter(item=>!groundItems.has(item.id)),1,this.lootRng,s.buffs.luck||0)[0];
+   if(item)this.spawnDrop({x:e.x,z:e.z,kind:'item',value:1,itemId:item.id});
+  }
+  if(e.elite&&(e.landmarkGuardian||e.isBoss||s.stats.elapsed-(s.lastSquadRewardAt??-999)>=ECONOMY.eliteRewardInterval)){
+   s.pendingSquadRewards=(s.pendingSquadRewards??0)+1;s.lastSquadRewardAt=s.stats.elapsed;
+  }
   this.emit({kind:'hit',x:e.x,z:e.z,color:e.isBoss?'#d7b0ff':'#c0efb0'});
   if(e.shrineGuardian){s.buffs.luck=(s.buffs.luck||0)+.04;s.player.specialCooldown=0;this.emit({kind:'interact',x:e.x,z:e.z,label:'Shrine guardian defeated: luck increased, special ready!',color:'#d2b5ff'});}
   if(e.isBoss){s.stats.bossKilled=true;s.result='victory';s.phase='result';s.psychicRings=[];s.projectiles=s.projectiles.filter(projectile=>projectile.friendly);this.emit({kind:'win',label:'Mewtwo defeated!'});}
   if(s.result===null)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1});
  }
+ private collectItem(itemId:string|undefined){
+  if(!itemId)return;const s=this.state;
+  const item=availableItemChoices(s).find(item=>item.id===itemId);
+  if(item){const result=applyChoice(s,item);if(result.applied)this.emit({kind:'interact',label:result.event});}
+  else s.coins=(s.coins??0)+ECONOMY.duplicateItemCoins;
+ }
+ private spawnDrop(drop:Omit<Drop,'uid'|'age'>){
+  const s=this.state;
+  if(s.drops.length>=DESIGN.maxActiveDrops){
+   if(drop.kind==='xp'){this.gainXP(drop.value);return;}
+   if(drop.kind==='coin'){s.coins=(s.coins??0)+drop.value;return;}
+   const index=s.drops.findIndex(existing=>existing.kind==='xp');
+   if(index<0){if(drop.kind==='item')this.collectItem(drop.itemId);return;}
+   this.gainXP(s.drops[index].value);s.drops.splice(index,1);
+  }
+  s.drops.push({...drop,uid:s.idCounter++,age:0});
+ }
  private updateDrops(dt:number){const s=this.state;const p=s.player,radius=DESIGN.pickupRadius+getBuildModifiers(s).magnet;
    for(const d of s.drops){d.age+=dt;const dist=distance2(d,p);
    if(dist<radius*2.2&&dist>.12){d.x+=(p.x-d.x)*Math.min(.85,dt*(4+6/(dist+.3)));d.z+=(p.z-d.z)*Math.min(.85,dt*(4+6/(dist+.3)));}
-   if(dist<radius*.65){d.age=999;if(d.kind==='xp')this.gainXP(d.value);else if(s.challenge!=='famine')p.hp=Math.min(p.maxHp,p.hp+d.value);}
+   if(dist<radius*.65){d.age=999;
+    if(d.kind==='xp')this.gainXP(d.value);
+    else if(d.kind==='coin')s.coins=(s.coins??0)+d.value;
+    else if(d.kind==='item')this.collectItem(d.itemId);
+    else if(s.challenge!=='famine')p.hp=Math.min(p.maxHp,p.hp+d.value);
+   }
   }
-  s.drops=s.drops.filter(d=>d.age<45);
+  s.drops=s.drops.filter(d=>d.age<(d.kind==='item'?120:45));
  }
  private updateRegeneration(dt:number){
   const s=this.state,mod=getBuildModifiers(s);
@@ -407,7 +463,7 @@ export class Simulation {
   switch(action.kind){
    case 'echo':{
     if(!member)return;
-    const next=member===s.party[0]&&s.player.aimFacing!==undefined?this.attackTarget(member,getAttackProfile(member.speciesId,member.attackLevel).range*(1+getBuildModifiers(s,member).radius)):target&&!target.dead?target:nearestEnemy(s.enemies,member,getAttackProfile(member.speciesId,member.attackLevel).range*(1+getBuildModifiers(s,member).radius));
+    const next=target&&!target.dead?target:this.attackTarget(member,getAttackProfile(member.speciesId,member.attackLevel).range*(1+getBuildModifiers(s,member).radius));
     if(next)this.fireFromMember(member,next,action.damageScale,action.depth);return;
    }
    case 'chain':{
@@ -461,11 +517,13 @@ export class Simulation {
   s.player.hp=0;s.result='defeat';s.phase='result';this.emit({kind:'death',speciesId:s.party[0].speciesId});return true;
  }
  private specialAttack(){const s=this.state,member=s.party[0],element=getSpecies(member.speciesId).types[0],mod=getBuildModifiers(s,member);
+  const profile=getSpecialProfile(member.speciesId,member.attackLevel);
+  member.attackSpecial=profile.kind;delete member.attackKind;
   this.animateAttack(member,member.facing,ATTACK_ANIMATION.specialSeconds);
   this.buildEvent({kind:'onSpecial',sourceId:member.uid,element});
   if(s.result!==null)return;
-  castSpecial({state:s,member,profile:getSpecialProfile(member.speciesId,member.attackLevel),element,
-   damage:(27+member.level*5+(member.attackLevel-1)*2)*(1+mod.power),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
+  castSpecial({state:s,member,profile,element,
+   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
    move:(dx,dz)=>this.obstacles.move(s.player,dx,dz),
    hit:(enemy,damage,type,sourceId,status)=>this.damageEnemy(enemy,damage,type,sourceId,status),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
@@ -506,13 +564,22 @@ export class Simulation {
   s.psychicRings=(s.psychicRings||[]).filter(ring=>ring.radius<ring.maxRadius);
  }
  private activatePOI(poi:POI){const s=this.state;
+  if(poi.used)return;
+  if(poi.kind==='cache'){
+   const cost=chestCost(s,poi);
+   if((s.coins??0)<cost){this.emit({kind:'log',label:`Supply chest costs ${cost} coins. You have ${s.coins??0}.`});return;}
+   const source=cost?'shop':'cache',options=makeChoices(s,this.rng,source);
+   if(!options.length){delete s.choiceSource;this.emit({kind:'log',label:'All available rewards are already collected or fully trained.'});return;}
+   s.coins=(s.coins??0)-cost;if(cost)s.chestPurchases=(s.chestPurchases??0)+1;
+   poi.used=true;this.enterChoice(options,cost?`Supply chest — choose your ${cost}-coin purchase`:'Treasure cache — choose an item',source);
+  }
   if(poi.kind==='elite'||poi.kind==='shrine'){
    s.enemies=s.enemies.filter(enemy=>!enemy.dead);
    if(s.enemies.length>=DESIGN.maxEnemies-(s.bossSpawned?0:1)){this.emit({kind:'log',label:'Too many enemies nearby. Clear a path first.'});return;}
   }
   poi.used=true;
   if(poi.kind==='cache'){
-   const options=makeChoices(s,this.rng,'cache');if(options.length)this.enterChoice(options,'Treasure cache — choose an item');
+   // The purchase was validated and opened above; rare exploration hooks still apply.
   }else if(poi.kind==='healing'){
    if(s.challenge==='famine')this.emit({kind:'interact',label:'Dry spring / Famine disables field healing.',x:poi.x,z:poi.z});
    else {s.player.hp=Math.min(s.player.maxHp,s.player.hp+42);for(const member of s.party){member.hp=Math.min(member.maxHp,member.hp+35);}this.emit({kind:'interact',label:'Restored 42 HP!',x:poi.x,z:poi.z,color:'#90ff9c'});}
@@ -537,6 +604,9 @@ export class Simulation {
  }
  /** QA hooks, enabled by ?dev=1 only. */
  debugAdvance(seconds:number){this.state.stats.elapsed=Math.max(0,this.state.stats.elapsed+seconds);}
- debugLevel(){const leader=this.state.party[0];this.gainXP(Math.max(0,xpThreshold(leader.level)-(leader.xp??0)),leader.uid);}
+ debugLevel(){const leader=this.state.party[0],next=nextMilestone(leader.level);if(next===null)return;
+  const needed=Array.from({length:next-leader.level},(_,index)=>xpThreshold(leader.level+index)).reduce((sum,xp)=>sum+xp,0);
+  this.gainXP(Math.max(0,needed-(leader.xp??0)),leader.uid);
+ }
  debugHeal(){this.state.player.hp=this.state.player.maxHp;}
 }

@@ -1,17 +1,18 @@
 import {Scene,Sprite,SpriteManager,Texture,DynamicTexture,Color4,MeshBuilder,StandardMaterial,Color3,Vector3,Axis,Mesh,VertexData,type InstancedMesh} from '@babylonjs/core';
 import type {PartyMember,Enemy,Variant} from '../types.ts';
-import {getSpecies} from '../../data/kanto.ts';
+import {getSpecies,type AttackKind} from '../../data/kanto.ts';
 import {getAttackProfile} from '../../data/attacks.ts';
+import type {SpecialKind} from '../../data/specials.ts';
 import {getEnemyAttackProfile,getEliteAreaMove,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
 import {ATTACK_ANIMATION,ATTACK_POSES} from '../../data/config.ts';
 import {getVariant,VARIANT_VISUALS,type VariantCue} from '../../data/variants.ts';
-import {animationFrame,oneShotFrame,attackPose,attackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,PMD_SOURCE,ART_SOURCE,type AnimationMetadata,type AnimationMeta,type AnimationName,type AtlasBounds,type AttackStyle,type AttackPose} from './animation.ts';
+import {animationFrame,oneShotFrame,attackPose,attackStyle,specialAttackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,PMD_SOURCE,ART_SOURCE,type AnimationMetadata,type AnimationMeta,type AnimationName,type AtlasBounds,type AttackStyle,type AttackPose} from './animation.ts';
 export type {AnimationName} from './animation.ts';
 interface SheetAsset {manager:SpriteManager;meta:AnimationMeta;columns:number;rows:number;bounds:AtlasBounds;source:string;}
 interface AnimatedAsset extends SheetAsset {referenceHeight:number;anchors:number[];attackMotion:boolean;}
 interface AvatarData {
  x:number;z:number;facing:number;animation:AnimationName;size:number;
- attackTimer?:number;attackDuration?:number;attackStyle?:AttackStyle;enemyRole?:EnemyAttackRole;windup?:Enemy['windup'];
+ attackTimer?:number;attackDuration?:number;attackKind?:AttackKind;attackSpecial?:SpecialKind;attackStyle?:AttackStyle;enemyRole?:EnemyAttackRole;windup?:Enemy['windup'];
 }
 const DESIGN_MAX_SPRITES=230;
 const MAX_POSE_LEAN=Math.max(...Object.values(ATTACK_POSES).map(p=>Math.abs(p.lean)));
@@ -205,7 +206,7 @@ export class Avatar {
    const role=data.windup.role??data.enemyRole;
    this.windupStyle=data.windup.kind==='enemyMove'&&role?enemyAttackStyle(role):data.windup.kind==='volley'?'ranged':data.windup.kind==='slam'?'heavy':'pulse';
   }
-  this.style=this.windupStyle??data.attackStyle??attackStyle(getAttackProfile(this.speciesId).kind);
+  this.style=this.windupStyle??data.attackStyle??(data.attackSpecial?specialAttackStyle(data.attackSpecial):attackStyle(data.attackKind??getAttackProfile(this.speciesId).kind));
   this.posePhase=attacking?(data.windup?'windup':'attack'):'idle';
   const windupProgress=data.windup?1-data.windup.remaining/Math.max(.001,data.windup.duration):0;
   // A charged attack starts from the held ready pose. Its native frames still

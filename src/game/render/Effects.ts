@@ -344,8 +344,10 @@ export class Effects{
   const activeDrops=new Set<number>();
   for(const drop of state.drops.slice(0,DESIGN.maxActiveDrops)){
    activeDrops.add(drop.uid);let visual=this.drops.get(drop.uid);
-   if(!visual){visual=this.acquire('lob',drop.kind==='xp'?'#9bdef5':'#a8f3a5',`combat-drop-${drop.uid}`);if(!visual)continue;this.drops.set(drop.uid,visual);}
-   visual.mesh.position.set(drop.x,this.world.height(drop.x,drop.z)+.36+Math.sin(state.stats.elapsed*4+drop.uid)*.09,drop.z);visual.mesh.scaling.setAll(Math.min(.42,.22+drop.value*.003));
+   if(!visual){visual=this.acquire('lob',({xp:'#9bdef5',heal:'#a8f3a5',coin:'#edc66d',item:'#dca0f1'})[drop.kind],`combat-drop-${drop.uid}`);if(!visual)continue;this.drops.set(drop.uid,visual);}
+   visual.mesh.position.set(drop.x,this.world.height(drop.x,drop.z)+.36+Math.sin(state.stats.elapsed*4+drop.uid)*.09,drop.z);
+   if(drop.kind==='coin')visual.mesh.scaling.set(.3,.1,.3);
+   else visual.mesh.scaling.setAll(drop.kind==='item'?.42:Math.min(.42,.22+drop.value*.003));
   }
   for(const [uid,visual] of this.drops)if(!activeDrops.has(uid)){this.release(visual);this.drops.delete(uid);}
   for(const fx of this.effects){

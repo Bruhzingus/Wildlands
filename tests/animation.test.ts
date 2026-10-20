@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {animationFrame,oneShotFrame,attackPose,attackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,type AttackStyle} from '../src/game/render/animation.ts';
+import {animationFrame,oneShotFrame,attackPose,attackStyle,specialAttackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,type AttackStyle} from '../src/game/render/animation.ts';
+import type {SpecialKind} from '../src/data/specials.ts';
 const xml=`<AnimData><Anims><Anim><Name>Walk</Name><FrameWidth>24</FrameWidth><FrameHeight>32</FrameHeight><Durations><Duration>30</Duration><Duration>3</Duration><Duration>6</Duration></Durations></Anim><Anim><Name>Idle</Name><CopyOf>Walk</CopyOf></Anim><Anim><Name>Attack</Name><CopyOf>Idle</CopyOf></Anim></Anims></AnimData>`;
 test('SpriteCollab aliases share the original sheet, dimensions and unequal durations',()=>{
  const meta=parseAnimationMetadata(xml);assert.equal(meta.Idle,meta.Walk);assert.equal(meta.Attack.name,'Walk');assert.deepEqual(meta.Walk.durations,[30,3,6]);
@@ -32,6 +33,29 @@ test('attack styles distinguish forward melee, ranged recoil and casting lift',(
  const melee=attackPose(.42,'melee'),ranged=attackPose(.42,'ranged'),pulse=attackPose(.42,'pulse');
  assert.ok(melee.forward>0&&ranged.forward<0);
  assert.ok(pulse.lift>melee.lift&&pulse.lift>ranged.lift);
+});
+
+test('special body motion follows fields, shots, charges, heavy strikes and squad healing',()=>{
+ const expected:Record<SpecialKind,AttackStyle>={
+  garden:'pulse',flamethrower:'ranged',surf:'ranged',thunder:'pulse',quickstep:'quick',web:'ranged',
+  whirlwind:'ranged',fissure:'heavy',foxfire:'pulse',sleep:'pulse',payday:'ranged',charge:'quick',
+  teleport:'ranged',flurry:'heavy',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
+ };
+ const neutral={forward:0,lift:0,scaleX:1,scaleY:1,lean:0};
+ for(const [kind,style] of Object.entries(expected) as [SpecialKind,AttackStyle][]){
+  assert.equal(specialAttackStyle(kind),style,kind);
+  assert.deepEqual(attackPose(0,style),neutral);assert.deepEqual(attackPose(1,style),neutral);
+  for(let tick=0;tick<=100;tick++){
+   const pose=attackPose(tick/100,style);
+   assert.ok(Object.values(pose).every(Number.isFinite),kind);
+   assert.ok(Math.abs(pose.forward)<=.33&&pose.lift>=0&&pose.lift<=.19,kind);
+   assert.ok(pose.scaleX>=.9&&pose.scaleX<=1.1&&pose.scaleY>=.9&&pose.scaleY<=1.14,kind);
+   assert.ok(Math.abs(pose.lean)<=.1,kind);
+  }
+ }
+ assert.ok(attackPose(.42,specialAttackStyle('charge')).forward>0);
+ assert.ok(attackPose(.42,specialAttackStyle('flamethrower')).forward<0);
+ assert.ok(attackPose(.42,specialAttackStyle('mend')).lift>attackPose(.42,specialAttackStyle('garden')).lift);
 });
 
 test('attack additions return exactly to rest and remain bounded at any playback speed',()=>{

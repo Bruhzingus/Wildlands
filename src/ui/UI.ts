@@ -18,6 +18,8 @@ import {upgradeIcon} from './upgradeIcons.ts';
 import {getMoveDefinition} from '../data/moves.ts';
 import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
+import {PROGRESSION,nextMilestone} from '../data/progression.ts';
+import {chestCost} from '../data/economy.ts';
 import {xpThreshold} from '../game/systems/progression.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
@@ -136,8 +138,8 @@ export class UI {
 
  private showChoices(s:RunState){this.overlay.classList.remove('hidden');
   const owner=s.party.find(member=>member.uid===s.levelUpMemberId),queued=s.pendingLevelUps?.length??0;
-  const context=owner?`<div class="choice-pokemon" data-level-owner="${owner.uid}">${this.portrait(owner.speciesId)}<div><strong>${esc(getSpecies(owner.speciesId).name)} <span>LV ${owner.level}</span></strong><span>${1+(owner.learnedMoves?.length??0)} / 4 moves${queued?` · ${queued} more level ${queued===1?'reward':'rewards'}`:''}</span></div></div>`:'';
-  this.content.innerHTML=`<div class="choice-screen"><div class="eyebrow">${owner?'POKÉMON LEVEL UP':'SQUAD UPGRADE'} / GAME PAUSED</div>${context}<h2>${esc(s.choiceTitle)}</h2><div class="choices">${s.upgradeChoices.map((c,i)=>this.upgradeCard(c,i,s)).join('')}</div><p class="subtle">Click a card or press 1, 2 or 3 to choose</p></div>`;
+  const context=owner?`<div class="choice-pokemon" data-level-owner="${owner.uid}">${this.portrait(owner.speciesId)}<div><strong>${esc(getSpecies(owner.speciesId).name)} <span>LV ${owner.level}</span></strong><span>${1+(owner.learnedMoves?.length??0)} / 4 moves${queued?` · ${queued} more milestone ${queued===1?'reward':'rewards'}`:''}</span></div></div>`:'';
+  this.content.innerHTML=`<div class="choice-screen"><div class="eyebrow">${owner?'POKÉMON MILESTONE':'SQUAD UPGRADE'} / GAME PAUSED</div>${context}<h2>${esc(s.choiceTitle)}</h2><div class="choices">${s.upgradeChoices.map((c,i)=>this.upgradeCard(c,i,s)).join('')}</div><p class="subtle">Click a card or press ${s.upgradeChoices.map((_,i)=>i+1).join(', ')} to choose</p></div>`;
   this.content.querySelectorAll<HTMLElement>('[data-choice]').forEach(el=>el.addEventListener('click',()=>this.onPick(el.dataset.choice!)));
   this.imageFallbacks(this.content);this.focusFirst();
  }
@@ -171,7 +173,7 @@ export class UI {
   const bonus=(value:number)=>`${value>=0?'+':''}${Math.round(value*100)}%`;
   return `<details class="build-summary" open><summary>Build / ${build.items.length} relics / ${build.synergies.length} synergies</summary>
    <div class="build-modifiers"><span>Leader damage ${bonus(m.power)}</span><span>Attack speed ${bonus(m.haste)}</span><span>Max HP ${Math.ceil(s.player.maxHp)}</span><span>Damage reduction ${Math.round(m.damageReduction*100)}%</span><span>Movement ${bonus(m.speed)}</span><span>Dodge recovery ${bonus(m.stamina)}</span><span>Special recovery ${bonus(m.specialHaste)}</span><span>Crit ${Math.round(m.critChance*100)}%</span><span>Area ${bonus(m.radius)}</span></div>
-   <div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member)).join('')}</div>
+   <p class="progression-help">Full shared XP for every living teammate. Levels add 2% HP and attack; choices happen at levels 3, 5, 10, 15… Coins buy extra upgrades from supply chests.</p><div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member)).join('')}</div>
    <div class="build-special"><strong>Q / ${esc(special.name)}</strong><span>${esc(special.description)}</span><span>${special.cooldown.toFixed(0)}s base cooldown · Rank ${leader.attackLevel}</span></div>
    <div class="build-synergies">${build.synergies.length?build.synergies.map(synergy=>`<div data-synergy="${esc(synergy.id)}"><strong>${esc(synergy.title)}</strong><span>${esc(synergy.description)}</span></div>`).join(''):'<p>No active team synergies yet.</p>'}</div>
    <div class="build-items">${build.items.length?build.items.map(item=>`<div data-item="${esc(item.id)}"><strong>${esc(item.title)}${item.stacks>1?` ×${item.stacks}`:''}</strong><span>${esc(item.description)}</span></div>`).join(''):'<p>Find discovery caches for relics.</p>'}</div>
@@ -183,8 +185,9 @@ export class UI {
  }
 
  private pokemonSummary(member:PartyMember){
-  const moves=this.pokemonMoves(member),xp=member.xp??0,next=member.xpToNext??xpThreshold(member.level);
-  return `<section class="pokemon-summary" data-summary-member="${member.uid}"><div class="pokemon-summary-heading">${this.portrait(member.speciesId)}<div><strong>${esc(getSpecies(member.speciesId).name)}</strong><span>LV ${member.level} · ${Math.floor(xp)} / ${next} XP</span><div class="pokemon-xp-track" aria-hidden="true"><span style="width:${percent(xp,next)}%"></span></div></div><small>${moves.length} / 4 MOVES</small></div><ol class="pokemon-moves">${Array.from({length:4},(_,index)=>{const move=moves[index];return `<li class="pokemon-move-slot${move?'':' empty'}" data-move-slot="${index+1}"><span class="move-slot-number">${index+1}</span><span class="move-slot-name">${move?esc(move.name):'Open move slot'}</span>${move?`<span class="move-slot-rank">RANK ${move.rank}</span>`:'<span class="move-slot-rank">LEARN</span>'}</li>`;}).join('')}</ol></section>`;
+  const moves=this.pokemonMoves(member),xp=member.xp??0,next=member.xpToNext??xpThreshold(member.level),milestone=nextMilestone(member.level);
+  const species=getSpecies(member.speciesId),evolution=species.evolvesTo.length?` · Evolution: LV ${species.stage>=2?PROGRESSION.evolution.finalLevel:PROGRESSION.evolution.firstLevel} + ${PROGRESSION.evolution.maturitySeconds}s training`:'';
+  return `<section class="pokemon-summary" data-summary-member="${member.uid}"><div class="pokemon-summary-heading">${this.portrait(member.speciesId)}<div><strong>${esc(species.name)}</strong><span>LV ${member.level} · ${Math.floor(xp)} / ${next} XP</span><div class="pokemon-xp-track" aria-hidden="true"><span style="width:${percent(xp,next)}%"></span></div><span>${milestone?`Next choice: LV ${milestone}`:'MAX LEVEL'}${evolution}</span></div><small>${moves.length} / 4 MOVES</small></div><ol class="pokemon-moves">${Array.from({length:4},(_,index)=>{const move=moves[index];return `<li class="pokemon-move-slot${move?'':' empty'}" data-move-slot="${index+1}"><span class="move-slot-number">${index+1}</span><span class="move-slot-name">${move?esc(move.name):'Open move slot'}</span>${move?`<span class="move-slot-rank">RANK ${move.rank}</span>`:'<span class="move-slot-rank">LEARN</span>'}</li>`;}).join('')}</ol></section>`;
  }
 
  private variantLegend(){const glyphs={none:'',diamond:'◇',r:'R',chevrons:'»',droplets:'◦◦',crown:'♛'};
@@ -193,6 +196,7 @@ export class UI {
 
  refresh(s:RunState){const p=s.player,stats=s.stats,boss=s.enemies.find(e=>e.isBoss&&!e.dead);
   q('#clock').textContent=fmt(stats.elapsed);q('#kills').textContent=String(stats.kills);
+  q('#coins').textContent=String(s.coins??0);
   q('#progress-fill').style.width=`${Math.min(100,stats.elapsed/900*100)}%`;
   q('#danger').textContent=boss?'LEGENDARY ENCOUNTER':s.director?.bossWarning?`MEWTWO APPROACHES / ${Math.ceil(s.director.bossCountdown)}s`:(s.director?.title??'QUIET MEADOW').toUpperCase();
   const biome=BIOMES[biomeAt(p.x,p.z)];q('#map-region').textContent=biome.name.toUpperCase();
@@ -204,6 +208,7 @@ export class UI {
   const leader=s.party[0],leaderXP=leader.xp??stats.xp,leaderNext=leader.xpToNext??xpThreshold(leader.level);
   q('#level-label').textContent=`LV ${leader.level}`;q('#xp-text').textContent=`${Math.floor(leaderXP)} / ${leaderNext} XP`;
   q('#xp-fill').style.width=`${percent(leaderXP,leaderNext)}%`;
+  const milestone=nextMilestone(leader.level);q('#next-milestone').textContent=milestone?`NEXT CHOICE: LV ${milestone}`:'MAX LEVEL';
   const special=getSpecialProfile(leader.speciesId,leader.attackLevel),specialTile=q('#special-cd');
   const specialLabel=specialTile.querySelector('span:not(.kbd)')!;if(specialLabel.textContent!==special.name.toUpperCase())specialLabel.textContent=special.name.toUpperCase();
   specialTile.title=`${special.description} (${special.cooldown.toFixed(0)}s base cooldown)`;
@@ -223,7 +228,9 @@ export class UI {
    const xp=member.xp??0,next=member.xpToNext??xpThreshold(member.level),moves=this.pokemonMoves(member);
    unit.querySelector<HTMLElement>('.party-level')!.textContent=`L${member.level}`;
    unit.querySelector<HTMLElement>('.party-xp')!.style.width=`${percent(xp,next)}%`;
-   const summary=`${getSpecies(member.speciesId).name} · Lv ${member.level}\n${Math.floor(xp)} / ${next} XP · ${moves.length} / 4 moves\n${Array.from({length:4},(_,index)=>`${index+1}. ${moves[index]?`${moves[index].name} (Rank ${moves[index].rank})`:'Open move slot'}`).join('\n')}`;
+   const milestone=nextMilestone(member.level);
+   const summary=`${getSpecies(member.speciesId).name} · Lv ${member.level}\n${Math.floor(xp)} / ${next} XP · ${moves.length} / 4 moves\n${milestone?`Next milestone choice: level ${milestone}`:'Maximum level'}\n${Array.from({length:4},(_,index)=>`${index+1}. ${moves[index]?`${moves[index].name} (Rank ${moves[index].rank})`:'Open move slot'}`).join('\n')}`;
+   const track=unit.querySelector<HTMLElement>('.party-xp-track')!;track.setAttribute('role','progressbar');track.setAttribute('aria-label',`${getSpecies(member.speciesId).name} experience`);track.setAttribute('aria-valuenow',String(Math.min(next,Math.floor(xp))));track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(next));
    if(unit.title!==summary)unit.title=summary;
    unit.classList.toggle('low-health',low);unit.classList.toggle('is-poisoned',index===0?p.poisonTime>0:(member.poisonTime??0)>0);
    unit.setAttribute('aria-label',`${summary.replace(/\n/g,', ')}, ${Math.ceil(hp)} of ${Math.ceil(maxHp)} HP${low?', critical health':''}`);
@@ -231,7 +238,12 @@ export class UI {
   this.refreshPartyAlert(s);
   const near=s.pois.find(poi=>!poi.used&&distance2(p,poi)<DESIGN.interactionRadius);
   const interaction=q('#interaction');interaction.classList.toggle('hidden',!near);
-  if(near&&interaction.dataset.poi!==String(near.uid)){interaction.dataset.poi=String(near.uid);interaction.innerHTML=`<span class="kbd">E</span> ${({cache:'Open cache',shrine:'Challenge shrine guardian',elite:'Challenge elite',healing:'Recover HP'})[near.kind]}`;}
+  if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,signature=`${near.uid}/${cost}/${affordable}`;
+   if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;
+    const label=near.kind==='cache'&&cost?`${affordable?'Buy upgrade':'Need'} ${cost} coins`:({cache:'Open free cache',shrine:'Challenge shrine guardian',elite:'Challenge elite',healing:'Recover HP'})[near.kind];
+    interaction.innerHTML=`<span class="kbd">E</span> ${label}`;interaction.classList.toggle('unaffordable',!affordable);
+   }
+  }
   this.drawMap(s);
   q('#boss-bar').classList.toggle('hidden',!boss);
   if(boss){
@@ -287,7 +299,7 @@ export class UI {
    if(Math.hypot(x-marker.anchorX,y-marker.anchorY)>1){context.strokeStyle='#e8ebda';context.lineWidth=.6;context.beginPath();context.moveTo(x,y);context.lineTo(marker.anchorX,marker.anchorY);context.stroke();}
    context.save();context.translate(x,y);context.lineWidth=1.4;context.strokeStyle='#172019';context.fillStyle='#e9cc78';context.beginPath();
    if(kind==='player'){context.rotate(s.player.facing);context.moveTo(0,-6);context.lineTo(-4.5,4.5);context.lineTo(4.5,4.5);context.closePath();context.fillStyle='#f4f2d9';context.fill();context.stroke();}
-   else if(kind==='cache'){context.rect(-3,-3,6,6);context.fill();context.stroke();}
+   else if(kind==='cache'){context.fillStyle=marker.price===undefined?'#bad49a':'#edc66d';context.rect(-3,-3,6,6);context.fill();context.stroke();if(marker.price!==undefined){context.moveTo(-2,0);context.lineTo(2,0);context.stroke();}}
    else if(kind==='shrine'||kind==='boss'){context.moveTo(0,-4);context.lineTo(4,0);context.lineTo(0,4);context.lineTo(-4,0);context.closePath();context.fillStyle=kind==='boss'?'#e0c2ed':'#bda5db';context.fill();context.stroke();}
    else if(kind==='elite'){context.moveTo(-3,3);context.lineTo(0,-4);context.lineTo(3,3);context.closePath();context.fillStyle='#ed887b';context.fill();context.stroke();}
    else if(kind==='healing'){context.fillStyle='#d0e5ba';context.fillRect(-3.5,-1.2,7,2.4);context.fillRect(-1.2,-3.5,2.4,7);}
@@ -301,6 +313,6 @@ export class UI {
   const el=q('#toast');this.toastPriority=priority;this.toastExpires=now+3100;el.textContent=label;el.classList.add('show');
   clearTimeout(this.toastTimer);this.toastTimer=window.setTimeout(()=>{el.classList.remove('show');this.toastPriority=0;},3100);
  }
- handleNumber(key:string,s:RunState):boolean{if(s.phase!=='choice'||!['1','2','3'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
+ handleNumber(key:string,s:RunState):boolean{if(s.phase!=='choice'||!['1','2','3','4'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
  dispose(){this.listeners.abort();clearTimeout(this.toastTimer);cancelAnimationFrame(this.focusFrame);for(const probe of this.imageLoads.values()){probe.onload=null;probe.onerror=null;probe.removeAttribute('src');}this.imageLoads.clear();this.content.replaceChildren();const strip=q('#party-strip');strip.replaceChildren();delete strip.dataset.signature;}
 }

@@ -39,7 +39,7 @@ test('all 72 explicit evolution cards apply, including 16 stone and four adapted
   assert.ok(evolutionRequirement(species.id,targetId).includes('170s'));
   const result=applyChoice(state,{id:`evolve-1-${targetId}`,speciesId:1,sourceSpeciesId:species.id,targetId,kind:'evolve',title:'Evolution',description:'',rarity:'epic'});
   assert.equal(result.applied,true,`${species.name} → ${getSpecies(targetId).name}`);assert.equal(state.party[0].speciesId,targetId);
-  assert.equal(state.party[0].attackLevel,1,'Evolution preserves trained ranks');assert.equal(state.party[0].level,30,'Evolution does not grant a level');
+  assert.equal(state.party[0].attackLevel,2,'Every evolution grants a move rank');assert.equal(state.party[0].level,30,'Evolution does not grant a level');
   assert.deepEqual(eligibleEvolutions(state),[],'Every evolved form waits for new maturity');
  }
  assert.deepEqual(counts,{training:52,stone:16,bond:4});assert.equal(evolutionRule(133,150),null);

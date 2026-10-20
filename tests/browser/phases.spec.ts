@@ -49,16 +49,19 @@ test('recruitment gates, explicit evolution branches and upgrade capture work in
  await game(page,'g=>{g.sim.state.stats.elapsed=165;g.sim.state.stats.level=4;g.sim.state.stats.xp=0;}');
  await page.keyboard.press('[');await expect(page.locator('.choice-card')).toHaveCount(3);
  expect(await game(page,'g=>g.sim.state.upgradeChoices.every(c=>c.kind==="recruit")')).toBe(true);
- await page.keyboard.press('1');await captured(page);
+ await page.keyboard.press('1');
  expect(await game(page,'g=>g.sim.state.party.length')).toBe(2);
+ await expect(page.locator('[data-level-owner="1"]')).toBeVisible();
+ await expect(page.locator('.choice-pokemon')).toContainText('LV 5');
+ await page.locator('.choice-card').first().click();await captured(page);
  await page.evaluate(async()=>{
   const {makeChoices}=await import('/src/game/systems/progression.ts');
   const {RNG}=await import('/src/utils/random.ts');
   const g=(window as any).__WILDLANDS__,s=g.sim.state;
-  s.party=[s.party[0]];s.party[0].speciesId=133;s.party[0].joinedAt=0;s.party[0].evolvedAt=undefined;s.stats.elapsed=500;s.stats.level=13;s.recruitCount=3;s.enemies=[];
-  for(let seed=1;seed<100;seed++){const choices=makeChoices(s,new RNG(seed));if(choices.length===3&&choices.every((choice:any)=>choice.kind==='evolve')){g.sim.enterChoice(choices);break;}}
+  s.party=[s.party[0]];s.party[0].speciesId=133;s.party[0].level=5;s.party[0].joinedAt=0;s.party[0].evolvedAt=undefined;s.stats.elapsed=500;s.stats.level=13;s.recruitCount=3;s.enemies=[];
+  g.sim.enterChoice(makeChoices(s,new RNG(1)));
  });
- await expect(page.locator('.choice-card')).toHaveCount(3);
+ await expect(page.locator('.choice-card')).toHaveCount(4);
  await expect(page.locator('.choices')).toContainText('Vaporeon');await expect(page.locator('.choices')).toContainText('Jolteon');await expect(page.locator('.choices')).toContainText('Flareon');
  await page.locator('[data-choice$="-135"]').click();await captured(page);
  expect(await game(page,'g=>g.sim.state.party[0].speciesId')).toBe(135);
