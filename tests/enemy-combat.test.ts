@@ -121,11 +121,28 @@ test('poisoned ranged variants retain their poison and faction aggression affect
  assert.ok(rabid.enemy.attackCooldown<wild.enemy.attackCooldown);
 });
 
-test('healers restore wounded enemy allies without healing or attacking the player',()=>{
+test('healers restore nearby wounded enemy allies without healing themselves or attacking the player',()=>{
  const {sim,s,enemy}=arena(113,7),ally=createEnemy(s,sim.rng,19,'normal',9,0);
  ally.hp=1;ally.attackCooldown=100;ally.speed=0;s.enemies.push(ally);s.player.hp=50;
  release(sim,enemy);
  assert.ok(ally.hp>1&&ally.hp<=ally.maxHp);assert.equal(s.player.hp,50);assert.equal(s.projectiles.length,0);
+ assert.equal(enemy.hp,enemy.maxHp);
+});
+
+test('healers use Quick Attack when no nearby injured ally needs support',()=>{
+ const {sim,s,enemy,events}=arena(113,1.5);s.player.hp=100;
+ release(sim,enemy);
+ assert.ok(s.player.hp<100,'The healer falls back to a close-range attack');
+ assert.equal(events[0].label,'Quick Attack');
+ assert.equal(events[0].shape,'melee-fast');
+});
+
+test('healers do not cast a heal for only their own missing HP',()=>{
+ const {sim,s,enemy,events}=arena(113,1.5);enemy.hp=1;s.player.hp=100;
+ release(sim,enemy);
+ assert.ok(s.player.hp<100);
+ assert.equal(enemy.hp,1);
+ assert.equal(events[0].label,'Quick Attack');
 });
 
 test('elite guardians alternate an elemental area move and their own named role move',()=>{

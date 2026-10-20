@@ -14,8 +14,8 @@ import {memberDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpe
 import {executePattern,executeChain,type AttackTarget} from './combat/patterns.ts';
 import {nearestEnemy,enemiesInRadius} from './combat/targeting.ts';
 import {addProjectile,stepProjectiles} from './combat/projectiles.ts';
-import {getEnemyAttackProfile,getEliteAreaMove} from '../data/enemyAttacks.ts';
-import {canStartEnemyMove,enemyMovementIntent,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
+import {getEnemyAttackProfile,getEliteAreaMove,withEnemyAttackRole} from '../data/enemyAttacks.ts';
+import {canStartEnemyMove,enemyMovementIntent,enemyMoveRole,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
 import {getBuildModifiers,dispatchBuildEvent,type BuildEvent,type BuildAction} from './systems/builds.ts';
 import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
 import {averagePartyLevel,enemyProgressionScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
@@ -265,14 +265,14 @@ export class Simulation {
     continue;
    }
    if(!e.isBoss){
-    const profile=getEnemyAttackProfile(e.speciesId);
+    const baseProfile=getEnemyAttackProfile(e.speciesId),profile=withEnemyAttackRole(baseProfile,enemyMoveRole(e,s,baseProfile));
     if(canStartEnemyMove(e,target,s,profile)){
      e.windup=prepareEnemyMove(e,target,profile);
      if(e.elite)e.bossCycle=(e.bossCycle||0)+1;
      this.animateAttack(e,e.windup.facing,e.windup.duration);this.emit(enemyMoveTell(e,e.windup,profile));continue;
     }
     if(e.stunTime===0){
-     const intent=enemyMovementIntent(e,target,s,profile),movement=e.speed*enemySpeedFactor(e)*dt*intent.speedScale;
+     const intent=enemyMovementIntent(e,target,s,baseProfile),movement=e.speed*enemySpeedFactor(e)*dt*intent.speedScale;
      const next=this.obstacles.move(e,intent.x*movement,intent.z*movement);e.x=next.x;e.z=next.z;
      if(e.attackTimer===0)e.facing=Math.atan2(dx,dz);
      e.animation=e.attackTimer>0?'attack':movement>0?'walk':'idle';

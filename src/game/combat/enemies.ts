@@ -1,4 +1,4 @@
-import {getEnemyAttackProfile,type EnemyAttackProfile} from '../../data/enemyAttacks.ts';
+import {getEnemyAttackProfile,withEnemyAttackRole,type EnemyAttackProfile,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
 import {getVariant} from '../../data/variants.ts';
 import type {Enemy,EnemyWindup,PartyMember,RunState,Vec2} from '../types.ts';
 import type {ProjectileSpawn} from './projectiles.ts';
@@ -19,19 +19,25 @@ const distance=(a:Vec2,b:Vec2)=>Math.hypot(a.x-b.x,a.z-b.z);
 function woundedAllies(enemy:Enemy,state:RunState,radius:number){
  return state.enemies.filter(ally=>!ally.dead&&ally.hp<ally.maxHp-.1&&distance(enemy,ally)<=radius);
 }
+function woundedOtherAllies(enemy:Enemy,state:RunState,radius:number){
+ return woundedAllies(enemy,state,radius).filter(ally=>ally.uid!==enemy.uid);
+}
+/** Healers only cast support moves for nearby allies; otherwise they join the
+ * fight with the same quick, close-range strike as a fast melee enemy. */
+export function enemyMoveRole(enemy:Enemy,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):EnemyAttackRole {
+ return profile.role==='healer'&&woundedOtherAllies(enemy,state,profile.radius).length===0?'melee-fast':profile.role;
+}
 export function canStartEnemyMove(enemy:Enemy,target:Vec2,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):boolean {
  if(enemy.dead||enemy.stunTime>0||enemy.attackCooldown>0||enemy.windup)return false;
- return profile.role==='healer'?woundedAllies(enemy,state,profile.radius).length>0:distance(enemy,target)<=profile.range+enemy.size*.4;
+ return profile.role==='healer'?woundedOtherAllies(enemy,state,profile.radius).length>0:distance(enemy,target)<=profile.range+enemy.size*.4;
 }
 /** A normalized movement intent. Ranged foes hold firing distance; healers seek
  * wounded allies and stay behind them. The simulation applies speed and status. */
 export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):{x:number;z:number;speedScale:number} {
  let destination=target,sign=1,scale=1;
  if(profile.role==='healer'){
-  const allies=woundedAllies(enemy,state,20).filter(ally=>ally.uid!==enemy.uid).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp);
+  const allies=woundedOtherAllies(enemy,state,20).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp);
   if(allies.length){destination=allies[0];if(distance(enemy,destination)<profile.radius*.65)return {x:0,z:0,speedScale:0};}
-  else if(distance(enemy,target)>12)return {x:0,z:0,speedScale:0};
-  else {sign=-1;scale=.7;}
  }else if(profile.role==='ranged-burst'||profile.role==='ranged-projectile'||profile.role==='explosive-bomb'){
   const d=distance(enemy,target),preferred=profile.role==='explosive-bomb'?11:profile.role==='ranged-projectile'?10:8;
   if(d<preferred-2){sign=-1;scale=.65;}
@@ -46,8 +52,9 @@ export function prepareEnemyMove(enemy:Enemy,target:Vec2,profile=getEnemyAttackP
   x:centered?enemy.x:target.x,z:centered?enemy.z:target.z,facing,radius:profile.radius};
 }
 export function enemyMoveTell(enemy:Enemy,windup:EnemyWindup,profile=getEnemyAttackProfile(enemy.speciesId)):EnemyMoveVisual {
- return {kind:'tell',x:enemy.x,z:enemy.z,toX:windup.x,toZ:windup.z,sourceId:enemy.uid,label:profile.moveName,
-  color:profile.color,shape:profile.role,radius:profile.radius,duration:windup.duration,facing:windup.facing};
+ const activeProfile=withEnemyAttackRole(profile,windup.role??profile.role);
+ return {kind:'tell',x:enemy.x,z:enemy.z,toX:windup.x,toZ:windup.z,sourceId:enemy.uid,label:activeProfile.moveName,
+  color:activeProfile.color,shape:activeProfile.role,radius:activeProfile.radius,duration:windup.duration,facing:windup.facing};
 }
 function inCommittedStrike(enemy:Enemy,windup:EnemyWindup,target:Vec2,radius:number){
  const dx=target.x-enemy.x,dz=target.z-enemy.z,d=Math.hypot(dx,dz);
@@ -55,11 +62,12 @@ function inCommittedStrike(enemy:Enemy,windup:EnemyWindup,target:Vec2,radius:num
  return d<=radius+enemy.size*.3&&(d<.65||(dx*Math.sin(windup.facing)+dz*Math.cos(windup.facing))/d>.24);
 }
 export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,hooks:EnemyMoveHooks,profile:EnemyAttackProfile=getEnemyAttackProfile(enemy.speciesId)):void {
+ profile=withEnemyAttackRole(profile,windup.role??profile.role);
  const role=profile.role,poison=profile.element==='poison'||enemy.variant==='poisoned',damage=enemy.damage*profile.damageScale;
  enemy.attackCooldown=profile.cooldown/getVariant(enemy.variant).aggression;hooks.animate(enemy,windup.facing,role==='melee-slow'?.48:.3);
  const visual=(shape:string,x=enemy.x,z=enemy.z,radius=profile.radius,duration=.32)=>hooks.visual({kind:'attack',x,z,sourceId:enemy.uid,label:profile.moveName,color:profile.color,shape,radius,duration,facing:windup.facing});
  if(role==='healer'){
-  for(const ally of woundedAllies(enemy,state,profile.radius)){
+  for(const ally of woundedOtherAllies(enemy,state,profile.radius)){
    const amount=Math.min(45,ally.maxHp*(ally.isBoss?.03:ally.uid===enemy.uid?.05:.1));
    ally.hp=Math.min(ally.maxHp,ally.hp+amount);
    if(ally.uid!==enemy.uid)hooks.visual({kind:'attack',x:enemy.x,z:enemy.z,toX:ally.x,toZ:ally.z,sourceId:enemy.uid,label:profile.moveName,color:profile.color,shape:'heal',duration:.45});

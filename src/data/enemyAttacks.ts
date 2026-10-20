@@ -184,6 +184,12 @@ const bySpecies=new Map(ENEMY_ATTACK_PROFILES.map(profile=>[profile.speciesId,pr
 export function getEnemyAttackProfile(speciesId:number):EnemyAttackProfile {
  const profile=bySpecies.get(speciesId);if(!profile)throw Error(`Missing enemy attack profile ${speciesId}`);return profile;
 }
+/** Support enemies retain their named healing move, but use this lightweight
+ * fallback profile when there is nobody nearby to support. */
+export function withEnemyAttackRole(profile:EnemyAttackProfile,role:EnemyAttackRole):EnemyAttackProfile {
+ if(role===profile.role)return profile;
+ return {...profile,...tuning[role],role,moveName:'Quick Attack'};
+}
 
 const ELITE_AREA_MOVES:Record<Element,string>={normal:'Body Slam',fire:'Heat Wave',water:'Surf',grass:'Petal Blizzard',electric:'Discharge',ice:'Blizzard',fighting:'Force Palm',poison:'Sludge Wave',ground:'Earthquake',flying:'Air Slash',psychic:'Psychic',bug:'Bug Buzz',rock:'Rock Slide',ghost:'Shadow Ball',dragon:'Dragon Pulse'};
 /** Elite area attacks retain the species' element and use a recognizable move. */
