@@ -49,7 +49,7 @@ const fallback:Record<string,SpecialTuning>={
 
 /** Specials inherit the leader's move rank, but grow along their own mechanical paths. */
 export function getSpecialProfile(speciesId:number,rank=1):SpecialProfile {
- const species=getSpecies(speciesId),r=Math.max(1,Math.min(12,Number.isFinite(rank)?Math.floor(rank):1));
+ const species=getSpecies(speciesId),r=Math.max(1,Number.isFinite(rank)?Math.floor(rank):1);
  const profile:SpecialProfile={range:16,radius:2,duration:0,pulses:1,projectiles:0,damageScale:1,cooldown:DESIGN.specialCooldown,angle:1,knockback:0,...(bySpecies.get(speciesId)??fallback[species.attack])};
  // Evolution strengthens the existing identity instead of replacing it with a shared blast.
  profile.damageScale*=1+(species.stage-1)*.12;

@@ -72,7 +72,8 @@ export function createPOIs(seed:number):POI[] {
   }
   if(!candidate)throw new Error(`No reachable exploration site for ${kind} in ${biome}`);
   const paid=kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
-  pois.push({uid:20+pois.length,...candidate,kind,used:false,...(paid?{price:ECONOMY.chestBaseCost}:{})});
+  const chestIndex=pois.filter(poi=>poi.price!==undefined).length;
+  pois.push({uid:20+pois.length,...candidate,kind,used:false,...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex]}:{})});
  }
  return pois;
 }

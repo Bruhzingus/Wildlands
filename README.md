@@ -21,9 +21,11 @@ Primary and learned attacks automatically target nearby enemies. Mouse look aims
 
 **Tests:** `npm test`, `npm run typecheck`, `npm run build`, `npm run test:browser`. Browser checks use installed Chrome on Windows or Playwright Chromium elsewhere (`npx playwright install chromium`). Screenshots/traces are ignored under `artifacts/browser/`.
 
-Each living Pokémon receives full shared XP and levels independently during gameplay, gaining modest HP and damage without pausing. Pokémon choices happen at **levels 3, 5, 10, 15…** and offer real species-appropriate moves, move upgrades and eligible evolutions. Each Pokémon knows at most four moves, with independent ranks and cooldowns. Elite rewards offer squad training; enemies drop coins and rare items, and supply chests sell more upgrades. Exp. Share helps teammates behind the leader catch up. Enemy scaling follows time with a small capped response to party strength. See [the upgrade rework](docs/UPGRADE_REWORK.md) for tuning and verification details.
+Each living Pokémon receives full shared XP and levels independently during gameplay, gaining modest HP and damage without pausing. Pokémon choices happen at **levels 3, 5, 10, 15…** and prioritize existing move upgrades and stat training, alongside eligible evolutions. Extra move slots unlock at levels 10, 20 and 30; new moves appear occasionally after unlocking a slot. Each Pokémon knows at most four moves, with independent ranks and cooldowns. Elite rewards offer squad training; enemies drop coins and rare items, and supply chests sell more upgrades. Exp. Share helps teammates behind the leader catch up. Enemy scaling follows time with a small capped response to party strength. See [the upgrade rework](docs/UPGRADE_REWORK.md) for tuning and verification details.
 
-Evolution grants +25% max HP, +25% permanent attack damage and +1 rank to every known move, capped at rank 8. Single-stage Pokémon instead train all four moves up to rank 12 and gain +2 ranks per move training choice from their own level 5.
+Evolution grants +25% max HP, +25% permanent attack damage and +1 rank to every known move, without a rank ceiling. Single-stage Pokémon gain +2 ranks per move training choice from their own level 5.
+
+Pokémon can reach level **100**; the leader should be around **25–35 at 15 minutes**. Evolution and new-move choices happen below level 45. Milestones from level 45 onward focus on upgrading existing moves and squad stats. Training stacks indefinitely, with Common / Rare / Epic versions giving 1× / 2× / 3× bonuses at 55% / 35% / 10% base rarity odds. Team-only relics require a living teammate.
 
 ## Documentation
 

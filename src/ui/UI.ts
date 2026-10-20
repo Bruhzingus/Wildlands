@@ -19,7 +19,7 @@ import {getMoveDefinition} from '../data/moves.ts';
 import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
 import {PROGRESSION,nextMilestone} from '../data/progression.ts';
-import {chestCost} from '../data/economy.ts';
+import {CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
 import {xpThreshold} from '../game/systems/progression.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
@@ -148,9 +148,9 @@ export class UI {
   const portraitId=c.kind==='evolve'?c.targetId:c.kind==='recruit'?c.speciesId:undefined;
   const p=portraitId?getSpecies(portraitId):null;
   const img=p?this.portrait(p.id,'upgrade-pokemon'):`<div class="upgrade-glyph" aria-hidden="true">${upgradeIcon(c)}</div>`;
-  const rank=c.rank!==undefined&&c.maxRank!==undefined?`<span class="choice-rank">RANK ${c.rank} / ${c.maxRank}</span>`:'';
+  const rank=c.rank!==undefined&&(c.kind==='stat'||c.kind==='attack')?`<span class="choice-rank">RANK ${c.rank}</span>`:'';
   const member=c.kind!=='recruit'?s.party.find(member=>member.uid===c.speciesId):undefined;
-  const owner=member?`${getSpecies(member.speciesId).name} · LV ${member.level}`:c.kind==='recruit'?'NEW TEAMMATE':'SQUAD BONUS';
+  const owner=member?`${getSpecies(member.speciesId).name} · LV ${member.level}`:c.kind==='recruit'?'NEW TEAMMATE':s.party.length>1?'SQUAD BONUS':'YOUR POKÉMON';
   const slot=member&&(c.kind==='learn'||c.kind==='attack')?` · MOVE ${c.kind==='learn'?2+(member.learnedMoves?.length??0):c.moveId?(member.learnedMoves?.findIndex(move=>move.moveId===c.moveId)??0)+2:1} / 4`:'';
   const raritySymbol={common:'◆',rare:'◆◆',epic:'◆◆◆'}[c.rarity];
   return `<button type="button" class="choice-card ${c.rarity}" style="--choice-order:${index}" data-choice="${esc(c.id)}"${member?` data-choice-member="${member.uid}"`:''} aria-keyshortcuts="${index+1}"><span class="choice-header"><span class="choice-kind">${tags[c.kind]}</span><span class="choice-index">${index+1}</span></span><span class="choice-art">${img}</span><strong class="choice-title">${esc(c.title)}</strong><span class="choice-owner">${esc(owner+slot)}</span><span class="choice-rarity"><span class="rarity-symbol" aria-hidden="true">${raritySymbol}</span><span class="rarity-label">${c.rarity.toUpperCase()}</span><span class="rarity-rule" aria-hidden="true"></span></span>${rank}<p>${esc(c.description)}</p><span class="choice-footer"><span>UPGRADE</span><span>SELECT &rarr;</span></span></button>`;
@@ -173,7 +173,7 @@ export class UI {
   const bonus=(value:number)=>`${value>=0?'+':''}${Math.round(value*100)}%`;
   return `<details class="build-summary" open><summary>Build / ${build.items.length} relics / ${build.synergies.length} synergies</summary>
    <div class="build-modifiers"><span>Leader damage ${bonus(m.power)}</span><span>Attack speed ${bonus(m.haste)}</span><span>Max HP ${Math.ceil(s.player.maxHp)}</span><span>Damage reduction ${Math.round(m.damageReduction*100)}%</span><span>Movement ${bonus(m.speed)}</span><span>Dodge recovery ${bonus(m.stamina)}</span><span>Special recovery ${bonus(m.specialHaste)}</span><span>Crit ${Math.round(m.critChance*100)}%</span><span>Area ${bonus(m.radius)}</span></div>
-   <p class="progression-help">Full shared XP for every living teammate. Levels add 2% HP and attack; choices happen at levels 3, 5, 10, 15… Coins buy extra upgrades from supply chests.</p><div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member)).join('')}</div>
+   <p class="progression-help">Full shared XP for every living teammate. Levels add 2% HP and attack up to level ${PROGRESSION.leveling.maxLevel}; choices happen at levels 3, 5, 10, 15… Extra move slots unlock at levels 10, 20 and 30. Training stacks without a rank limit. Choose evolutions and new moves before level ${PROGRESSION.leveling.trainingFocusLevel}; later choices train moves and stats. Coins buy extra upgrades from supply chests.</p><div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member)).join('')}</div>
    <div class="build-special"><strong>Q / ${esc(special.name)}</strong><span>${esc(special.description)}</span><span>${special.cooldown.toFixed(0)}s base cooldown · Rank ${leader.attackLevel}</span></div>
    <div class="build-synergies">${build.synergies.length?build.synergies.map(synergy=>`<div data-synergy="${esc(synergy.id)}"><strong>${esc(synergy.title)}</strong><span>${esc(synergy.description)}</span></div>`).join(''):'<p>No active team synergies yet.</p>'}</div>
    <div class="build-items">${build.items.length?build.items.map(item=>`<div data-item="${esc(item.id)}"><strong>${esc(item.title)}${item.stacks>1?` ×${item.stacks}`:''}</strong><span>${esc(item.description)}</span></div>`).join(''):'<p>Find discovery caches for relics.</p>'}</div>
@@ -186,7 +186,7 @@ export class UI {
 
  private pokemonSummary(member:PartyMember){
   const moves=this.pokemonMoves(member),xp=member.xp??0,next=member.xpToNext??xpThreshold(member.level),milestone=nextMilestone(member.level);
-  const species=getSpecies(member.speciesId),evolution=species.evolvesTo.length?` · Evolution: LV ${species.stage>=2?PROGRESSION.evolution.finalLevel:PROGRESSION.evolution.firstLevel} + ${PROGRESSION.evolution.maturitySeconds}s training`:'';
+  const species=getSpecies(member.speciesId),evolution=member.level>=PROGRESSION.leveling.trainingFocusLevel?' · Move / stat training':species.evolvesTo.length?` · Evolution: LV ${species.stage>=2?PROGRESSION.evolution.finalLevel:PROGRESSION.evolution.firstLevel} + ${PROGRESSION.evolution.maturitySeconds}s training, before LV ${PROGRESSION.leveling.trainingFocusLevel}`:'';
   return `<section class="pokemon-summary" data-summary-member="${member.uid}"><div class="pokemon-summary-heading">${this.portrait(member.speciesId)}<div><strong>${esc(species.name)}</strong><span>LV ${member.level} · ${Math.floor(xp)} / ${next} XP</span><div class="pokemon-xp-track" aria-hidden="true"><span style="width:${percent(xp,next)}%"></span></div><span>${milestone?`Next choice: LV ${milestone}`:'MAX LEVEL'}${evolution}</span></div><small>${moves.length} / 4 MOVES</small></div><ol class="pokemon-moves">${Array.from({length:4},(_,index)=>{const move=moves[index];return `<li class="pokemon-move-slot${move?'':' empty'}" data-move-slot="${index+1}"><span class="move-slot-number">${index+1}</span><span class="move-slot-name">${move?esc(move.name):'Open move slot'}</span>${move?`<span class="move-slot-rank">RANK ${move.rank}</span>`:'<span class="move-slot-rank">LEARN</span>'}</li>`;}).join('')}</ol></section>`;
  }
 
@@ -208,7 +208,7 @@ export class UI {
   const leader=s.party[0],leaderXP=leader.xp??stats.xp,leaderNext=leader.xpToNext??xpThreshold(leader.level);
   q('#level-label').textContent=`LV ${leader.level}`;q('#xp-text').textContent=`${Math.floor(leaderXP)} / ${leaderNext} XP`;
   q('#xp-fill').style.width=`${percent(leaderXP,leaderNext)}%`;
-  const milestone=nextMilestone(leader.level);q('#next-milestone').textContent=milestone?`NEXT CHOICE: LV ${milestone}`:'MAX LEVEL';
+  const milestone=nextMilestone(leader.level);q('#next-milestone').textContent=milestone?`NEXT ${milestone>=PROGRESSION.leveling.trainingFocusLevel?'TRAINING':'CHOICE'}: LV ${milestone}`:`MAX LEVEL ${PROGRESSION.leveling.maxLevel}`;
   const special=getSpecialProfile(leader.speciesId,leader.attackLevel),specialTile=q('#special-cd');
   const specialLabel=specialTile.querySelector('span:not(.kbd)')!;if(specialLabel.textContent!==special.name.toUpperCase())specialLabel.textContent=special.name.toUpperCase();
   specialTile.title=`${special.description} (${special.cooldown.toFixed(0)}s base cooldown)`;
@@ -236,12 +236,15 @@ export class UI {
    unit.setAttribute('aria-label',`${summary.replace(/\n/g,', ')}, ${Math.ceil(hp)} of ${Math.ceil(maxHp)} HP${low?', critical health':''}`);
   });
   this.refreshPartyAlert(s);
-  const near=s.pois.find(poi=>!poi.used&&distance2(p,poi)<DESIGN.interactionRadius);
+  const near=s.pois.find(poi=>(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge);
   const interaction=q('#interaction');interaction.classList.toggle('hidden',!near);
-  if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,signature=`${near.uid}/${cost}/${affordable}`;
+  if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,seconds=Math.ceil((near.challenge?.endsAt??near.respawnAt??0)-s.stats.elapsed),signature=`${near.uid}/${cost}/${affordable}/${seconds}/${near.used}/${shrineTier(s,near)}`;
    if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;
-    const label=near.kind==='cache'&&cost?`${affordable?'Buy upgrade':'Need'} ${cost} coins`:({cache:'Open free cache',shrine:'Challenge shrine guardian',elite:'Challenge elite',healing:'Recover HP'})[near.kind];
-    interaction.innerHTML=`<span class="kbd">E</span> ${label}`;interaction.classList.toggle('unaffordable',!affordable);
+    const label=near.challenge?`SHRINE TRIAL: ${seconds}s · Stay within ${SHRINE.radius}m · ${Math.ceil(distance2(p,near))}m away`
+     :near.used?`${near.kind==='shrine'?'Shrine recharges':'Chest restocks'} in ${seconds}s`
+     :near.kind==='cache'&&near.price!==undefined?`${chestRarity(s,near).toUpperCase()} chest · ${affordable?'Choose relic':'Need'} ${cost} coins`
+     :({cache:'Open discovery cache · One use',shrine:`Tier ${shrineTier(s,near)} shrine · DANGER: Lv ${SHRINE.recommendedLevel}+ squad recommended · ${SHRINE.duration}s trial, ${SHRINE.radius}m boundary · Relic + training`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
+    interaction.innerHTML=`${near.used?'':'<span class="kbd">E</span> '}${label}`;interaction.classList.toggle('unaffordable',!affordable&&!near.used);
    }
   }
   this.drawMap(s);
@@ -290,16 +293,16 @@ export class UI {
   }
   context.clearRect(0,0,MAP_SIZE,MAP_SIZE);context.drawImage(this.mapBase,0,0);
   const boss=s.enemies.find(e=>e.isBoss&&!e.dead),markers:MapMarker[]=[{...s.player,id:'player',kind:'player',priority:3,radius:6},
-   ...s.pois.filter(p=>!p.used).map(p=>({...p,id:`poi-${p.uid}`,priority:1,kind:p.kind,radius:3.5})),
+   ...s.pois.filter(p=>!p.used||p.respawnAt!==undefined||p.challenge).map(p=>({...p,rarity:chestRarity(s,p),id:`poi-${p.uid}`,priority:p.challenge?2:1,kind:p.kind,radius:3.5})),
    ...LANDMARKS.map(p=>({...p,id:p.id,kind:'landmark' as const,priority:0,radius:4,label:p.initial}))];
   if(boss)markers.push({...boss,id:'boss',kind:'boss',priority:2,radius:5});
   const placed=layoutMapMarkers(markers);canvas.dataset.markers=String(placed.length);
   for(const marker of [...placed].reverse()){
    const {mapX:x,mapY:y,kind}=marker;
    if(Math.hypot(x-marker.anchorX,y-marker.anchorY)>1){context.strokeStyle='#e8ebda';context.lineWidth=.6;context.beginPath();context.moveTo(x,y);context.lineTo(marker.anchorX,marker.anchorY);context.stroke();}
-   context.save();context.translate(x,y);context.lineWidth=1.4;context.strokeStyle='#172019';context.fillStyle='#e9cc78';context.beginPath();
+   context.save();context.globalAlpha=marker.used?.45:1;context.translate(x,y);context.lineWidth=1.4;context.strokeStyle='#172019';context.fillStyle='#e9cc78';context.beginPath();
    if(kind==='player'){context.rotate(s.player.facing);context.moveTo(0,-6);context.lineTo(-4.5,4.5);context.lineTo(4.5,4.5);context.closePath();context.fillStyle='#f4f2d9';context.fill();context.stroke();}
-   else if(kind==='cache'){context.fillStyle=marker.price===undefined?'#bad49a':'#edc66d';context.rect(-3,-3,6,6);context.fill();context.stroke();if(marker.price!==undefined){context.moveTo(-2,0);context.lineTo(2,0);context.stroke();}}
+   else if(kind==='cache'){context.fillStyle=marker.price===undefined?'#bad49a':CHEST_TIERS[marker.rarity??'common'].color;context.rect(-3,-3,6,6);context.fill();context.stroke();if(marker.price!==undefined){context.moveTo(-2,0);context.lineTo(2,0);context.stroke();}}
    else if(kind==='shrine'||kind==='boss'){context.moveTo(0,-4);context.lineTo(4,0);context.lineTo(0,4);context.lineTo(-4,0);context.closePath();context.fillStyle=kind==='boss'?'#e0c2ed':'#bda5db';context.fill();context.stroke();}
    else if(kind==='elite'){context.moveTo(-3,3);context.lineTo(0,-4);context.lineTo(3,3);context.closePath();context.fillStyle='#ed887b';context.fill();context.stroke();}
    else if(kind==='healing'){context.fillStyle='#d0e5ba';context.fillRect(-3.5,-1.2,7,2.4);context.fillRect(-1.2,-3.5,2.4,7);}

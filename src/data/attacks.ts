@@ -34,7 +34,7 @@ export const ELEMENT_PROCS:Partial<Record<Element,StatusProc>>={water:{soak:1},f
 export const SPECIES_ATTACKS=SPECIES_ATTACK_PARAMETERS;
 export function getAttackProfile(speciesId:number,level=1):AttackDefinition {
  const species=getSpecies(speciesId),override=SPECIES_ATTACKS[speciesId]||{},base=ATTACK_ARCHETYPES[override.kind||species.attack];
- const growth={...base.growth,...override.growth},rank=Math.max(0,Math.min(11,level-1));
+ const growth={...base.growth,...override.growth},rank=Math.max(0,Number.isFinite(level)?level-1:0);
  let profile:AttackDefinition={...base,...override,growth,status:{...ELEMENT_PROCS[species.types[0]],...base.status,...override.status}};
  for(const milestone of profile.milestones||[]){
   if(milestone.rank>rank+1)continue;

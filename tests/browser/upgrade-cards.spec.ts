@@ -46,7 +46,7 @@ test('upgrade cards show each rarity, enter in sequence, lift on hover and fit s
  await expect(page.locator('.rarity-label')).toHaveText(['COMMON','RARE','EPIC']);
  for(const label of await page.locator('.rarity-label').all())await expect(label).toBeVisible();
  await expect(page.locator('.upgrade-pokemon')).toHaveAttribute('alt','Ivysaur');
- await expect(page.locator('.choice-rank')).toHaveText('RANK 2 / 5');
+ await expect(page.locator('.choice-rank')).toHaveText('RANK 2');
  const badgeColors=await page.locator('.choice-rarity').evaluateAll(badges=>badges.map(badge=>getComputedStyle(badge).color));
  expect(new Set(badgeColors).size).toBe(3);
  const frameColors=await cards.evaluateAll(elements=>elements.map(element=>getComputedStyle(element).borderLeftColor));
@@ -83,4 +83,34 @@ test('reduced motion keeps upgrade cards still on arrival and hover',async({page
  expect(hovered!.y).toBeCloseTo(resting!.y,1);
  expect(hovered!.width).toBeCloseTo(resting!.width,1);
  await expectCardsToFit(page);
+});
+
+test('real solo rewards prioritize training and show stronger versions with uncapped rank labels',async({page})=>{
+ await page.route('https://raw.githubusercontent.com/**',route=>route.abort());
+ await page.goto('/');await page.locator('[data-starter="1"]').click();
+ const early=await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {makeChoices}=await import('/src/game/systems/progression.ts');
+  // @ts-ignore Vite resolves browser source imports.
+  const {RNG}=await import('/src/utils/random.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;s.party[0].level=3;s.itemUnlocks=['exp-share'];
+  const choices=makeChoices(s,new RNG(79)),cache=makeChoices(s,new RNG(79),'cache');
+  const variants=new Map();
+  for(let seed=1;seed<=300;seed++)for(const choice of makeChoices(s,new RNG(seed*7919),'squad')){
+   if(choice.stat==='power')variants.set(choice.rarity,choice);
+  }
+  g.sim.enterChoice(['common','rare','epic'].map(rarity=>variants.get(rarity)),'Training rarities','squad');
+  return {kinds:choices.map((choice:any)=>choice.kind),cacheIds:cache.map((choice:any)=>choice.id)};
+ });
+ expect(early.kinds).toContain('attack');expect(early.kinds).toContain('stat');expect(early.kinds).not.toContain('learn');
+ expect(early.cacheIds).not.toContain('exp-share');
+ await expect(page.locator('.choice-rank')).toHaveText(['RANK 1','RANK 1','RANK 1']);
+ await expect(page.locator('.choice-owner')).toHaveText(['YOUR POKÉMON','YOUR POKÉMON','YOUR POKÉMON']);
+ await expect(page.locator('.choice-card p')).toHaveText([
+  '+12% attack damage, including learned moves.',
+  '+24% attack damage, including learned moves.',
+  '+36% attack damage, including learned moves.',
+ ]);
+ await page.locator('[data-choice="power-rare"]').click();
+ expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.buffs.power)).toBe(.24);
 });

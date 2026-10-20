@@ -4,7 +4,6 @@ import {DESIGN} from '../src/data/config.ts';
 import {KANTO,getSpecies} from '../src/data/kanto.ts';
 import {ITEMS} from '../src/data/items.ts';
 import {PROGRESSION,TRAINING_UPGRADES} from '../src/data/progression.ts';
-import {learnableMoves} from '../src/data/moves.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {applyChoice,canRecruit,eligibleEvolutions,makeChoices,maxMoveRank,moveRankGain,weightedUpgradeChoices} from '../src/game/systems/progression.ts';
 import type {UpgradeChoice} from '../src/game/types.ts';
@@ -103,10 +102,10 @@ test('a follower evolution affects only that member, and a fainted owner cannot 
  assert.equal(applyChoice(state,next).applied,false);
 });
 
-test('single-stage species gain faster move training at their own level five and cap at twelve',()=>{
+test('single-stage species gain faster move training at their own level five without a rank ceiling',()=>{
  for(const species of KANTO.filter(species=>species.stage===1&&!species.evolvesTo.length)){
   const state=new Simulation(species.id,10).state,member=state.party[0];state.stats.elapsed=9000;state.stats.level=99;
-  assert.equal(maxMoveRank(species),12);assert.equal(moveRankGain(state,member),1,'Elapsed time and squad levels do not grant mastery');
+  assert.equal(maxMoveRank(species),Infinity);assert.equal(moveRankGain(state,member),1,'Elapsed time and squad levels do not grant mastery');
   const upgrade:UpgradeChoice={id:'attack-1-1',kind:'attack',speciesId:1,sourceSpeciesId:species.id,rank:2,
    amount:1,title:'Move',description:'',rarity:'common'};
   assert.equal(applyChoice(state,{...upgrade,amount:999}).applied,false);
@@ -115,30 +114,29 @@ test('single-stage species gain faster move training at their own level five and
   member.level=5;state.stats.elapsed=0;assert.equal(moveRankGain(state,member),2,'Personal training unlocks mastery even early in the run');
   assert.equal(applyChoice(state,{...upgrade,id:'attack-1-2',amount:1,rank:3}).applied,false,'Old single-rank cards cannot bypass mastery');
   assert.equal(applyChoice(state,{...upgrade,id:'attack-1-2',amount:2,rank:4}).applied,true);
-  member.attackLevel=11;assert.equal(moveRankGain(state,member),1);
-  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-11',amount:1,rank:12}).applied,true);
-  assert.equal(moveRankGain(state,member),0);
+  member.attackLevel=11;assert.equal(moveRankGain(state,member),2);
+  assert.equal(applyChoice(state,{...upgrade,id:'attack-1-11',amount:2,rank:13}).applied,true);
+  assert.equal(moveRankGain(state,member),2);
  }
- assert.equal(maxMoveRank(getSpecies(1)),8);
+ assert.equal(maxMoveRank(getSpecies(1)),Infinity);
  for(const species of KANTO.filter(species=>species.stage>1)){
   const state=new Simulation(species.id,10).state;state.party[0].level=99;state.stats.elapsed=9000;
-  assert.equal(maxMoveRank(species),8,'Final evolved forms do not count as single-stage species');
+  assert.equal(maxMoveRank(species),Infinity,'All species support unlimited move training');
   assert.equal(moveRankGain(state,state.party[0]),1);
  }
 });
 
-test('training uses canonical amounts, rank caps and stale-card guards',()=>{
+test('training keeps canonical amounts and stale-card guards beyond the old caps',()=>{
  for(const definition of TRAINING_UPGRADES){
   const state=new Simulation(1,5).state;
-  for(let rank=1;rank<=definition.maxRank;rank++){
+  for(let rank=1;rank<=30;rank++){
    const upgrade:UpgradeChoice={...definition,kind:'stat',rank,category:'training'};
    for(const amount of [-1,0,Infinity,NaN,100000])assert.equal(applyChoice(state,{...upgrade,amount}).applied,false);
    assert.equal(applyChoice(state,{...upgrade,stat:'unknown'}).applied,false);
    assert.equal(applyChoice(state,upgrade).applied,true);
    assert.equal(applyChoice(state,upgrade).applied,false,'Same training rank cannot be applied twice');
   }
-  assert.equal(applyChoice(state,{...definition,kind:'stat'}).applied,false,'Training cap is final');
-  assert.ok(Math.abs(state.buffs[definition.stat]-definition.maxRank*definition.amount)<1e-9);
+  assert.ok(Math.abs(state.buffs[definition.stat]-30*definition.amount)<1e-9);
  }
 });
 
@@ -155,17 +153,16 @@ test('upgrade rarity follows configured weights and luck improves high rarity od
  assert.equal(new Set(weightedUpgradeChoices(duplicated,20,new RNG(1)).map(choice=>choice.id)).size,3);
 });
 
-test('owned items and capped training/moves disappear; all cards are unique and categorized',()=>{
- const state=new Simulation(113,3).state;state.party[0].attackLevel=12;
- state.party[0].learnedMoves=learnableMoves(113).slice(0,3).map(move=>({moveId:move.id,rank:12,cooldown:0}));
- for(const definition of TRAINING_UPGRADES)state.buffs[definition.stat]=definition.amount*definition.maxRank;
+test('owned relics disappear while high-rank training remains available and categorized',()=>{
+ const state=new Simulation(113,3).state;state.party[0].attackLevel=100;state.party[0].level=100;
  state.items=ITEMS.slice(1).map(item=>item.id);
- assert.deepEqual(makeChoices(state,new RNG(8)),[],'Relics are reserved for discovery caches');
+ const training=makeChoices(state,new RNG(8));
+ assert.equal(training.length,3);assert.ok(training.some(choice=>choice.kind==='attack'&&choice.rank!>100));
+ assert.ok(training.every(choice=>choice.category&&choice.maxRank===undefined));
  const options=makeChoices(state,new RNG(8),'cache');assert.deepEqual(options.map(option=>option.id),[ITEMS[0].id]);
  assert.equal(options[0].category,'item');assert.equal(applyChoice(state,options[0]).applied,true);
  assert.equal(applyChoice(state,options[0]).applied,false);
- assert.deepEqual(makeChoices(state,new RNG(8)),[]);
- assert.deepEqual(makeChoices(state,new RNG(8),'cache'),[]);
+ assert.ok(makeChoices(state,new RNG(8),'cache').every(choice=>choice.kind==='stat'));
 });
 
 test('six seeded 15-minute routes reach four living members; six slots require endless timing',()=>{
@@ -174,6 +171,7 @@ test('six seeded 15-minute routes reach four living members; six slots require e
  for(const run of runs){
   assert.equal(run.elapsed,900);assert.equal(run.living,4,`Seed ${run.seed}: ${JSON.stringify(run)}`);
   assert.equal(run.recruits,3);assert.equal(run.faints,0);assert.ok(run.level>=15);
+  assert.ok(run.leaderLevel>=25&&run.leaderLevel<=35,`Leader target is level 25–35 at 15 minutes: ${JSON.stringify(run)}`);
  }
  const state=new Simulation(1,4).state;state.stats.level=99;
  for(const time of DESIGN.recruitUnlockSeconds){state.stats.elapsed=time;assert.equal(applyChoice(state,makeChoices(state,new RNG(time))[0]).applied,true);}

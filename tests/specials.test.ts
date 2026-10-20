@@ -32,12 +32,12 @@ test('each starter has a distinct special mechanic and every species has a valid
  for(const species of KANTO){
   const first=getSpecialProfile(species.id),last=getSpecialProfile(species.id,12);
   assert.ok(first.name.length>0&&first.description.length>20);
-  for(const profile of [first,last]){
+  for(const profile of [first,last,getSpecialProfile(species.id,999)]){
    assert.ok([profile.range,profile.radius,profile.duration,profile.damageScale,profile.cooldown,profile.angle,profile.knockback].every(Number.isFinite));
    assert.ok(profile.range>0&&profile.cooldown>0&&profile.damageScale>=0);
    assert.ok(profile.projectiles>=0&&profile.projectiles<=12&&profile.pulses>=1&&profile.pulses<=16);
   }
-  assert.deepEqual(getSpecialProfile(species.id,999),last);assert.deepEqual(getSpecialProfile(species.id,NaN),first);
+  assert.deepEqual(getSpecialProfile(species.id,NaN),first);
   first.radius=999;assert.notEqual(getSpecialProfile(species.id).radius,999,'Profiles must not expose shared mutable tuning');
  }
  for(const [base,evolved] of [[1,3],[4,6],[7,9],[25,26]]){

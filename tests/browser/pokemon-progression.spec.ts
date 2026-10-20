@@ -138,7 +138,7 @@ test('a single-stage follower unlocks double-rank training on reaching level fiv
  await expect(page.locator('[data-level-owner="101"]')).toContainText('Scyther');
  await expect(page.locator('.choice-pokemon')).toContainText('LV 5');
  const card=page.locator('[data-choice="attack-101-1"]');
- await expect(card).toContainText('RANK 3 / 12');
+ await expect(card).toContainText('RANK 3');
  await expect(card).toContainText('Single-stage mastery: +2 ranks');
  await card.click();
  await expect(page.locator('[data-member="101"] .party-rank')).toHaveText('R3');
@@ -182,12 +182,42 @@ test('coins and item drops collect during play and a supply chest sells squad up
  await expect(page.locator('#coins')).toHaveText('45');
  await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.items.includes('exp-share'))).toBe(true);
  await expect(page.locator('#overlay')).toBeHidden();
- await expect(page.locator('#interaction')).toContainText('Buy upgrade 45 coins');
+ await expect(page.locator('#interaction')).toContainText('Choose relic 45 coins');
  await page.keyboard.press('e');
- await expect(page.locator('.choice-screen h2')).toContainText('45-coin purchase');
+ await expect(page.locator('.choice-screen h2')).toContainText('choose your reward (45 coins)');
  await expect(page.locator('#coins')).toHaveText('0');
  expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.upgradeChoices.every((choice:any)=>choice.kind==='stat'||choice.kind==='item'))).toBe(true);
  await page.locator('.choice-card').first().click();
  await expect(page.locator('#overlay')).toBeHidden();
  expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.chestPurchases)).toBe(1);
+});
+
+test('level 45 shifts to move and stat training and personal levels stop at 100',async({page})=>{
+ await startSquad(page);
+ await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {xpThreshold}=await import('/src/game/systems/progression.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state,member=s.party[0];
+  s.recruitCount=5;s.stats.elapsed=600;member.level=44;member.xp=0;
+  g.sim.gainXP(xpThreshold(44),member.uid);
+ });
+ await expect(page.locator('.choice-screen h2')).toContainText('level 45: move and stat training');
+ expect(await page.evaluate(()=>{
+  const choices=(window as any).__WILDLANDS__.sim.state.upgradeChoices;
+  return choices.some((choice:any)=>choice.kind==='attack')&&choices.some((choice:any)=>choice.kind==='stat')&&choices.every((choice:any)=>choice.kind==='attack'||choice.kind==='stat');
+ })).toBe(true);
+ await page.locator('[data-choice="attack-1-1"]').click();
+ await expect(page.locator('#next-milestone')).toHaveText('NEXT TRAINING: LV 50');
+ await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {xpThreshold}=await import('/src/game/systems/progression.ts');
+  const g=(window as any).__WILDLANDS__,member=g.sim.state.party[0];member.level=99;member.xp=0;
+  g.sim.gainXP(xpThreshold(99),member.uid);
+ });
+ await expect(page.locator('.choice-pokemon')).toContainText('LV 100');
+ await page.locator('[data-choice="attack-1-2"]').click();
+ await expect(page.locator('#next-milestone')).toHaveText('MAX LEVEL 100');
+ await page.evaluate(()=>(window as any).__WILDLANDS__.sim.gainXP(1e12,1));
+ await expect(page.locator('#overlay')).toBeHidden();
+ await expect(page.locator('[data-member="1"] .party-level')).toHaveText('L100');
 });

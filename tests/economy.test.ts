@@ -32,7 +32,7 @@ test('paid chests reject insufficient coins, charge once, and preserve queued Po
  sim.update(.04,{...idle,interact:true});assert.equal(s.phase,'playing');assert.equal(poi.used,false);assert.equal(s.coins,0);
  sim.update(.04,idle);s.coins=45;sim.update(.04,{...idle,interact:true});
  assert.equal(s.phase,'choice');assert.equal(s.choiceSource,'shop');assert.equal(poi.used,true);assert.equal(s.coins,0);
- assert.equal(s.chestPurchases,1);assert.equal(chestCost(s,chest(302)),60);
+ assert.equal(s.chestPurchases,1);assert.equal(chestCost(s,chest(302)),45);assert.equal(chestCost(s,poi),60);
  assert.ok(s.upgradeChoices.length>0&&s.upgradeChoices.every(choice=>choice.kind==='stat'||choice.kind==='item'));
  sim.gainXP(xpThreshold(1)+xpThreshold(2));assert.ok(sim.choose(s.upgradeChoices[0].id));
  assert.equal(s.phase,'choice');assert.equal(s.choiceSource,'level');assert.equal(s.levelUpMemberId,1);assert.equal(s.party[0].level,3);
@@ -40,10 +40,12 @@ test('paid chests reject insufficient coins, charge once, and preserve queued Po
  sim.update(.04,idle);sim.update(.04,{...idle,interact:true});assert.equal(s.coins,0);assert.equal(s.chestPurchases,1);
 });
 
-test('empty paid chests neither spend coins nor consume their exploration site',()=>{
+test('paid chests keep offering training after collecting every relic',()=>{
  const {sim,s}=arena(),poi=chest();s.pois=[poi];s.coins=100;s.items=ITEMS.map(item=>item.id);
- for(const training of TRAINING_UPGRADES)s.buffs[training.stat]=training.amount*training.maxRank;
- sim.update(.04,{...idle,interact:true});assert.equal(s.coins,100);assert.equal(poi.used,false);assert.equal(s.phase,'playing');
+ for(const training of TRAINING_UPGRADES)s.buffs[training.stat]=training.amount*30;
+ sim.update(.04,{...idle,interact:true});assert.equal(s.coins,55);assert.equal(poi.used,true);assert.equal(s.phase,'choice');
+ assert.equal(s.upgradeChoices.length,3);assert.ok(s.upgradeChoices.every(choice=>choice.kind==='stat'));
+ assert.equal(sim.choose(s.upgradeChoices[0].id),true);
 });
 
 test('elite rewards train the squad separately and cannot consume an earned personal milestone',()=>{
@@ -54,7 +56,7 @@ test('elite rewards train the squad separately and cannot consume an earned pers
  assert.ok(s.upgradeChoices.every(choice=>choice.kind==='stat'));assert.equal(s.levelUpMemberId,undefined);
  sim.gainXP(xpThreshold(1)+xpThreshold(2));sim.choose(s.upgradeChoices[0].id);
  assert.equal(s.choiceSource,'level');assert.equal(s.levelUpMemberId,1);
- assert.ok(s.upgradeChoices.every(choice=>choice.kind==='attack'||choice.kind==='learn'||choice.kind==='evolve'));
+ assert.ok(s.upgradeChoices.some(choice=>choice.kind==='attack'));assert.ok(s.upgradeChoices.some(choice=>choice.kind==='stat'));
 });
 
 test('drop budgets retain XP and coins and duplicate gear becomes coins',()=>{

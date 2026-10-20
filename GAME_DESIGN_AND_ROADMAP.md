@@ -45,7 +45,7 @@ A low-poly third-person Pokémon action roguelite. Start with one first-stage Po
 1. **Easy to play, rewarding to master:** Relaxed traversal, forgiving aiming, automatic attacks. Manual jump, dodge and a single Q ability for tactical spikes.
 2. **Reward pauses:** Ordinary Pokémon levels happen during combat with small stat gains. Time, enemies, cooldowns and projectiles freeze for milestone, recruitment, elite and chest choices. No decision timer. Each upgrade card is clear, numeric where possible, and immediately noticeable.
 3. **Escalating sensory impact:** Quiet green woodland and sparse enemies → stronger attackers and thicker crowds → visible synergies and big hits → one readable late boss; keep a hard VFX budget.
-4. **Party-first builds:** Starter, recruits, evolutions, 8 move ranks (12 for non-evolving first-stage species), global bonuses, one-time relics, elemental interactions, optional team compositions.
+4. **Party-first builds:** Starter, recruits, evolutions, unlimited move training, global bonuses, one-time relics, elemental interactions, optional team compositions.
 5. **Meaningful risk, not homework:** Up to five non-leading Pokémon can permanently faint for the run; teammates still attack automatically. No manual menu micromanagement, item crafting, resource inventory, or extraction routine.
 6. **Cohesive low-cost art:** Low-poly environment primitives, light fog, sprite-sheet character animation, simple VFX shapes and concise UI.
 7. **Deterministic, extendable tech:** Reusable archetypes and effects, seeded RNG, clean boundaries, testable pure simulation, no network calls in combat.
@@ -93,6 +93,8 @@ If a future agent interprets any default in contradiction with this section, **t
 
 Player selects starter from an unlockable roster, appears in the forest, can freely orbit the camera, move, jump, dodge, trigger a Q special ability, and automatically attack nearby targets without aiming. Weak wild Pokémon spawn at the fringes; XP crystals and coins fall. Low density, gentle audio and VFX. Ordinary levels add 2% HP and damage without pausing; the first Pokémon choice arrives at level 3, followed by levels 5, 10, 15 and so on. Exploration items may be found, but nothing is mandatory.
 
+Personal levels continue to **100**, with the leader targeting **25–35 at 15 minutes**. Evolution and significant new moves belong to the progression below level 45; from level 45 onward, milestones prioritize existing move upgrades and stat training. Level 100 is an extended-run goal, not the standard-run expectation. Aggregate squad progress remains separate from the leader's level.
+
 ### 2:45–7:00 — First partnership
 
 First new Pokémon becomes available once **both** elapsed time and player level thresholds are met. Recruitment is chosen from three first-stage species. A follower occupies a formation slot, attacks automatically, and has its own HP. Its position and attacks are visible in the party HUD. Starter may become eligible to evolve after sufficient run experience/time.
@@ -121,7 +123,7 @@ Located in `src/data/config.ts`:
 | 4 | 16:00 | 22 | 5 |
 | 5 | 20:00 | 29 | 6 |
 
-These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment opens **when eligible, after any current choice**, without spending a Pokémon milestone. Minimum levels use aggregate earned squad progress. Every living teammate receives full shared XP and levels independently; Exp. Share boosts teammates below the leader's level. Pokémon milestones offer moves and evolution; elite/boss rewards offer squad training. Enemy coins fund supply chests, while free caches and rare enemy drops award relics. Adjust using session telemetry; do not hardcode unlocks in UI code. Recruitment remains first-stage only. Branching species show every evolution plus an option to keep training. See [the current progression rules](docs/UPGRADE_REWORK.md).
+These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment opens **when eligible, after any current choice**, without spending a Pokémon milestone. Minimum levels use aggregate earned squad progress. Every living teammate receives full shared XP and levels independently; Exp. Share boosts teammates below the leader's level. Pokémon milestones prioritize existing moves and stat training, with occasional new moves after extra slots unlock at personal levels 10, 20 and 30, plus eligible evolution; elite/boss rewards offer squad training. Enemy coins fund supply chests, while free caches and rare enemy drops award relics. Adjust using session telemetry; do not hardcode unlocks in UI code. Recruitment remains first-stage only. Branching species show every evolution plus an option to keep training. See [the current progression rules](docs/UPGRADE_REWORK.md).
 
 ---
 
@@ -130,6 +132,8 @@ These gates are tuning targets, not promises that every playthrough hits them ex
 **Controls:** FPS-style mouse look automatically captures/hides the cursor when starting, resuming or choosing an upgrade. Camera rotation uses relative mouse deltas only while the browser actually owns pointer lock. Escape pauses and releases capture; click Resume to capture again. Lost or blocked capture keeps the game paused with a visible retry message. Moving the mouse up looks toward the horizon by default; invert-Y reverses it. WASD moves relative to the camera (A left, D right); the wheel zooms. Space jumps. Shift dodges in the initial input direction with a cooldown and temporary invulnerability. Q activates the leader's special on cooldown. E interacts within `DESIGN.interactionRadius`. Numeric keys select paused level-up options. One press activates one action: holding Q, Shift or Space does **not** automatically repeat it. Camera sensitivity and invert-Y persist locally and can be changed on the title and pause screens.
 
 **Input invariants:** Inputs are sampled once per visual frame. Simulation updates are dt-limited. Pausing halts all movement, enemy AI, cooldowns, projectiles, XP collection and timer. Blur pauses; resumed play should not retain stuck movement keys. Menus cannot accidentally activate in-world input. Entity IDs are unique and monotonic within a run.
+
+**Mouse capture reliability:** Starting and resuming request raw relative pointer movement (`unadjustedMovement: true`) to avoid the adjusted cursor path during long camera swipes. `src/game/pointerLock.ts` retries standard pointer lock if raw movement is unsupported, preserves permission-denial handling and prevents cancelled requests from starting a fallback. This is a mitigation for reported trackpad stalls; physical trackpad verification remains outstanding. Automated tests for this change use simulated API responses without capturing the desktop cursor.
 
 **Targeting:** Every party member's primary and learned attacks select nearby enemies automatically, regardless of camera direction or movement. Mouse look supplies aim only to directional Q specials (cones, waves, fans, dashes and lances) or placed Q fields (garden, powder and hex). Thunder Circuit, orbiting Foxfire and healing remain automatic. The aiming mode for each special is explicit in `src/data/specials.ts`.
 
@@ -162,7 +166,7 @@ The exact multipliers are provisional and are intended to be tuned with real-run
 - `src/data/config.ts`: run timer, recruitment time/level thresholds, movement, entity budgets, type multipliers and tuning constants.
 - `src/data/attacks.ts`: eight attack archetypes, species overrides, elemental procs and rank growth.
 - `src/data/rosterContent.ts`, `encounters.ts`, `evolutions.ts`, `validateRoster.ts`: 151 authored loadouts, actual encounter coverage, named adaptations and independent roster validation.
-- `src/data/progression.ts`: evolution maturity, rarity weights, rank limits and training definitions; recruitment gates remain in `config.ts`.
+- `src/data/progression.ts`: evolution maturity, rarity weights, gradual move-slot unlocks and training definitions; recruitment gates remain in `config.ts`.
 - `src/data/items.ts` and `src/data/synergies.ts`: passive item rules, ownership, tradeoffs and team composition requirements.
 - `src/data/variants.ts`: faction multipliers, reward XP, rarity, poison, animation and identifying glyph tuning.
 - `src/data/world.ts`: four biome palettes, landmark anchors, site spacing and soft boundaries.
@@ -254,7 +258,7 @@ JSON values shown are example design data, not canon stats. Version schemas, wri
 - Mewtwo warning before 15:00, three pausable/stunnable tells, aimed volley, jump/dodgeable expanding psychic ring and bounded distant reinforcements.
 - Time- and level-gated first-stage recruitment; non-pausing personal levels and choices at levels 3, 5, 10, 15…; reliable optional milestone evolution (including branches).
 - 36 unique passive items, 12 composition synergies and seven build event hooks; item tradeoffs, stat/proc caps and pause/result build summaries.
-- Nine ranked global training upgrades; eight move ranks for evolving lines and twelve for non-evolving first-stage species across signature and learned moves. Evolution grants +25% maximum HP, +25% permanent attack damage and +1 rank to every known move. Non-evolving species gain +2 ranks per move training choice from their own level 5.
+- Nine global training upgrades that stack indefinitely; signature and learned moves also have no rank ceiling. Each stat has Common, Rare and Epic versions worth 1×, 2× and 3×, with base rarity odds of 55%, 35% and 10%. Extra move slots unlock at levels 10, 20 and 30, with new-move offers appearing on 30% of eligible milestones that have room alongside training and evolution. Team-only relics require a living teammate. Evolution grants +25% maximum HP, +25% permanent attack damage and +1 rank to every known move. Non-evolving species gain +2 ranks per move training choice from their own level 5.
 - Free treasure caches, coin-funded supply chests, enemy coin/item drops, shrines, healing springs and elite squad-training rewards.
 - Win/loss screens, endless continuation, unlocked starter progression and local saves.
 - Clear health/XP hierarchy, numeric party HP/critical and permanent-faint notices, cooldown-ready feedback and numeric upgrade cards with semantic icons.
@@ -326,7 +330,7 @@ Separate attack calculations, target acquisition, projectile spawn, elemental st
 ## Phase 05 — Recruitment fairness, evolution and level-up economy
 
 ```text
-Treat progression.ts/config.ts as the only source of recruitment/evolution timing and upgrade availability. Preserve recruitment from first-stage Kanto species ONLY and the 2:45 / 7:00 / 11:30 / 16:00 / 20:00 gates plus minimum levels, pending a tuning experiment. Mix scheduled eligibility with randomized candidate pools; no recruit choice before eligible. Handle no free slots and teammate faints. Evolve only via selected level-up choices after time/level conditions; support every Kanto branch (Eevee's Vaporeon/Jolteon/Flareon) with multiple explicit cards and avoid repeated stale choices. Every non-evolving species must have a viable growth plan. Add an upgrade taxonomy, rarity distribution, max ranks, duplicate protection, and invalid-choice guards. Test expected team sizes over seeded simulated runs. Success: standard 15-minute runs average ~4 living party Pokémon for competent casual players and six is largely an endless achievement.
+Treat progression.ts/config.ts as the only source of recruitment/evolution timing and upgrade availability. Preserve recruitment from first-stage Kanto species ONLY and the 2:45 / 7:00 / 11:30 / 16:00 / 20:00 gates plus minimum levels, pending a tuning experiment. Mix scheduled eligibility with randomized candidate pools; no recruit choice before eligible. Handle no free slots and teammate faints. Evolve only via selected level-up choices after time/level conditions; support every Kanto branch (Eevee's Vaporeon/Jolteon/Flareon) with multiple explicit cards and avoid repeated stale choices. Every non-evolving species must have a viable growth plan. Add an upgrade taxonomy, rarity distribution, unlimited training, duplicate protection, and invalid-choice guards. Test expected team sizes over seeded simulated runs. Success: standard 15-minute runs average ~4 living party Pokémon for competent casual players and six is largely an endless achievement.
 ```
 
 ## Phase 06 — Deep build variety without bloating controls
@@ -487,7 +491,7 @@ Design and development cadence: implement → browser test → telemetry → adj
 - Babylon.js: https://www.babylonjs.com/
 - Vite: https://vite.dev/
 
-**Research caution:** The game may not lawfully distribute Pokémon assets just because the repositories can be cloned, because the API is public, or because similar fan games exist. Asset-download automation is a convenience for local development, not a rights grant.
+
 
 ---
 

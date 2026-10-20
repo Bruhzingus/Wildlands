@@ -9,6 +9,7 @@ import {loadSave,type SaveData} from './save.ts';
 import {ProgressionTracker} from './achievements.ts';
 import {MAP_OPTIONS} from '../data/unlocks.ts';
 import {cameraAimDirection,cameraRelativeMovement,mouseLook} from './input.ts';
+import {requestCameraPointerLock} from './pointerLock.ts';
 import {GameAudio} from './audio.ts';
 import {ImpactFeedback} from './feedback.ts';
 import {AutomaticQuality,graphicsProfile,initialQuality} from './graphics.ts';
@@ -25,6 +26,7 @@ export class Game{
  private progression:ProgressionTracker|null=null;
  private listeners=new AbortController();private lastPhase='title';private pointerCaptured=false;private flashUntil=0;
  private captureWanted=false;private capturePending=false;private captureAttempt=0;private captureTimer=0;
+ private captureError:(()=>void)|null=null;
  private audio:GameAudio;private feedback:ImpactFeedback;private motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
  private pendingActions={jump:false,dodge:false,special:false,interact:false};private previousSpecialCooldown:number|null=null;
  private automatic=new AutomaticQuality(initialQuality(navigator.hardwareConcurrency,(navigator as Navigator&{deviceMemory?:number}).deviceMemory??8));
@@ -71,7 +73,7 @@ export class Game{
   this.captureForPlay();
  }
  private releasePointer(){
-  this.captureWanted=false;this.capturePending=false;this.captureAttempt++;clearTimeout(this.captureTimer);this.pointerCaptured=false;
+  this.captureWanted=false;this.capturePending=false;this.captureAttempt++;clearTimeout(this.captureTimer);this.pointerCaptured=false;this.captureError=null;
   if(document.pointerLockElement===this.canvas)document.exitPointerLock();
  }
  private pause(){this.clearInput();if(isActive(this.sim))this.sim?.pause();this.releasePointer();this.audio.silence();this.feedback.reset();this.flashUntil=0;}
@@ -88,11 +90,12 @@ export class Game{
   if(this.capturePending)return;
   this.capturePending=true;const attempt=++this.captureAttempt;
   this.captureTimer=window.setTimeout(()=>this.captureFailed(attempt),5000);
-  try{Promise.resolve(this.canvas.requestPointerLock()).catch(()=>this.captureFailed(attempt));}
-  catch{this.captureFailed(attempt);}
+  this.captureError=requestCameraPointerLock(this.canvas,
+   ()=>attempt===this.captureAttempt&&this.captureWanted&&this.capturePending,
+   ()=>this.captureFailed(attempt));
  }
  private captureReady(){
-  this.capturePending=false;clearTimeout(this.captureTimer);
+  this.capturePending=false;clearTimeout(this.captureTimer);this.captureError=null;
   if(!this.captureWanted||!this.sim||(!isActive(this.sim)&&this.sim.state.phase!=='paused')){this.releasePointer();return;}
   this.pointerCaptured=true;this.clearInput();
   if(this.sim.state.phase==='paused')this.sim.pause();
@@ -146,7 +149,7 @@ export class Game{
    const lost=this.pointerCaptured;this.pointerCaptured=false;
    if(lost){this.pause();this.ui.setCaptureHint('Mouse released. Click Resume to lock the mouse and continue.');if(this.sim)this.ui.update(this.sim.state);}
   },{signal});
-  document.addEventListener('pointerlockerror',()=>{if(this.capturePending)this.captureFailed(this.captureAttempt);},{signal});
+  document.addEventListener('pointerlockerror',()=>{if(this.capturePending)this.captureError?.();},{signal});
   this.canvas.addEventListener('wheel',e=>{
    if(!isActive(this.sim)||document.pointerLockElement!==this.canvas)return;e.preventDefault();
    this.camera.radius=Math.max(14,Math.min(48,this.camera.radius+Math.sign(e.deltaY)*1.4));
@@ -220,7 +223,7 @@ export class Game{
      if(this.feedback.inspect().freeze)break;
     }
    }
-   this.world.update(dt,state.pois);
+   this.world.update(dt,state.pois,state.stats.elapsed);
    if(!isActive(sim)){this.clearInput();this.releasePointer();this.lastPhase=state.phase;}
   }
   const simulationEnd=this.metrics?performance.now():0;

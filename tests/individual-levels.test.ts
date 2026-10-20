@@ -4,7 +4,7 @@ import {Simulation} from '../src/game/Simulation.ts';
 import {xpThreshold} from '../src/game/systems/progression.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
 import type {PartyMember} from '../src/game/types.ts';
-import {isMilestone,levelPowerMultiplier,PROGRESSION} from '../src/data/progression.ts';
+import {isMilestone,nextMilestone,levelPowerMultiplier,PROGRESSION} from '../src/data/progression.ts';
 import {memberDamage} from '../src/game/combat/damage.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
@@ -94,8 +94,8 @@ test('cache selection keeps earned personal XP and opens the correct level rewar
 test('percentage defense and recovery scale with actual HP and incoming damage',()=>{
  const {sim,s}=arena(),follower=teammate(sim);s.buffs.damageReduction=.24;
  s.player.hp=s.player.maxHp=1000;s.player.iframes=0;
- (sim as any).hurtPlayer(100,false);close(s.player.hp,924);
- follower.hp=follower.maxHp=2000;follower.iframes=0;(sim as any).hurtCompanion(follower,100);close(follower.hp,1924);
+ (sim as any).hurtPlayer(100,false);close(s.player.hp,1000-100*Math.pow(.92,3));
+ follower.hp=follower.maxHp=2000;follower.iframes=0;(sim as any).hurtCompanion(follower,100);close(follower.hp,2000-100*Math.pow(.92,3));
  s.items=['leftovers'];s.player.hp=500;follower.hp=1000;
  (sim as any).updateRegeneration(1);close(s.player.hp,508);close(follower.hp,1016);
  s.items=['rescue-ribbon'];s.player.hp=500;follower.hp=1000;
@@ -140,5 +140,19 @@ test('ordinary levels do not interrupt combat again between milestones, and the 
  sim.gainXP(xpThreshold(9));sim.update(.04,idle);assert.equal(member.level,10);assert.equal(s.phase,'choice');
  sim.choose(s.upgradeChoices[0].id);
  member.level=PROGRESSION.leveling.maxLevel;member.xp=0;sim.gainXP(1e12);sim.update(.04,idle);
- assert.equal(member.level,50);assert.equal(member.xp,0);assert.equal(s.phase,'playing');
+ assert.equal(member.level,100);assert.equal(member.xp,0);assert.equal(s.phase,'playing');
+});
+
+test('late-game levels keep growing through level 100 and stop precisely at the cap',()=>{
+ const {sim,s}=arena(),member=s.party[0];s.recruitCount=5;
+ member.level=98;member.xp=0;
+ sim.gainXP(xpThreshold(98),member.uid);sim.update(.04,idle);
+ assert.equal(member.level,99);assert.equal(s.phase,'playing');assert.equal(nextMilestone(99),100);
+ sim.gainXP(xpThreshold(99),member.uid);sim.update(.04,idle);
+ assert.equal(member.level,100);assert.equal(s.phase,'choice');assert.equal(s.levelUpMemberId,member.uid);
+ assert.ok(s.upgradeChoices.every(choice=>choice.kind==='attack'||choice.kind==='stat'));
+ assert.equal(sim.choose(s.upgradeChoices[0].id),true);
+ sim.gainXP(1e12,member.uid);sim.update(.04,idle);
+ assert.equal(member.level,100);assert.equal(member.xp,0);assert.equal(nextMilestone(100),null);
+ close(levelPowerMultiplier(101),levelPowerMultiplier(100));
 });

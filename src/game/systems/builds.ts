@@ -31,7 +31,7 @@ export interface BuildSummary {
 }
 /** The shared window limits extra combat effects. Guaranteed resource changes always apply. */
 export const BUILD_LIMITS={maxProcDepth:2,maxActionsPerEvent:8,windowSeconds:.1,maxActionsPerWindow:12,maxEffectDamage:2000,maxEffectRadius:12,maxEffectJumps:8,maxStatusSeconds:8} as const;
-export const BUILD_STAT_CAPS:BuildModifiers={power:4,haste:4,speed:.75,armor:12,damageReduction:.6,xp:1.5,xpCatchup:1,critChance:.8,critDamage:4,radius:1.25,magnet:10,specialHaste:1.5,stamina:1.5,regeneration:12,partyRegeneration:6,regenerationPercent:.04,partyRegenerationPercent:.03,projectiles:3,pierce:6,chains:6,projectileSpeed:1,duration:1.5};
+export const BUILD_STAT_CAPS:BuildModifiers={power:Infinity,haste:Infinity,speed:Infinity,armor:12,damageReduction:.6,xp:1.5,xpCatchup:1,critChance:1,critDamage:Infinity,radius:Infinity,magnet:10,specialHaste:Infinity,stamina:Infinity,regeneration:12,partyRegeneration:6,regenerationPercent:.04,partyRegenerationPercent:.03,projectiles:3,pierce:6,chains:6,projectileSpeed:1,duration:1.5};
 const CAP_DESCRIPTIONS:Record<BuildStat,string>={
  power:'Damage bonus capped at +400%',haste:'Attack speed bonus capped at +400%',speed:'Movement speed bonus capped at +75%',
  armor:'Armor capped at 12',damageReduction:'Damage reduction capped at 60%',xp:'XP bonus capped at +150%',xpCatchup:'Catch-up XP bonus capped at +100%',critChance:'Critical chance capped at 80%',critDamage:'Critical damage capped at 4x',
@@ -83,10 +83,18 @@ function rawModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
 /** Buffs and team bonuses are included. critChance and critDamage include their base values. */
 export function getBuildModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
  const modifiers=rawModifiers(state,owner);
+ // Training remains useful indefinitely. Defense stacks multiply remaining
+ // incoming damage; critical chance above 100% adds critical damage instead.
+ const defense=Math.max(0,finite(state.buffs.damageReduction));
+ const damageTaken=finite(state.buffs.trainingDamageTaken,Math.pow(.92,defense/.08));
+ const reduction=1-(1-clamp(modifiers.damageReduction-defense,0,BUILD_STAT_CAPS.damageReduction))*damageTaken;
+ const criticalOverflow=Math.max(0,modifiers.critChance-1);
+ modifiers.critDamage+=criticalOverflow;
  for(const stat of Object.keys(modifiers) as BuildStat[]){
   modifiers[stat]=clamp(modifiers[stat],STAT_MIN[stat]??0,BUILD_STAT_CAPS[stat]);
   if(stat==='projectiles'||stat==='pierce'||stat==='chains')modifiers[stat]=Math.floor(modifiers[stat]);
  }
+ modifiers.damageReduction=reduction;
  return modifiers;
 }
 function runtime(state:RunState):BuildRuntimeState{
@@ -158,7 +166,8 @@ export function dispatchBuildEvent(context:BuildContext,event:BuildEvent):BuildA
 
 export function getBuildSummary(state:RunState):BuildSummary{
  const raw=rawModifiers(state),modifiers=getBuildModifiers(state);
- const caps=(Object.keys(raw) as BuildStat[]).filter(stat=>raw[stat]>BUILD_STAT_CAPS[stat]).map(stat=>CAP_DESCRIPTIONS[stat]);
+ raw.damageReduction-=Math.max(0,finite(state.buffs.damageReduction));
+ const caps=(Object.keys(raw) as BuildStat[]).filter(stat=>stat!=='critChance'&&raw[stat]>BUILD_STAT_CAPS[stat]).map(stat=>CAP_DESCRIPTIONS[stat]);
  return {
   items:ownedItems(state).map(item=>({id:item.id,title:item.title,description:item.description,stacks:1})),
   synergies:getActiveSynergies(state).map(({id,title,description})=>({id,title,description})),modifiers,caps,

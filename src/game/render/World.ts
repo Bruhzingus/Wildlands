@@ -1,14 +1,16 @@
 import {Scene,StandardMaterial,Color3,Color4,Mesh,MeshBuilder,Vector3,VertexBuffer,VertexData,TransformNode,DirectionalLight,HemisphericLight,AbstractMesh} from '@babylonjs/core';
 import {DESIGN} from '../../data/config.ts';
 import {BIOMES,WORLD} from '../../data/world.ts';
-import type {POI} from '../types.ts';
+import {CHEST_TIERS,SHRINE,chestRarity} from '../../data/economy.ts';
+import type {LootRarity,POI} from '../types.ts';
 import {biomeAt,createEnvironment,explorationRoute,terrainHeight} from '../systems/environment.ts';
 export class World{
  setQuality(quality:'low'|'balanced'|'high'){
   // These decorations have no collider. Solid props and navigation stay visible.
   for(const mesh of this.spawned)if(mesh.name.startsWith('flower-')||mesh.name.startsWith('bush-'))mesh.setEnabled(quality!=='low');
  }
- private spawned:AbstractMesh[]=[];private landmarks=new Map<number,{marker:TransformNode;mesh:AbstractMesh}>();
+ private spawned:AbstractMesh[]=[];private landmarks=new Map<number,{marker:TransformNode;mesh:AbstractMesh;body:AbstractMesh}>();
+ private chestMaterials:Partial<Record<LootRarity,StandardMaterial>>={};
  private reusable:Mesh[]=[];private materials:StandardMaterial[]=[];private lights:(HemisphericLight|DirectionalLight)[]=[];private scene:Scene;
  constructor(scene:Scene,seed:number,pois:POI[]){this.scene=scene;this.buildTerrain(pois);this.buildEnvironment(seed,pois);this.buildLandmarks(pois);}
  height(x:number,z:number){return terrainHeight(x,z);}
@@ -71,6 +73,7 @@ export class World{
   }
  }
  private buildLandmarks(pois:POI[]){
+  for(const rarity of ['common','rare','epic'] as const)this.chestMaterials[rarity]=this.mat(`${rarity} treasure`,CHEST_TIERS[rarity].color);
   const mats={cache:this.mat('cache','#d8bb72'),shrine:this.mat('shrine','#aaa2c4'),elite:this.mat('elite','#ba8574'),healing:this.mat('healing','#88b39a')};
   const bases={cache:MeshBuilder.CreateBox('chest',{size:1.7},this.scene),shrine:MeshBuilder.CreateCylinder('obelisk',{height:2.8,diameterTop:.36,diameterBottom:1.7,tessellation:5},this.scene),elite:MeshBuilder.CreateIcoSphere('elite stone',{radius:1.15,subdivisions:1},this.scene),healing:MeshBuilder.CreateCylinder('healing spring',{height:.7,diameter:3,tessellation:8},this.scene)};
   const ringBases={} as Record<POI['kind'],Mesh>;
@@ -79,15 +82,22 @@ export class World{
    const ring=MeshBuilder.CreateTorus(`${kind} marker source`,{diameter:4,thickness:.13,tessellation:16},this.scene);
    ring.material=mats[kind];ring.isVisible=false;ringBases[kind]=ring;this.reusable.push(ring);
   }
-  for(const poi of pois){const mesh=bases[poi.kind].createInstance(`POI ${poi.kind} ${poi.uid}`);
+  for(const poi of pois){const mesh=bases[poi.kind].clone(`POI ${poi.kind} ${poi.uid}`)!;mesh.isVisible=true;
    const root=new TransformNode(`landmark-${poi.uid}`,this.scene);mesh.parent=root;root.position.set(poi.x,this.height(poi.x,poi.z),poi.z);
    mesh.position.y={cache:.85,shrine:1.4,elite:1.15,healing:.35}[poi.kind];
    if(poi.price!==undefined)mesh.scaling.set(1.2,.8,1.2);
-   const ring=ringBases[poi.kind].createInstance(`marker-ring-${poi.uid}`);ring.parent=root;ring.position.y=.08;this.landmarks.set(poi.uid,{marker:root,mesh:ring});this.spawned.push(mesh,ring);
+   const ring=ringBases[poi.kind].clone(`marker-ring-${poi.uid}`)!;ring.isVisible=true;ring.parent=root;ring.position.y=.08;
+   if(poi.price!==undefined)mesh.material=ring.material=this.chestMaterials[poi.rarity??'common']!;
+   this.landmarks.set(poi.uid,{marker:root,mesh:ring,body:mesh});this.spawned.push(mesh,ring);
   }
  }
- update(_dt:number,pois:POI[]){
-  for(const poi of pois){const entry=this.landmarks.get(poi.uid);if(!entry)continue;entry.marker.setEnabled(!poi.used);}
+ update(_dt:number,pois:POI[],elapsed=0){
+  for(const poi of pois){const entry=this.landmarks.get(poi.uid);if(!entry)continue;
+   entry.marker.setEnabled(!poi.used||poi.respawnAt!==undefined||!!poi.challenge);
+   entry.body.scaling.y=poi.used?.35:poi.price!==undefined?.8:1;
+   entry.mesh.scaling.set(poi.challenge?SHRINE.radius/2:1,1,poi.challenge?SHRINE.radius/2:1);
+   if(poi.price!==undefined)entry.body.material=entry.mesh.material=this.chestMaterials[chestRarity({stats:{elapsed}},poi)]!;
+  }
  }
  dispose(){for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
 }

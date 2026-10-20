@@ -36,14 +36,13 @@ test('items deduplicate, ignore unknown ids and aggregate existing buff aliases 
  assert.deepEqual(getBuildSummary(s).items.map(item=>item.id),['life-orb','multi-lens']);
 });
 
-test('caps bound extreme growth, reject non-finite buffs and advertise active caps',()=>{
- const s=state([1],['multi-lens','storm-coil','piercing-fang']);s.buffs={power:1e9,haste:1e9,crit:1e9,speed:1e9,radius:1e9,magnet:1e9,xp:1e9,armor:1e9};
+test('training stats grow past old caps while relic budgets and invalid-input guards remain',()=>{
+ const s=state([1],['multi-lens','storm-coil','piercing-fang']);s.buffs={power:10,haste:10,crit:2,speed:10,radius:10,magnet:1e9,xp:1e9,armor:1e9};
  const modifiers=getBuildModifiers(s);
- for(const stat of ['power','haste','critChance','speed','radius','magnet','xp','armor'] as const)assert.equal(modifiers[stat],BUILD_STAT_CAPS[stat]);
- assert.ok(getBuildSummary(s).caps.length>=8);
- assert.ok(getBuildSummary(s).caps.includes('Critical chance capped at 80%'));
- assert.ok(getBuildSummary(s).caps.includes('Damage bonus capped at +400%'));
- assert.ok(!getBuildSummary(s).caps.some(label=>/critChance|0\.8|power:/.test(label)));
+ for(const stat of ['power','haste','speed','radius'] as const)assert.equal(modifiers[stat],10);
+ assert.equal(modifiers.critChance,1);close(modifiers.critDamage,2.9);
+ for(const stat of ['magnet','xp','armor'] as const)assert.equal(modifiers[stat],BUILD_STAT_CAPS[stat]);
+ assert.equal(getBuildSummary(s).caps.length,3);
  s.buffs={power:Infinity,crit:NaN,speed:-999};const safe=getBuildModifiers(s);assert.equal(safe.power,0);assert.equal(safe.critChance,.05);assert.equal(safe.speed,-.5);
  assert.ok(Object.values(safe).every(Number.isFinite));
 });

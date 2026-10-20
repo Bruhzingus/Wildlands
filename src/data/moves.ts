@@ -9,7 +9,7 @@ export interface LearnableMove {
 }
 /** The species' signature attack occupies the first of four total move slots. */
 export const MAX_LEARNED_MOVES=3;
-/** Highest supported rank; upgrade offers enforce each species' own limit. */
+/** Move training has no rank ceiling. */
 export const MAX_LEARNED_MOVE_RANK=Math.max(PROGRESSION.moves.maxRank,PROGRESSION.moves.soloMaxRank);
 type MoveInput={id:string;name:string;element:Element;kind:AttackKind;power:number;description:string;cooldown:number;overrides?:Partial<AttackDefinition>};
 function move(input:MoveInput):LearnableMove {
@@ -78,7 +78,7 @@ export function learnableMoves(speciesId:number,level=Infinity):LearnableMove[] 
 }
 export function getLearnedMoveProfile(id:string,rank=1):AttackDefinition {
  const definition=getMoveDefinition(id);if(!definition)throw new Error(`Unknown learned move: ${id}`);
- const base=definition.profile,level=Math.max(0,Math.min(MAX_LEARNED_MOVE_RANK-1,rank-1)),growth=base.growth;
+ const base=definition.profile,level=Math.max(0,Number.isFinite(rank)?rank-1:0),growth=base.growth;
  return {...base,growth:{...growth},status:{...base.status},cooldown:base.cooldown/(1+level*PROGRESSION.moves.speedPerRank),
   range:base.range*(1+level*PROGRESSION.moves.rangePerRank),radius:base.radius*(1+level*PROGRESSION.moves.rangePerRank),
   projectiles:base.projectiles+(growth.projectilesEvery?Math.floor(level/growth.projectilesEvery):0),
@@ -87,7 +87,7 @@ export function getLearnedMoveProfile(id:string,rank=1):AttackDefinition {
 /** Every rank adds 20% of the move's initial power, independently of squad buffs. */
 export function learnedMovePower(id:string,rank=1):number {
  const definition=getMoveDefinition(id);if(!definition)throw new Error(`Unknown learned move: ${id}`);
- return definition.power*(1+Math.max(0,Math.min(MAX_LEARNED_MOVE_RANK-1,rank-1))*PROGRESSION.moves.damagePerRank);
+ return definition.power*(1+Math.max(0,Number.isFinite(rank)?rank-1:0)*PROGRESSION.moves.damagePerRank);
 }
 export function evolutionMove(sourceId:number,targetId:number,knownIds:readonly string[]=[]):LearnableMove {
  const target=getSpecies(targetId),candidates=learnableMoves(targetId).filter(definition=>!knownIds.includes(definition.id));

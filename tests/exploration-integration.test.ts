@@ -17,10 +17,10 @@ function eventFixture(kind:ExplorationEvent['kind']){
 test('rare spring and shrine rewards apply once through interaction and guardian defeat',()=>{
  for(const kind of ['wild-bloom','ancient-echo'] as const){
   const {sim,s,site,events}=eventFixture(kind);sim.update(.02,{...idle,interact:true});
-  assert.equal(site.used,true);assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,1);
+  assert.equal(site.used,true);assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,kind==='wild-bloom'?1:0);
   if(kind==='wild-bloom'){assert.equal(s.player.hp,87);assert.ok(s.party[1].hp>=80&&s.party[1].hp<80.1);}
   else {
-   assert.ok(Math.abs(s.buffs.luck-.03)<1e-9,'The ancient echo grants its own luck immediately');assert.equal(s.player.specialCooldown,0);
+   assert.equal(s.buffs.luck||0,0,'Shrines grant no blessing before victory');assert.ok(s.player.specialCooldown>0);
    const guardian=s.enemies.find(enemy=>enemy.shrineGuardian);assert.ok(guardian,'The shrine blessing is guarded');
    (sim as any).damageEnemy(guardian,guardian.maxHp*2,'normal',s.party[0].uid);
    assert.ok(Math.abs(s.buffs.luck-.07)<1e-9,'Defeating the guardian grants the separate shrine blessing');

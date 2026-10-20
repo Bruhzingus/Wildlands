@@ -37,10 +37,16 @@ export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Vari
  return {uid:state.idCounter++,speciesId,variant,x,z,hp,maxHp:hp,speed:(2.7+sp.stage*.20+t*.055)*mod.speed*(state.challenge==='quickened'?1.20:1),damage:(6+sp.stage*2.7+t*.46)*mod.damage*damageScale,size:boss?4.4:elite?2.1:1+sp.stage*.18,hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
 }
 /** Optional landmark fights scale with the run's growing party and move budget. */
-export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false):Enemy {
+export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false,tier=1):Enemy {
  const guardian=createEnemy(state,rng,speciesId,'rocket',x,z,true);
  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,DIFFICULTY.guardianBaseHp+averagePartyLevel(state)*DIFFICULTY.guardianHpPerLevel+state.stats.elapsed*DIFFICULTY.guardianHpPerSecond);
  guardian.damage*=DIFFICULTY.guardianDamage;guardian.attackCooldown=.7;
+ if(shrine){
+  const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0).length;
+  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,1800+averagePartyLevel(state)*240+state.stats.elapsed*2)*(1+.22*(living-1))*(1+.22*(tier-1));
+  // A real threat even before the ordinary enemy damage ramp begins.
+  guardian.damage=Math.max(guardian.damage,24+averagePartyLevel(state)*.55)*(1+.14*(tier-1));
+ }
  guardian.shrineGuardian=shrine;guardian.landmarkGuardian=true;return guardian;
 }
 export function enemySpawnPosition(player:Pick<Player,'x'|'z'|'facing'>,rng:RNG,minDistance=24,maxDistance=34):Vec2{

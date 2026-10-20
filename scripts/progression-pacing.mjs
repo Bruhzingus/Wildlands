@@ -30,7 +30,7 @@ export function runPacingExperiment({seeds=Array.from({length:24},(_,index)=>100
    }
    sim.update(.04,{...idle,mx,mz,special:Math.floor(state.stats.elapsed*25)%425===0});
   }
-  return {seed,starter,elapsed:Math.round(state.stats.elapsed),level:state.stats.level,kills:state.stats.kills,
+  return {seed,starter,elapsed:Math.round(state.stats.elapsed),leaderLevel:state.party[0].level,level:state.stats.level,kills:state.stats.kills,
    recruits:state.recruitCount,living:state.party.filter(member=>member.hp>0).length,faints:state.stats.faints,choices,rewardCounts,levelGains:state.stats.level-1,
    evolutions:state.stats.evolutions,pokemon:state.party.map(member=>({speciesId:member.speciesId,level:member.level,moves:1+(member.learnedMoves?.length??0),moveRanks:[member.attackLevel,...(member.learnedMoves??[]).map(move=>move.rank)]})),
    survived:state.player.hp>0,phase:state.phase};
@@ -41,6 +41,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const maintainHealth=!process.argv.includes('--unassisted'),runs=runPacingExperiment({maintainHealth});
  const mean=key=>Number((runs.reduce((sum,run)=>sum+Number(run[key]),0)/runs.length).toFixed(2));
  console.log(JSON.stringify({experiment:maintainHealth?'Health-maintained deterministic orbit/approach; progression only, not human balance proof':'Unassisted deterministic orbit/approach; a scripted route, not human play',
-  runs:runs.length,meanLiving:mean('living'),meanRecruits:mean('recruits'),meanLevel:mean('level'),meanFaints:mean('faints'),
+  runs:runs.length,meanLiving:mean('living'),meanRecruits:mean('recruits'),meanLeaderLevel:mean('leaderLevel'),meanSquadProgress:mean('level'),meanFaints:mean('faints'),
   survivors:runs.filter(run=>run.survived&&run.elapsed>=900).length,results:runs},null,2));
 }

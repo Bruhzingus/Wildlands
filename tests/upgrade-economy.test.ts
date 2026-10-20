@@ -77,8 +77,9 @@ test('healing effects preserve each target max-HP fraction and recovery has shar
  close(getBuildModifiers(state).regenerationPercent,.008);close(getBuildModifiers(state).partyRegenerationPercent,.008);
  state.buffs={damageReduction:1e9,regenerationPercent:1e9,partyRegenerationPercent:1e9};
  const capped=getBuildModifiers(state);
- for(const stat of ['damageReduction','regenerationPercent','partyRegenerationPercent'] as const)assert.equal(capped[stat],BUILD_STAT_CAPS[stat]);
- assert.ok(getBuildSummary(state).caps.includes('Damage reduction capped at 60%'));
+ for(const stat of ['regenerationPercent','partyRegenerationPercent'] as const)assert.equal(capped[stat],BUILD_STAT_CAPS[stat]);
+ assert.ok(capped.damageReduction>.6);assert.ok(capped.damageReduction<=1);
+ assert.ok(!getBuildSummary(state).caps.includes('Damage reduction capped at 60%'));
  assert.ok(getBuildSummary(state).caps.includes('Leader recovery capped at 4% max HP/s'));
  state.buffs={damageReduction:NaN,regenerationPercent:Infinity,partyRegenerationPercent:-9};
  const safe=getBuildModifiers(state);assert.equal(safe.damageReduction,0);close(safe.regenerationPercent,.008);assert.equal(safe.partyRegenerationPercent,0);

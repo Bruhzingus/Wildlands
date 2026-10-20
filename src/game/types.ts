@@ -17,7 +17,8 @@ export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:numb
  orbitCenterX?:number;orbitCenterZ?:number;orbitAngle?:number;orbitRadius?:number;orbitSpeed?:number;
 }
 export interface Drop{uid:number;x:number;z:number;value:number;age:number;kind:'xp'|'heal'|'coin'|'item';itemId?:string;}
-export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;}
+export type LootRarity='common'|'rare'|'epic';
+export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;rarity?:LootRarity;uses?:number;respawnAt?:number;rareTriggered?:boolean;challenge?:{guardianId:number;endsAt:number;tier:number};}
 export type RewardSource='level'|'cache'|'squad'|'shop'|'recruit';
 export type ChoiceKind='recruit'|'evolve'|'attack'|'learn'|'stat'|'item';
 export interface UpgradeChoice{id:string;kind:ChoiceKind;title:string;description:string;rarity:'common'|'rare'|'epic';speciesId?:number; stat?:string; amount?:number;targetId?:number;category?:string;rank?:number;maxRank?:number;sourceSpeciesId?:number;moveId?:string;}
@@ -27,7 +28,7 @@ export interface RunState{
  phase:RunPhase;result:Result;seed:number;player:Player;party:PartyMember[];enemies:Enemy[];projectiles:Projectile[];drops:Drop[];pois:POI[];
  stats:RunStats; items:string[]; buffs:Record<string,number>; recruitCount:number;pendingRecruit:boolean;upgradeChoices:UpgradeChoice[];choiceTitle:string;
  /** Current milestone owner and queued milestone rewards. RunStats.level tracks total squad progress. */
- levelUpMemberId?:number;pendingLevelUps?:number[];
+ levelUpMemberId?:number;pendingLevelUps?:number[];trainingRanks?:Record<string,number>;
  choiceSource?:RewardSource;pendingSquadRewards?:number;lastSquadRewardAt?:number;coins?:number;chestPurchases?:number;
  bossSpawned:boolean;endless:boolean;endlessStartedAt?:number;lastEnemySpawn:number;eventLog:string[];idCounter:number;lastSpecialAt:number;
  build?:import('./systems/builds.ts').BuildRuntimeState;

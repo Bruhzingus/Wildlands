@@ -5,6 +5,46 @@ const captured=async(page:Page)=>{
  await expect(page.locator('#overlay')).toBeHidden();
 };
 
+test('held movement, mouse look and jump work together without releasing movement keys',async({page})=>{
+ await page.goto('/?dev=1');
+ await page.locator('[data-starter="25"]').click();
+ await captured(page);
+ await page.mouse.move(720,450);
+ await page.evaluate(()=>{
+  const game=(window as any).__WILDLANDS__;
+  game.sim.state.player.iframes=10000;
+  game.camera.alpha=-Math.PI/2;
+ });
+ const position=()=>page.evaluate(()=>{
+  const {x,z}=(window as any).__WILDLANDS__.sim.state.player;
+  return {x,z};
+ });
+ const origin=await position();
+ await page.keyboard.down('w');
+ await expect.poll(async()=>{
+  const after=await position();return Math.hypot(after.x-origin.x,after.z-origin.z);
+ }).toBeGreaterThan(.25);
+
+ // Supply mouse deltas while W remains physically held, as with a trackpad.
+ for(const x of [800,900,1000]){
+  const before=await page.evaluate(()=>{
+   const game=(window as any).__WILDLANDS__;
+   return {alpha:game.camera.alpha,x:game.sim.state.player.x,z:game.sim.state.player.z};
+  });
+  await page.mouse.move(x,450,{steps:5});
+  await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.camera.alpha)).toBeLessThan(before.alpha-.05);
+  await expect.poll(async()=>{
+   const after=await position();return Math.hypot(after.x-before.x,after.z-before.z);
+  }).toBeGreaterThan(.25);
+  expect(await page.evaluate(()=>(window as any).__WILDLANDS__.pressed.has('KeyW'))).toBe(true);
+ }
+ await page.keyboard.press('Space');
+ await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.player.y)).toBeGreaterThan(.1);
+ await captured(page);
+ await page.keyboard.up('w');
+ await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.pressed.size)).toBe(0);
+});
+
 test('Space never activates focused controls and still jumps across upgrade popups',async({page})=>{
  await page.goto('/?dev=1');
  const starter=page.locator('[data-starter="25"]');

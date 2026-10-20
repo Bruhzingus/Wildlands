@@ -15,5 +15,5 @@ export function evolutionRule(sourceId:number,targetId:number):EvolutionRule|nul
 }
 export function evolutionRequirement(sourceId:number,targetId:number):string {
  const rule=evolutionRule(sourceId,targetId);if(!rule)return 'Unavailable evolution';
- return `${rule.label}: Pokémon level ${rule.level}, ${rule.maturitySeconds}s since recruitment or last evolution`;
+ return `${rule.label}: Pokémon level ${rule.level}, ${rule.maturitySeconds}s since recruitment or last evolution; choose before level ${PROGRESSION.leveling.trainingFocusLevel}`;
 }
