@@ -1,0 +1,71 @@
+.choice-pokemon {
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:10px;
+ margin:12px auto 0;
+ text-align:left;
+}
+.choice-pokemon>img {width:48px;height:48px;object-fit:contain}
+.choice-pokemon>div {display:flex;flex-direction:column;gap:5px;min-width:0}
+.choice-pokemon strong {font:700 16px/1.3 var(--mono);overflow-wrap:anywhere}
+.choice-pokemon strong span {color:var(--accent);font-size:12px;white-space:nowrap}
+.choice-pokemon>div>span {color:var(--muted);font:10px/1.4 var(--mono)}
+.choice-pokemon+h2 {margin-top:12px}
+.choice-card .choice-owner {
+ display:block;
+ padding:8px 11px 0;
+ color:#46504b;
+ font:700 10px/1.5 var(--mono);
+ overflow-wrap:anywhere;
+}
+.choice-card .choice-rarity {padding-top:9px}
+
+#party-strip .party-unit,#party-strip .party-empty {height:85px}
+#party-strip .party-unit {pointer-events:auto}
+#party-strip .party-level {font-size:9px;line-height:12px;top:3px;right:2px;padding:0 2px}
+.party-rank {position:absolute;top:18px;right:2px;padding:0 2px;background:var(--panel);color:var(--muted);font:8px/12px var(--mono)}
+#party-strip .party-hp {bottom:14px}
+#party-strip .party-health {bottom:7px;height:4px}
+.party-xp-track {position:absolute;bottom:0;left:0;width:100%;height:4px;background:#374747}
+.party-xp {display:block;height:100%;width:0;background:#8eced5;transition:width 150ms ease}
+
+.build-summary .pokemon-team {display:grid;grid-template-columns:1fr;gap:10px;padding:12px;min-width:0}
+.pokemon-summary {min-width:0;border:1px solid #69715b88;background:#18201a66}
+.pokemon-summary-heading {display:flex;align-items:center;gap:9px;padding:9px;min-width:0}
+.pokemon-summary-heading>img {width:40px;height:40px;object-fit:contain;flex:none}
+.pokemon-summary-heading>div {min-width:0;flex:1}
+.pokemon-summary-heading strong {display:block;font:700 12px/1.4 var(--mono);color:var(--paper);overflow-wrap:anywhere}
+.pokemon-summary-heading>div>span {display:block;margin-top:3px;font:10px/1.5 var(--mono);color:var(--muted)}
+.pokemon-summary-heading>small {color:var(--accent);font:700 9px/1.4 var(--mono);white-space:nowrap}
+.pokemon-xp-track {height:3px;background:#374747;margin-top:6px}
+.pokemon-xp-track>span {display:block;height:100%;background:#8eced5}
+.pokemon-moves {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:0;padding:0 9px 9px;list-style:none}
+.pokemon-move-slot {display:flex;align-items:center;gap:6px;min-width:0;min-height:39px;padding:6px;background:#2a3529;border:1px solid #69715b80}
+.move-slot-number {color:var(--accent);font:700 10px var(--mono);flex:none}
+.move-slot-name {flex:1;min-width:0;overflow-wrap:anywhere;color:var(--paper);font:11px/1.4 var(--mono)}
+.move-slot-rank {color:var(--accent);font:700 8px/1.4 var(--mono);white-space:nowrap}
+.pokemon-move-slot.empty {background:transparent;border-style:dashed}
+.pokemon-move-slot.empty .move-slot-name,.pokemon-move-slot.empty .move-slot-rank {color:#a3ad99}
+
+@media(max-width:800px) {
+ #party-strip .party-unit,#party-strip .party-empty {height:73px}
+ #party-strip .party-level {font-size:8px;line-height:10px;top:2px;right:1px}
+ .party-rank {font-size:7px;line-height:10px;top:13px;right:1px}
+ #party-strip .party-hp {font-size:8px}
+}
+@media(max-width:590px) {
+ .choice-pokemon>img {width:40px;height:40px}
+ .choice-pokemon strong {font-size:14px}
+ .choice-pokemon>div>span {font-size:9px}
+ .choice-card .choice-owner {grid-column:2;padding:6px 10px 0;font-size:9px}
+ .choice-card .choice-art {grid-row:2/9}
+ .pokemon-summary-heading {gap:7px;padding:7px}
+ .pokemon-summary-heading>img {width:32px;height:32px}
+ .pokemon-summary-heading strong {font-size:11px}
+ .pokemon-summary-heading>small {font-size:8px;max-width:45px;white-space:normal;text-align:right}
+ .pokemon-summary-heading>div>span {font-size:9px}
+ .build-summary .pokemon-team {padding:8px}
+ .pokemon-moves {grid-template-columns:1fr;padding:0 7px 7px}
+ .pokemon-move-slot {min-height:34px}
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.DS_Store
+public/assets/pmd/
+public/assets/pokemon/
+
+public/assets/coverage-report.json
+artifacts/
+test-results/
+playwright-report/

@@ -1,0 +1,2648 @@
+{
+  "sources": {
+    "pmd": "https://github.com/PMDCollab/SpriteCollab",
+    "pmdPolicy": "https://github.com/PMDCollab/SpriteCollab#submission-and-use-policy",
+    "format": "https://wiki.pmdo.pmdcollab.org/PMD_Sprite_Format",
+    "artwork": "https://github.com/PokeAPI/sprites",
+    "creatorDirectory": "pmd-creator-directory.txt"
+  },
+  "rights": "Pokemon, official artwork and official PMD sprites retain their original rights holders (Nintendo / Creatures / GAME FREAK / The Pokemon Company / CHUNSOFT). Community submission terms require noncommercial use and attribution; these terms do not grant Pokemon IP permission.",
+  "species": [
+    {
+      "id": 1,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0001",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0001/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.323442",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Dance,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0002",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/2.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0002/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.328428",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Dance,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0003",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/3.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0003/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.332418",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Dance,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0004",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0004/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.337405",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Kick,Shoot,Strike,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0005",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/5.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0005/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.341392",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Shoot,Sleep,Strike,Swing,Walk"
+        },
+        {
+          "date": "2021-01-26 01:22:03.704417",
+          "creator": "<@!199989579682414592>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Cringe,DeepBreath,Double,Eat,EventSleep,Faint,Float,Head,HitGround,Laying,LeapForth,LookUp,LostBalance,Nod,Pain,Pose,Pull,Sink,Sit,Trip,Tumble,TumbleBack,Wake"
+        },
+        {
+          "date": "2021-01-26 11:30:34.384747",
+          "creator": "<@!199989579682414592>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Double"
+        },
+        {
+          "date": "2024-10-22 04:27:26.367585",
+          "creator": "<@!193530896211509248>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Eat,Pose,Pull,Pain,DeepBreath,Nod,Sink,Trip,Head,LostBalance,HitGround,Faint"
+        },
+        {
+          "date": "2024-10-24 22:08:25.766375",
+          "creator": "<@!217653022094786560>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Float,Nod,Sit,LookUp,Laying,LeapForth,Cringe,TumbleBack"
+        },
+        {
+          "date": "2026-03-30 00:05:36.049897",
+          "creator": "<@!217653022094786560>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Tumble,Float,Trip,Laying,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0006",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0006/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.345381",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Shoot,Sleep,Strike,Swing,Walk"
+        },
+        {
+          "date": "2021-10-01 08:17:01.621356",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Charge,Double,Faint,Hop,Hurt,Rotate,Shoot,Sleep,Strike,Swing"
+        },
+        {
+          "date": "2023-03-19 18:54:53.170665",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Faint"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0007",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0007/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.349371",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0008",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/8.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0008/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.353362",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Ricochet,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0009",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/9.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0009/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.356353",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Ricochet,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0010",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0010/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.360347",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0011",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/11.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0011/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.364330",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0012",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/12.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0012/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.367322",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,FlapAround,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0013",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/13.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0013/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.371313",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Jab,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0014",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/14.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0014/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.374304",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0015",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/15.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0015/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.377297",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Jab,Shoot,Hover,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0016",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/16.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0016/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.381290",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,FlapAround,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-12-04 23:02:08.634038",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2024-12-24 02:58:20.250215",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0017",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/17.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0017/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.385275",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,FlapAround,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0018",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/18.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0018/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.388267",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,FlapAround,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0019",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/19.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0019/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.392257",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,TailWhip,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0020",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/20.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0020/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.398241",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,TailWhip,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0021",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/21.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0021/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.403228",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Hover,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0022",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/22.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0022/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.407216",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Hover,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0023",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/23.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0023/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.411209",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2026-05-10 01:47:17.896026",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0024",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/24.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0024/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 19:40:57.548341",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0025",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0025/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.416193",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,QuickStrike,Shoot,Shock,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0026",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/26.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0026/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.421179",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,QuickStrike,Shoot,Shock,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2025-12-23 02:47:04.237398",
+          "creator": "<@!217653022094786560>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2025-12-23 02:50:14.012801",
+          "creator": "<@!276369635304275968>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Trip,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0027",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/27.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0027/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.425171",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Sleep,Strike,Swing,Walk,Withdraw"
+        },
+        {
+          "date": "2021-11-08 23:42:12.507887",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Laying,Wake"
+        },
+        {
+          "date": "2023-09-27 03:52:56.017938",
+          "creator": "<@!169247379453640706>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_2",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2023-10-05 00:08:19.400287",
+          "creator": "<@!169247379453640706>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_2",
+          "animations": "Eat,Sit"
+        },
+        {
+          "date": "2023-10-05 01:31:41.533822",
+          "creator": "<@!169247379453640706>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_2",
+          "animations": "Pull,Sit"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0028",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/28.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0028/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.429159",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Sleep,Strike,Swing,Walk,Withdraw"
+        },
+        {
+          "date": "2021-10-10 13:15:42.860541",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Attack,Charge,Cringe,DeepBreath,Double,Eat,EventSleep,Faint,Float,Head,HitGround,Hop,Hurt,Idle,Laying,LeapForth,LookUp,LostBalance,Nod,Pain,Pose,Pull,Rotate,Sink,Sit,Sleep,Strike,Swing,Trip,Tumble,TumbleBack,Wake,Walk,Withdraw"
+        },
+        {
+          "date": "2022-01-13 02:05:13.806016",
+          "creator": "<@!365627932888268800>",
+          "status": "OLD",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Nod"
+        },
+        {
+          "date": "2022-04-23 04:26:34.345263",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Eat,Sit"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0029",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/29.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0029/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.432151",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiScratch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0030",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/30.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0030/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.434146",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiScratch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0031",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/31.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0031/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.437137",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiScratch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0032",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/32.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0032/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.439130",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,SpAttack,Emit,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0033",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/33.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0033/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.441125",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,SpAttack,Emit,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0034",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/34.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0034/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.445116",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Rumble,Sound,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0035",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/35.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0035/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.447108",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Withdraw,Dance,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0036",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/36.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0036/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.449104",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Withdraw,Dance,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0037",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/37.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0037/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.452098",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,SpAttack,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0038",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/38.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0038/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-17 00:12:55.888411",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Appeal,SpAttack,RearUp,Swing,Double,Rotate,Hop"
+        },
+        {
+          "date": "2022-12-17 20:31:06.098012",
+          "creator": "<@!544245909639397378>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Walk,Attack,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0039",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0039/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.456087",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slam,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2025-03-11 02:56:35.847602",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2025-03-16 10:21:23.990862",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Nod"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0040",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/40.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0040/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 19:40:53.548733",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Slam,Withdraw,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0041",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/41.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0041/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 19:41:09.853923",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop,Hover"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0042",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/42.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0042/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.464065",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Hover,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0043",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/43.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0043/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.468055",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0044",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/44.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0044/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.470049",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0045",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/45.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0045/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.474038",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0046",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/46.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0046/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.478026",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0047",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/47.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0047/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.481018",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0048",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/48.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0048/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.483018",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2026-01-25 18:03:05.145792",
+          "creator": "<@!275075929905168384>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0049",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/49.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0049/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.485007",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,FlapAround,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0050",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/50.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0050/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:33.182862",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop"
+        },
+        {
+          "date": "2025-09-12 21:14:30.049805",
+          "creator": "<@!117780585635643396>",
+          "status": "OLD",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Pose"
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0051",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/51.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0051/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:37.767376",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop"
+        },
+        {
+          "date": "2025-09-12 21:14:37.896970",
+          "creator": "<@!117780585635643396>",
+          "status": "OLD",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Pose"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0052",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0052/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.491989",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,MultiStrike,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0053",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/53.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0053/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.493985",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0054",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/54.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0054/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:38.135514",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,MultiScratch,Twirl,Swing,Double,Rotate,Hop,Pose"
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0055",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/55.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0055/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.498972",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiScratch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0056",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/56.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0056/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.500964",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Chop,MultiStrike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 57,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0057",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/57.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0057/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.504955",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,MultiStrike,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0058",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/58.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0058/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.507947",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Rumble,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-04-24 10:39:15.896788",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Eat,Cringe"
+        },
+        {
+          "date": "2026-07-28 00:43:16.483827",
+          "creator": "<@!1377429093997477928>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep"
+        }
+      ]
+    },
+    {
+      "id": 59,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0059",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/59.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0059/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.511936",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,QuickStrike,Shoot,SpAttack,Rumble,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0060",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/60.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0060/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.513930",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Appeal,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0061",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/61.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0061/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.515924",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0062",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/62.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0062/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.517919",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0063",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/63.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0063/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.520911",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Jab,Strike,SpAttack,Shoot,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-04-20 08:37:17.096204",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2024-04-24 10:38:58.753469",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Float,Laying"
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0064",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/64.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0064/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.522906",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0065",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/65.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0065/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:45.260653",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 66,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0066",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/66.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0066/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-17 00:12:51.188119",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Kick,Swing,Double,Rotate,Hop,Pose"
+        },
+        {
+          "date": "2022-12-20 11:53:56.258311",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pull,Pain,Float,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0067",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/67.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0067/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.531884",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,Kick,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0068",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/68.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0068/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.533877",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,Kick,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 69,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0069",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/69.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0069/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.535873",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0070",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/70.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0070/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.537866",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiStrike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0071",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/71.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0071/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.539863",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0072",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/72.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0072/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.542853",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Slam,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0073",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/73.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0073/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.546843",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Slam,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 74,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0074",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/74.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0074/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.548838",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 75,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0075",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/75.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0075/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.550832",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slam,SpAttack,Rumble,Shoot,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-03-08 03:18:31.185092",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Special0"
+        },
+        {
+          "date": "2024-03-13 02:27:37.813866",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Tumble,Cringe,TumbleBack"
+        }
+      ]
+    },
+    {
+      "id": 76,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0076",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/76.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0076/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 23:48:21.416574",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Withdraw,Swing,Double,Rotate,Hop"
+        },
+        {
+          "date": "2024-12-18 09:55:51.875707",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Special0"
+        }
+      ]
+    },
+    {
+      "id": 77,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0077",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/77.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0077/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.554821",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2025-03-11 05:13:10.454377",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2025-03-18 05:33:22.818298",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Wake,Nod,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 78,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0078",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/78.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0078/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.556816",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0079",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/79.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0079/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.559808",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0080",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/80.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0080/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.562800",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 81,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0081",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/81.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0081/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:45.473215",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 82,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0082",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/82.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0082/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.567786",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 83,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0083",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/83.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0083/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.569782",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 84,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0084",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/84.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0084/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.571775",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiStrike,Shoot,Jab,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 85,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0085",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/85.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0085/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.576765",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiStrike,Shoot,Jab,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 86,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0086",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/86.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0086/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.581749",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 87,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0087",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/87.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0087/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.583744",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 88,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0088",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/88.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0088/credits.txt",
+      "credits": [
+        {
+          "date": "2024-05-06 05:41:25.438424",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 89,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0089",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/89.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0089/credits.txt",
+      "credits": [
+        {
+          "date": "2023-09-08 17:19:11.478244",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0090",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/90.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0090/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.590725",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 91,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0091",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/91.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0091/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.594715",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0092",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/92.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0092/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.596710",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Lick,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 93,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0093",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/93.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0093/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:58.019393",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,MultiStrike,Lick,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0094",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0094/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-17 00:13:11.432426",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Lick,Twirl,Swing,Double,Rotate,Hop"
+        },
+        {
+          "date": "2023-04-22 22:29:17.717502",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0095",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/95.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0095/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.602694",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slam,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0096",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/96.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0096/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:06:54.472920",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Slam,Twirl,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 97,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0097",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/97.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0097/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.608677",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 98,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0098",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/98.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0098/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.613663",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slam,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 99,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0099",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/99.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0099/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.615658",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0100",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/100.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0100/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.618650",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Sleep,Swing,Twirl,Walk"
+        },
+        {
+          "date": "2022-06-05 04:07:40.969287",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2023-03-13 02:49:36.058081",
+          "creator": "<@!237286997645983744>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Wake,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0101",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/101.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0101/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.621644",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0102",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/102.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0102/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.623636",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0103",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/103.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0103/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.626631",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Shake,Dance,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0104",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/104.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0104/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-17 00:12:56.028560",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop,Pose"
+        },
+        {
+          "date": "2023-01-02 22:54:59.449267",
+          "creator": "<@!356635814668664832>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Float,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2023-03-18 06:05:50.508814",
+          "creator": "<@!965734014604410990>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "DeepBreath"
+        },
+        {
+          "date": "2026-10-11 21:52:15.062676",
+          "creator": "<@!965734014604410990>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "DeepBreath"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0105",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/105.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0105/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.631617",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Punch,Shoot,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 106,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0106",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/106.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0106/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.634608",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Kick,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 107,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0107",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/107.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0107/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.636603",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,Uppercut,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 108,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0108",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/108.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0108/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.638598",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Lick,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0109",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/109.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0109/credits.txt",
+      "credits": [
+        {
+          "date": "2022-12-16 20:07:09.282889",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Twirl,Gas,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 110,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0110",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/110.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0110/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.645579",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Swell,Gas,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0111",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/111.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0111/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.648570",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Stomp,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 112,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0112",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/112.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0112/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.651562",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Stomp,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0113",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/113.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0113/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.655551",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 114,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0114",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/114.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0114/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.657547",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 115,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0115",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/115.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0115/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.661535",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 116,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0116",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/116.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0116/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.664528",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 117,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0117",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/117.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0117/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.666523",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 118,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0118",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/118.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0118/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.668517",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 119,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0119",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/119.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0119/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.672508",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 120,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0120",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/120.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0120/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.676497",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 121,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0121",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/121.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0121/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.679488",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 122,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0122",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/122.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0122/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.681482",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 123,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0123",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/123.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0123/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.683476",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slice,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 124,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0124",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/124.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0124/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.685471",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slap,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 125,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0125",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/125.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0125/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.687465",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Punch,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 126,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0126",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/126.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0126/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.689460",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 127,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0127",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/127.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0127/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.691455",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Slice,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 128,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0128",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/128.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0128/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.695446",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Stomp,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 129,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0129",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/129.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0129/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.697441",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 130,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0130",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/130.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0130/credits.txt",
+      "credits": [
+        {
+          "date": "2023-05-04 14:55:15.921758",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Rumble,RearUp,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 131,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0131",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/131.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0131/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.706416",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Sound,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 132,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0132",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/132.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0132/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.709410",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 133,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0133",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0133/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.712400",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,TailWhip,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,Faint,HitGround"
+        }
+      ]
+    },
+    {
+      "id": 134,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0134",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/134.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0134/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.716391",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 135,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0135",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/135.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0135/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.719381",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hurt,Idle,Rotate,Shock,Shoot,Sleep,Swing,Walk"
+        },
+        {
+          "date": "2021-05-09 08:03:16.469247",
+          "creator": "<@!474262233442942995>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Attack,Charge,Cringe,DeepBreath,Double,Eat,EventSleep,Faint,Float,Head,HitGround,Hop,Hurt,Idle,Laying,LeapForth,LookUp,LostBalance,Nod,Pain,Pose,Pull,Rotate,Shock,Shoot,Sink,Sit,Sleep,Swing,Trip,Tumble,TumbleBack,Wake,Walk"
+        }
+      ]
+    },
+    {
+      "id": 136,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0136",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/136.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0136/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.722373",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Appeal,TailWhip,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-06-13 09:55:30.372631",
+          "creator": "<@!722542425196724289>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Pose,Pull,Pain,Float,DeepBreath,Nod,Sink,Laying,Head,Cringe,LostBalance"
+        },
+        {
+          "date": "2024-07-06 07:30:13.316346",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2024-07-15 15:25:49.675866",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Tumble,Sink,LostBalance,TumbleBack"
+        }
+      ]
+    },
+    {
+      "id": 137,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0137",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/137.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0137/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.724368",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 138,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0138",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/138.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0138/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.727360",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 139,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0139",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/139.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0139/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.730353",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 140,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0140",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/140.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0140/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.732347",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2026-03-05 06:39:22.234932",
+          "creator": "<@!275075929905168384>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        },
+        {
+          "date": "2026-03-15 04:09:04.552415",
+          "creator": "<@!275075929905168384>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Pose,Nod,Sit,LookUp,Sink,LeapForth,Head,HitGround,Faint"
+        }
+      ]
+    },
+    {
+      "id": 141,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0141",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/141.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0141/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.734340",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiStrike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 142,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0142",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/142.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0142/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.736336",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Hover,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 143,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0143",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/143.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0143/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.739327",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Stomp,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 144,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0144",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/144.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0144/credits.txt",
+      "credits": [
+        {
+          "date": "2023-05-04 17:21:45.663338",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,RearUp,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 145,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0145",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/145.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0145/credits.txt",
+      "credits": [
+        {
+          "date": "2023-05-04 17:22:01.976723",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Emit,SpAttack,Swing,Double,Rotate,Hop"
+        }
+      ]
+    },
+    {
+      "id": 146,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0146",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/146.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0146/credits.txt",
+      "credits": [
+        {
+          "date": "2023-05-04 17:21:54.081407",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop,Hover"
+        }
+      ]
+    },
+    {
+      "id": 147,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0147",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/147.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0147/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.748303",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,SpAttack,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-07-18 23:05:22.804957",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Tumble,Pain,Float,Laying,TumbleBack"
+        }
+      ]
+    },
+    {
+      "id": 148,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0148",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/148.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0148/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.750299",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,MultiStrike,Shoot,Ricochet,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        }
+      ]
+    },
+    {
+      "id": 149,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0149",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0149/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.752293",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Withdraw,Emit,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2025-11-09 03:55:24.114365",
+          "creator": "<@!268261643178344448>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Special0"
+        },
+        {
+          "date": "2025-11-09 03:58:59.331082",
+          "creator": "<@!157796074457661440>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Special0"
+        },
+        {
+          "date": "2025-11-09 03:59:05.496762",
+          "creator": "<@!157796074457661440>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "Special0"
+        }
+      ]
+    },
+    {
+      "id": 150,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0150",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/150.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0150/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.755287",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Attack,Charge,Double,Hop,Hover,Hurt,Idle,Punch,Rotate,Shoot,Sleep,Swing,Walk"
+        },
+        {
+          "date": "2022-04-14 00:56:01.712419",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "PMDCollab_1",
+          "animations": "Attack,Charge,Cringe,DeepBreath,Double,Eat,EventSleep,Faint,Float,Head,HitGround,Hop,Hover,Hurt,Idle,Laying,LeapForth,LookUp,LostBalance,Nod,Pain,Pose,Pull,Punch,Rotate,Shoot,Sink,Sit,Sleep,Swing,Trip,Tumble,TumbleBack,Wake,Walk"
+        }
+      ]
+    },
+    {
+      "id": 151,
+      "pmdSource": "https://github.com/PMDCollab/SpriteCollab/tree/master/sprite/0151",
+      "artworkSource": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/151.png",
+      "creditsSource": "https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/0151/credits.txt",
+      "credits": [
+        {
+          "date": "2020-10-07 17:58:43.757279",
+          "creator": "CHUNSOFT",
+          "status": "CUR",
+          "sourceNote": "Unspecified",
+          "animations": "Walk,Attack,Strike,Shoot,Twirl,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate"
+        },
+        {
+          "date": "2024-07-02 16:38:18.898184",
+          "creator": "<@!702275233125630042>",
+          "status": "CUR",
+          "sourceNote": "CC_BY-NC_4",
+          "animations": "EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint"
+        }
+      ]
+    }
+  ]
+}

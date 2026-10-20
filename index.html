@@ -1,0 +1,20 @@
+﻿<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wildlands — Kanto Survival</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"/><meta name="description" content="A Pokémon-inspired squad survival game prototype."/></head>
+<body>
+<div id="game-root"><canvas id="renderCanvas" tabindex="0" aria-label="Wildlands game. WASD to move, mouse to look, Escape to pause."></canvas>
+<div id="vignette"></div><div id="damage-flash"></div>
+<header id="hud" class="hidden"><div class="hud-top">
+ <div class="pill time-pill"><span class="eyebrow">SURVIVAL</span><span id="clock">00:00</span></div>
+ <div class="hud-center"><span id="danger" class="eyebrow">VIRIDIAN / CALM</span><div id="progress-rail"><div id="progress-fill"></div></div></div>
+ <div class="pill counter-pill"><span class="eyebrow">DEFEATED</span><span id="kills">0</span></div>
+</div>
+<div class="hud-bottom"><div class="leader-panel"><div class="health-heading"><span>HEALTH</span><span id="health-status"></span></div><div class="hp-line"><strong id="leader-name">BULBASAUR</strong><span id="health-text">120 / 120</span></div><div class="bar hp"><div id="hp-fill"></div></div><div class="xp-line"><span id="level-label">LV 1</span><span id="xp-text">0 / 50 XP</span></div><div class="bar xp"><div id="xp-fill"></div></div></div>
+<div id="party-strip"></div>
+<div class="abilities"><div id="dodge-cd" class="ability"><span class="kbd">SHIFT</span><span>DODGE</span><small>READY</small></div><div id="special-cd" class="ability"><span class="kbd">Q</span><span>SPECIAL</span><small>READY</small></div><div id="ability-ready" role="status" aria-live="polite"></div></div></div>
+<div id="party-alert" class="hidden" role="status" aria-live="polite"></div>
+<div id="compass" class="pill"><span id="map-region" class="eyebrow">OPEN MEADOW</span><canvas id="minimap" width="166" height="166" aria-label="North-up map: square caches, diamond shrines, triangular elite sites, healing crosses, and player arrow"></canvas><div class="map-key">□ CACHE &nbsp; ◇ SHRINE &nbsp; + HEAL<br>△ ELITE &nbsp; ▲ YOU</div></div><div id="interaction" class="hidden"></div><div id="toast" role="status" aria-live="polite"></div><div id="boss-bar" class="hidden"><span id="boss-action">MEWTWO / LEGENDARY</span><div class="bar"><div id="boss-hp-fill"></div></div></div>
+<div id="micro-controls">WASD MOVE &nbsp; MOUSE LOOK &nbsp; SPACE JUMP &nbsp; SHIFT DODGE &nbsp; Q SPECIAL &nbsp; E USE &nbsp; ESC PAUSE</div>
+</header>
+<div id="overlay" class="overlay"><div id="overlay-content" role="dialog" aria-modal="true" aria-label="Game menu"></div></div>
+</div><script type="module" src="/src/main.ts"></script></body></html>

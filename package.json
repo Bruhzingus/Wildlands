@@ -1,0 +1,27 @@
+{
+  "name": "pokemon-wildlands-prototype",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "assets:sync": "node --experimental-strip-types scripts/sync-assets.mjs",
+    "assets:audit": "node --experimental-strip-types scripts/audit-assets.mjs",
+    "test:browser": "playwright test",
+    "content:audit": "node --experimental-strip-types scripts/audit-content.mjs",
+    "balance:telemetry": "node --experimental-strip-types scripts/balance-telemetry.mjs",
+    "profile:reliability": "node --expose-gc --experimental-strip-types scripts/reliability-profile.mjs"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.20.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.0"
+  }
+}

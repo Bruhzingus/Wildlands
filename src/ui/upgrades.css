@@ -1,0 +1,226 @@
+/* Rarity stays visible in the frame, artwork and badge, including on small screens. */
+.choices {
+ display:grid;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:20px;
+ max-width:850px;
+ margin:0 auto 26px;
+ padding:10px 8px 12px 0;
+}
+
+.choice-card {
+ --rarity:#bdc7ce;
+ --rarity-art:#70838b;
+ --rarity-ink:#303e47;
+ position:relative;
+ display:flex;
+ flex-direction:column;
+ align-items:stretch;
+ gap:0;
+ min-width:0;
+ min-height:380px;
+ padding:0;
+ border:3px solid var(--rarity);
+ background:#f1eee2;
+ color:#202a29;
+ text-align:left;
+ box-shadow:5px 6px 0 var(--rarity),0 14px 24px #0005;
+ transform:translateY(0);
+ transition:transform 160ms ease,box-shadow 160ms ease;
+ animation:upgrade-card-enter 320ms cubic-bezier(.2,.8,.3,1) backwards;
+ animation-delay:calc(var(--choice-order,0) * 65ms);
+}
+
+.choice-card.rare {
+ --rarity:#6fc5ff;
+ --rarity-art:#287ec1;
+ --rarity-ink:#165a86;
+ border-color:var(--rarity);
+}
+
+.choice-card.epic {
+ --rarity:#d3a0ff;
+ --rarity-art:#8345b8;
+ --rarity-ink:#70389a;
+ border-color:var(--rarity);
+}
+
+.choice-card:focus-visible {
+ outline:3px solid #f0d278;
+ outline-offset:8px;
+}
+
+@media(hover:hover) {
+ .choice-card:hover {
+  background:#f1eee2;
+  border-color:var(--rarity);
+  transform:translateY(-7px);
+  box-shadow:6px 10px 0 var(--rarity),0 20px 30px #0006;
+ }
+}
+
+.choice-card:active {
+ transform:translateY(-2px) scale(.99);
+ box-shadow:3px 4px 0 var(--rarity),0 8px 16px #0004;
+}
+
+.choice-header {
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:8px;
+ padding:8px 10px;
+ background:#131c1d;
+}
+
+.choice-card .choice-kind {
+ grid-column:auto;
+ color:var(--rarity);
+ font:700 10px/1.3 var(--mono);
+ letter-spacing:.09em;
+}
+
+.choice-card .choice-index {
+ position:static;
+ display:inline-grid;
+ place-items:center;
+ min-width:23px;
+ padding:3px 5px;
+ border:0;
+ background:#f1eee2;
+ color:#202a29;
+ font:700 12px/1.1 var(--mono);
+}
+
+.choice-art {
+ display:grid;
+ place-items:center;
+ height:128px;
+ overflow:hidden;
+ background-color:var(--rarity-art);
+ background-image:radial-gradient(circle,#131c1d24 1px,transparent 1.5px),repeating-conic-gradient(from 8deg at 50% 60%,#ffffff24 0deg 12deg,transparent 12deg 24deg);
+ background-size:5px 5px,100% 100%;
+ border-bottom:3px solid #131c1d;
+}
+
+.choice-card .upgrade-pokemon,
+.choice-card .upgrade-glyph {
+ grid-column:auto;
+ grid-row:auto;
+ width:100px;
+ height:100px;
+ border:0;
+ background:transparent;
+ filter:drop-shadow(3px 4px 0 #131c1d65);
+ transition:transform 160ms ease;
+}
+
+.choice-card .upgrade-glyph {display:grid;place-items:center;color:#fff4cb}
+.choice-card .upgrade-icon {width:64px;height:64px}
+
+@media(hover:hover) {
+ .choice-card:hover .upgrade-pokemon,
+ .choice-card:hover .upgrade-glyph {transform:scale(1.06) rotate(-3deg)}
+}
+
+.choice-card .choice-title {
+ grid-column:auto;
+ display:block;
+ margin:0;
+ padding:9px 11px;
+ background:#131c1d;
+ color:#f7f4e9;
+ font:700 18px/1.2 var(--mono);
+ overflow-wrap:anywhere;
+}
+
+.choice-rarity {
+ display:flex;
+ align-items:center;
+ gap:8px;
+ min-width:0;
+ padding:12px 12px 9px;
+ color:var(--rarity-ink);
+ font:700 11px/1.2 var(--mono);
+ letter-spacing:.1em;
+}
+
+.rarity-symbol {font-size:12px;letter-spacing:-3px;padding-right:3px;white-space:nowrap}
+.rarity-rule {height:4px;min-width:12px;flex:1;background:var(--rarity-art)}
+.choice-card .choice-rarity .rarity-label {color:var(--rarity-ink)}
+
+.choice-card .choice-rank {
+ grid-column:auto;
+ align-self:flex-start;
+ margin:0 12px 8px;
+ padding:4px 6px;
+ border:1px solid #202a2950;
+ background:#fffaf0;
+ color:#46504b;
+ font:700 10px/1.2 var(--mono);
+}
+
+.choice-card p {
+ grid-column:auto;
+ flex:1;
+ margin:0;
+ padding:0 12px 16px;
+ color:#39463f;
+ font-size:13px;
+ line-height:1.55;
+}
+
+.choice-card .choice-footer {
+ grid-column:auto;
+ display:flex;
+ justify-content:space-between;
+ gap:10px;
+ width:100%;
+ padding:10px 12px;
+ border-top:1px solid #202a292e;
+ color:#5c675f;
+ font:700 9px/1.2 var(--mono);
+ letter-spacing:.06em;
+}
+
+.choice-card .choice-footer span {color:inherit}
+.choice-card .choice-footer span:last-child {color:var(--rarity-ink)}
+
+@keyframes upgrade-card-enter {
+ from {opacity:0;transform:translateY(22px) scale(.96)}
+ to {opacity:1;transform:translateY(0) scale(1)}
+}
+
+@media(max-width:590px) {
+ .choices {grid-template-columns:1fr;gap:15px;max-width:420px;padding:8px 7px 10px 0}
+ .choice-card {
+  display:grid;
+  grid-template-columns:80px minmax(0,1fr);
+  min-height:0;
+  gap:0;
+  padding:0;
+  box-shadow:4px 5px 0 var(--rarity),0 8px 16px #0004;
+ }
+ .choice-header {grid-column:1/-1;padding:6px 9px}
+ .choice-art {grid-column:1;grid-row:2/7;height:auto;min-height:120px;border-bottom:0;border-right:2px solid #131c1d}
+ .choice-card .upgrade-pokemon,.choice-card .upgrade-glyph {width:70px;height:70px}
+ .choice-card .upgrade-icon {width:48px;height:48px}
+ .choice-card .choice-title {grid-column:2;padding:8px 10px;font-size:15px}
+ .choice-rarity {grid-column:2;padding:9px 10px 7px;font-size:10px}
+ .choice-card .choice-rank {grid-column:2;justify-self:start;margin:0 10px 7px;font-size:9px}
+ .choice-card p {grid-column:2;padding:0 10px 10px;font-size:12px;line-height:1.45}
+ .choice-card .choice-footer {grid-column:2;padding:7px 10px;font-size:8px}
+}
+
+@media(max-height:650px) and (min-width:591px) {
+ .choice-card {min-height:330px}
+ .choice-art {height:96px}
+ .choice-card .upgrade-pokemon,.choice-card .upgrade-glyph {width:80px;height:80px}
+ .choice-card .upgrade-icon {width:54px;height:54px}
+}
+
+@media(prefers-reduced-motion:reduce) {
+ .choice-card {animation:none;transition:none}
+ .choice-card:hover,.choice-card:active {transform:none}
+ .choice-card .upgrade-pokemon,.choice-card .upgrade-glyph {transition:none;transform:none!important}
+}
