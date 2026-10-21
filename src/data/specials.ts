@@ -1,31 +1,31 @@
 import {DESIGN} from './config.ts';
-import {getSpecies} from './kanto.ts';
+import {getSpecies,type Element} from './kanto.ts';
 
-export type SpecialKind='garden'|'flamethrower'|'surf'|'thunder'|'quickstep'|'web'|'whirlwind'|'fissure'|'foxfire'|'sleep'|'payday'|'charge'|'teleport'|'flurry'|'curse'|'lance'|'volley'|'mend';
+export type SpecialKind='garden'|'flamethrower'|'surf'|'thunder'|'quickstep'|'web'|'whirlwind'|'fissure'|'foxfire'|'sleep'|'payday'|'charge'|'teleport'|'flurry'|'fury-swipes'|'curse'|'lance'|'volley'|'mend';
 export type SpecialAimMode='automatic'|'directional'|'placement';
 const SPECIAL_AIM_MODES:Readonly<Record<SpecialKind,SpecialAimMode>>={
  garden:'placement',flamethrower:'directional',surf:'directional',thunder:'automatic',quickstep:'directional',web:'directional',
  whirlwind:'directional',fissure:'directional',foxfire:'automatic',sleep:'placement',payday:'directional',charge:'directional',
- teleport:'directional',flurry:'directional',curse:'placement',lance:'directional',volley:'directional',mend:'automatic',
+ teleport:'directional',flurry:'directional','fury-swipes':'directional',curse:'placement',lance:'directional',volley:'directional',mend:'automatic',
 };
 /** Only specials with a direction or remote footprint consume the player's aim. */
 export function specialAimMode(kind:SpecialKind):SpecialAimMode {return SPECIAL_AIM_MODES[kind];}
 export interface SpecialProfile {
  kind:SpecialKind;name:string;description:string;range:number;radius:number;duration:number;pulses:number;projectiles:number;
- damageScale:number;cooldown:number;angle:number;knockback:number;
+ damageScale:number;cooldown:number;angle:number;knockback:number;element?:Element;
 }
 type SpecialTuning=Pick<SpecialProfile,'kind'|'name'|'description'>&Partial<Omit<SpecialProfile,'kind'|'name'|'description'>>;
 const families:readonly [readonly number[],SpecialTuning][]=[
  [[1,2,3],{kind:'garden',name:'Bramble Garden',description:'Plant a distant vine garden that repeatedly damages and slows enemies inside.',range:18,radius:4,duration:4,pulses:5,damageScale:.52}],
  [[4,5,6],{kind:'flamethrower',name:'Flamethrower',description:'Breathe a sustained cone of fire toward the nearest enemy; reposition to sweep it.',range:13,radius:0,angle:1.05,duration:2,pulses:8,damageScale:.35}],
  [[7,8,9],{kind:'surf',name:'Surf',description:'Send a wide traveling wave through the enemy line, soaking and pushing each foe once.',range:23,radius:3.5,duration:1.2,pulses:1,damageScale:2.2,knockback:4}],
- [[10,11,12],{kind:'web',name:'Silk Snare',description:'Fan out piercing silk threads that bind enemies along separate lanes.',range:17,radius:0,projectiles:5,damageScale:1.1}],
+ [[10,11,12],{kind:'web',name:'Electroweb',description:'Fan out piercing electric threads that damage and slow enemies along separate lanes.',element:'electric',range:17,radius:0,projectiles:5,damageScale:1.1}],
  [[16,17,18],{kind:'whirlwind',name:'Whirlwind',description:'Launch a widening cyclone that carries enemies away from your route.',range:19,radius:2.4,duration:1.8,pulses:1,damageScale:1.6,knockback:6}],
  [[25,26],{kind:'thunder',name:'Thunder Circuit',description:'Call successive remote lightning strikes on different enemies, briefly stunning each.',range:24,radius:1.3,duration:1.2,pulses:6,damageScale:1.05}],
- [[27,28],{kind:'fissure',name:'Fault Line',description:'Rupture the ground in a sequence toward distant foes; later ruptures hit harder.',range:20,radius:2,duration:1,pulses:5,damageScale:.9}],
+ [[27,28],{kind:'fissure',name:'Fissure',description:'Rupture the ground in a sequence toward distant foes; later ruptures hit harder.',range:20,radius:2,duration:1,pulses:5,damageScale:.9}],
  [[37,38],{kind:'foxfire',name:'Ninefold Foxfire',description:'Summon orbiting flames that guard you and burn enemies they touch.',range:16,radius:3.2,duration:4,projectiles:5,damageScale:1.05}],
  [[43,44,45],{kind:'sleep',name:'Sleep Powder',description:'Drop a distant sleep cloud that stuns a crowd, then restores squad health over time.',range:18,radius:5,duration:3,pulses:3,damageScale:.35}],
- [[52,53],{kind:'payday',name:'Pay Day',description:'Throw a fan of ricocheting coins that rebound between enemies.',range:19,radius:0,projectiles:5,damageScale:1.15}],
+ [[52,53],{kind:'fury-swipes',name:'Fury Swipes',description:'Rake one enemy ahead with rapid claw strikes, switching targets if it falls. Training adds hits up to five.',range:7,radius:0,angle:Math.PI/3,duration:.6,pulses:3,damageScale:1.1}],
  [[58,59],{kind:'charge',name:'Flame Charge',description:'Rush toward a foe through a damaging fire trail that keeps burning behind you.',range:10,radius:2,duration:2.4,pulses:5,damageScale:.55,knockback:2}],
  [[63,64,65],{kind:'teleport',name:'Teleport Lance',description:'Fire a piercing psychic lance toward your aim, then teleport to its endpoint.',range:19,radius:1.3,damageScale:2.8}],
  [[66,67,68],{kind:'flurry',name:'Close Combat',description:'Unleash three heavy forward strikes; the final blow launches enemies away.',range:7,radius:0,angle:1.7,duration:.65,pulses:3,damageScale:1.1,knockback:4}],
@@ -66,6 +66,7 @@ export function getSpecialProfile(speciesId:number,rank=1):SpecialProfile {
   case 'charge':profile.duration+=Math.floor((r-1)/3)*.5;profile.pulses+=Math.floor((r-1)/3);profile.radius+=Math.floor((r-1)/3)*.4;break;
   case 'teleport':case 'lance':profile.radius+=Math.floor((r-1)/2)*.25;profile.range+=(r-1)*.6;break;
   case 'flurry':profile.pulses+=Math.floor((r-1)/3);profile.range+=Math.floor((r-1)/2)*.4;break;
+  case 'fury-swipes':profile.pulses=Math.min(5,profile.pulses+Math.floor((r-1)/3));profile.range+=Math.floor((r-1)/2)*.4;break;
   case 'curse':profile.radius+=Math.floor((r-1)/2)*.5;profile.damageScale*=1+(r-1)*.07;break;
   case 'mend':break;
  }
@@ -77,7 +78,7 @@ export function describeSpecialUpgrade(speciesId:number,fromRank:number,toRank:n
  const a=getSpecialProfile(speciesId,fromRank),b=getSpecialProfile(speciesId,toRank),parts:string[]=[];
  if(b.kind==='mend'&&toRank>fromRank)parts.push(`+${(toRank-fromRank)*3} squad healing`);
  if(b.projectiles>a.projectiles)parts.push(`+${b.projectiles-a.projectiles} ${b.kind==='foxfire'?'orbiting flame':'special projectile'}${b.projectiles-a.projectiles===1?'':'s'}`);
- if(b.pulses>a.pulses)parts.push(`+${b.pulses-a.pulses} ${b.kind==='thunder'?'lightning strike':b.kind==='flurry'?'combo hit':'pulse'}${b.pulses-a.pulses===1?'':'s'}`);
+ if(b.pulses>a.pulses)parts.push(`+${b.pulses-a.pulses} ${b.kind==='thunder'?'lightning strike':b.kind==='flurry'||b.kind==='fury-swipes'?'combo hit':'pulse'}${b.pulses-a.pulses===1?'':'s'}`);
  if(b.duration>a.duration)parts.push(`+${(b.duration-a.duration).toFixed(1)}s duration`);
  if(b.radius>a.radius)parts.push(`+${(b.radius-a.radius).toFixed(1)}m width`);
  if(b.range>a.range)parts.push(`+${(b.range-a.range).toFixed(1)}m reach`);

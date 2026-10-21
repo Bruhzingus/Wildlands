@@ -1,3 +1,4 @@
+import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
@@ -15,7 +16,7 @@ test('hostile impacts retain their attacker so only actual boss damage triggers 
   addProjectile(s,{x:-1,z:0,vx:50,vz:0,ttl:1,damage:7,size:.2,kind:'bolt',type:'psychic',penetration:0,friendly:false,sourceId:enemy.uid,poisonChance:0});
   sim.update(.04,idle);
   const hit=events.find(event=>event.kind==='hit'&&event.damageTo==='player')!;
-  assert.equal(hit.sourceId,enemy.uid);assert.equal(hit.targetId,s.party[0].uid);assert.equal(hit.amount,7);assert.equal(s.player.hp,113);
+  assert.equal(hit.sourceId,enemy.uid);assert.equal(hit.targetId,s.party[0].uid);assert.equal(hit.amount,7-getBuildModifiers(s).armor);assert.equal(s.player.hp,113+getBuildModifiers(s).armor);
   assert.equal(feedback.onEvent(hit,s),boss);assert.equal(feedback.inspect().freeze,boss);
  }
 });

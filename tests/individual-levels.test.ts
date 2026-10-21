@@ -1,3 +1,4 @@
+import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation} from '../src/game/Simulation.ts';
@@ -94,8 +95,8 @@ test('cache selection keeps earned personal XP and opens the correct level rewar
 test('percentage defense and recovery scale with actual HP and incoming damage',()=>{
  const {sim,s}=arena(),follower=teammate(sim);s.buffs.damageReduction=.24;
  s.player.hp=s.player.maxHp=1000;s.player.iframes=0;
- (sim as any).hurtPlayer(100,false);close(s.player.hp,1000-100*Math.pow(.92,3));
- follower.hp=follower.maxHp=2000;follower.iframes=0;(sim as any).hurtCompanion(follower,100);close(follower.hp,2000-100*Math.pow(.92,3));
+ (sim as any).hurtPlayer(100,false);close(s.player.hp,1000-100+getBuildModifiers(s).armor);
+ follower.hp=follower.maxHp=2000;follower.iframes=0;(sim as any).hurtCompanion(follower,100);close(follower.hp,2000-100+getBuildModifiers(s,follower).armor);
  s.items=['leftovers'];s.player.hp=500;follower.hp=1000;
  (sim as any).updateRegeneration(1);close(s.player.hp,508);close(follower.hp,1016);
  s.items=['rescue-ribbon'];s.player.hp=500;follower.hp=1000;
@@ -130,7 +131,7 @@ test('single-stage mastery produces stronger learned projectiles through real le
  s.projectiles=[];leader.learnedMoves[0].cooldown=0;
  (sim as any).updateLearnedMoves(leader,.04);
  close(s.projectiles[0].damage/firstDamage,1.4*levelPowerMultiplier(5)/levelPowerMultiplier(4));
- close(leader.learnedMoves[0].cooldown/firstCooldown,1/1.16);
+ close((leader.learnedMoves[0].cooldown+.04)/(firstCooldown+.04),1/1.16);
 });
 
 test('ordinary levels do not interrupt combat again between milestones, and the level cap is finite',()=>{

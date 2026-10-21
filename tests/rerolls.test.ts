@@ -43,6 +43,24 @@ test('item rerolls exclude every old item and retain their original rarity',()=>
  assert.equal(new Set(s.upgradeChoices.map(c=>c.id)).size,3);
 });
 
+test('a cache with the only Uncommon relic can reroll by upgrading its rarity',()=>{
+ const sim=new Simulation(1,153),s=sim.state;
+ const ids=['razor-claw','toxic-barb','magnet-stone'];
+ const offers=availableItemChoices(s);
+ const old=ids.map(id=>offers.find(choice=>choice.id===id)!);
+ assert.ok(old.every(Boolean));sim.enterChoice(old,undefined,'cache');
+ const before=structuredClone(s),available=rerollChoices(s);
+ assert.ok(available);assert.deepEqual(s,before,'Availability check must leave state untouched');
+ assert.equal(sim.reroll(),true);assert.equal(s.rerolls,1);
+ assert.equal(s.upgradeChoices.length,3);
+ const rank={common:0,uncommon:1,rare:2,epic:3,legendary:4};
+ for(const [index,choice] of s.upgradeChoices.entries()){
+  assert.equal(choice.kind,'item');assert.ok(rank[choice.rarity]>=rank[old[index].rarity]);
+  assert.ok(!ids.some(id=>choice.id===id||choice.id===`${id}-legendary`));
+ }
+ assert.ok(rank[s.upgradeChoices[0].rarity]>rank.uncommon);
+});
+
 test('impossible replacements and invalid phases never spend rerolls or mutate choices',()=>{
  const sim=new Simulation(1,93),s=sim.state;
  const items=availableItemChoices(s).filter(c=>c.rarity==='rare').slice(0,3);

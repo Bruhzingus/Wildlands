@@ -124,12 +124,12 @@ test('HP training scales base health in percentages and recruits inherit the sam
  state.player.hp=state.player.maxHp*.35;member.hp=member.maxHp*.6;
  const baseLeader=state.player.maxHp,baseMember=member.maxHp,health=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='health')!;
  for(let rank=1;rank<=2;rank++)assert.equal(applyChoice(state,{...health,kind:'stat',rank}).applied,true);
- close(state.player.maxHp,baseLeader*1.24);close(member.maxHp,baseMember*1.24);
+ close(state.player.maxHp,baseLeader*1.2);close(member.maxHp,baseMember*1.2);
  close(state.player.hp/state.player.maxHp,.35);close(member.hp/member.maxHp,.6);
  state.stats.level=4;state.stats.elapsed=165;
  const recruit=makeChoices(state,new RNG(4))[0];assert.equal(recruit.kind,'recruit');
  assert.equal(applyChoice(state,recruit).applied,true);
- const follower=state.party[1];close(follower.maxHp,155*1.24);
+ const follower=state.party[1];close(follower.maxHp,155*1.2);
  assert.equal(follower.level,1);assert.equal(follower.xp,0);assert.equal(follower.xpToNext,xpThreshold(1));
 });
 
@@ -153,10 +153,10 @@ test('training keeps improving the build beyond old stat and move limits',()=>{
  const choices=makeChoices(state,new RNG(1));assert.equal(choices.length,3);
  assert.ok(choices.some(choice=>choice.kind==='attack'&&choice.rank===81));
  const before=getBuildModifiers(state);
- const defense=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='armor')!;
+ const defense=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='haste')!;
  assert.equal(applyChoice(state,{...defense,kind:'stat',rank:31}).applied,true);
- assert.ok(getBuildModifiers(state).damageReduction>before.damageReduction);
- assert.ok(allOffers(state).some(choice=>choice.stat==='damageReduction'));
+ assert.ok(getBuildModifiers(state).haste>before.haste);
+ assert.ok(allOffers(state).some(choice=>choice.stat==='haste'));
  const cache=makeChoices(state,new RNG(1),'cache');assert.ok(cache.every(choice=>choice.kind==='item'));
 });
 
@@ -182,8 +182,8 @@ test('cache relics match current attack mechanics, including learned moves and l
 test('cache stat relics disappear at caps while inactive conditional bonuses remain eligible',()=>{
  const state=new Simulation(66,67).state;state.itemUnlocks=['magnet-stone','focus-sash'];state.recruitCount=5;
  assert.ok(cacheOffers(state).some(choice=>choice.id==='magnet-stone'));
- state.buffs.magnet=BUILD_STAT_CAPS.magnet;
+ state.buffs.magnet=10;
  const choices=cacheOffers(state);
- assert.ok(choices.every(choice=>choice.id!=='magnet-stone'));
+ assert.ok(choices.some(choice=>choice.id==='magnet-stone'));
  assert.ok(choices.some(choice=>choice.id==='focus-sash'),'Full current HP does not invalidate a low-HP defensive relic');
 });

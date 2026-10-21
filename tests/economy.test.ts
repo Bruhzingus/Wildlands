@@ -41,7 +41,7 @@ test('paid chests reject insufficient coins, charge once, and preserve queued Po
 });
 
 test('paid chests keep offering training after collecting every relic',()=>{
- const {sim,s}=arena(),poi=chest();s.pois=[poi];s.coins=100;s.items=ITEMS.map(item=>item.id);
+ const {sim,s}=arena(),poi=chest();s.pois=[poi];s.coins=100;s.items=ITEMS.map(item=>item.id);s.itemUnlocks=[];
  for(const training of TRAINING_UPGRADES)s.buffs[training.stat]=training.amount*30;
  sim.update(.04,{...idle,interact:true});assert.equal(s.coins,55);assert.equal(poi.used,true);assert.equal(s.phase,'choice');
  assert.equal(s.upgradeChoices.length,3);assert.ok(s.upgradeChoices.every(choice=>choice.kind==='stat'));
@@ -59,13 +59,13 @@ test('elite rewards train the squad separately and cannot consume an earned pers
  assert.ok(s.upgradeChoices.some(choice=>choice.kind==='attack'));assert.ok(s.upgradeChoices.some(choice=>choice.kind==='stat'));
 });
 
-test('drop budgets retain XP and coins and duplicate gear becomes coins',()=>{
+test('drop budgets retain XP and coins and repeat gear adds a stored copy',()=>{
  const {sim,s}=arena();
  for(let i=0;i<DESIGN.maxActiveDrops;i++)s.drops.push({uid:s.idCounter++,x:90,z:90,kind:'xp',value:2,age:0});
  (sim as any).spawnDrop({x:0,z:0,kind:'xp',value:5});assert.equal(s.party[0].xp,5);
  (sim as any).spawnDrop({x:0,z:0,kind:'coin',value:3});assert.equal(s.coins,3);assert.equal(s.drops.length,DESIGN.maxActiveDrops);
- s.items.push('leftovers');(sim as any).collectItem('leftovers');assert.equal(s.coins,3+ECONOMY.duplicateItemCoins);
- assert.equal(s.items.filter(id=>id==='leftovers').length,1);
+ s.items.push('leftovers');(sim as any).collectItem('leftovers');assert.equal(s.coins,3);
+ assert.equal(s.items.filter(id=>id==='leftovers').length,1);assert.equal(s.itemStacks?.leftovers,2);
 });
 
 test('enemy item drops respect the run’s unlocked item pool and normal elite reward cooldown',()=>{

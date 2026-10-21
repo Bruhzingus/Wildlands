@@ -22,16 +22,16 @@ test('item registry preserves legacy definitions while reward offers use the cur
  assert.ok(ITEM_DEFINITIONS.length>=30);assert.equal(new Set(ITEM_DEFINITIONS.map(item=>item.id)).size,ITEM_DEFINITIONS.length);
  assert.deepEqual(ITEMS.map(choice=>choice.id),ITEM_DEFINITIONS.filter(item=>item.offerable!==false).map(item=>item.id));
  for(const item of ITEM_DEFINITIONS){
-  assert.equal(item.stacking,'unique');assert.equal(item.maxStacks,1);assert.match(item.description,/\d/);
+  assert.equal(item.maxStacks,item.stacking==='unique'?1:Infinity);assert.match(item.description,/\d/);
   assert.ok(item.modifiers?.length||item.effects?.length,`${item.id} must affect gameplay`);
   assert.equal(getItemDefinition(item.id),item);
  }
  for(const id of ['echo-bell','multi-lens','static-orb','leftovers','exp-share','life-orb','kings-rock','shell-bell','eviolite','charged-band'])assert.ok(getItemDefinition(id));
 });
 
-test('items deduplicate, ignore unknown ids and aggregate existing buff aliases once',()=>{
+test('relic copies stack, unknown ids are ignored and buff aliases apply once',()=>{
  const s=state([1],['life-orb','life-orb','multi-lens','not-a-relic']);s.buffs={power:.18,haste:.14,crit:.06};
- const modifiers=getBuildModifiers(s);close(modifiers.power,.5);close(modifiers.haste,.14);close(modifiers.critChance,.11);
+ const modifiers=getBuildModifiers(s);close(modifiers.power,.82);close(modifiers.haste,.14);close(modifiers.critChance,.11);
  assert.equal(modifiers.critDamage,1.85);assert.equal(modifiers.projectiles,1);
  assert.deepEqual(getBuildSummary(s).items.map(item=>item.id),['life-orb','multi-lens']);
 });
@@ -40,9 +40,9 @@ test('training stats grow past old caps while relic budgets and invalid-input gu
  const s=state([1],['multi-lens','storm-coil','piercing-fang']);s.buffs={power:10,haste:10,crit:2,speed:10,radius:10,magnet:1e9,xp:1e9,armor:1e9};
  const modifiers=getBuildModifiers(s);
  for(const stat of ['power','haste','speed','radius'] as const)assert.equal(modifiers[stat],10);
- assert.equal(modifiers.critChance,1);close(modifiers.critDamage,2.9);
- for(const stat of ['magnet','xp','armor'] as const)assert.equal(modifiers[stat],BUILD_STAT_CAPS[stat]);
- assert.equal(getBuildSummary(s).caps.length,3);
+ close(modifiers.critChance,2.05);close(modifiers.critDamage,1.85);
+ for(const stat of ['magnet','xp'] as const)assert.equal(modifiers[stat],1e9);
+ close(modifiers.armor,getSpecies(1).defense*(1+1e8));assert.equal(getBuildSummary(s).caps.length,0);
  s.buffs={power:Infinity,crit:NaN,speed:-999};const safe=getBuildModifiers(s);assert.equal(safe.power,0);assert.equal(safe.critChance,.05);assert.equal(safe.speed,-.5);
  assert.ok(Object.values(safe).every(Number.isFinite));
 });
@@ -95,16 +95,16 @@ test('all seven event hooks dispatch generic actions with damage attribution and
  assert.equal(dispatchBuildEvent({state:attackState,rng:guaranteed},{kind:'onAttack'})[0]?.kind,'echo');
 });
 
-test('proc recursion, action storms, effect damage and status duration have hard limits',()=>{
+test('proc recursion stays blocked while effect strength and duration keep scaling',()=>{
  const s=state([25],['kings-rock','frost-charm','toxic-barb','binding-thread','prism-shard']);s.enemies=[enemy()];
  const context={state:s,rng:guaranteed};let actions=0;
  for(let i=0;i<100;i++)actions+=dispatchBuildEvent(context,{kind:'onHit',targetId:40}).length;
- assert.equal(actions,BUILD_LIMITS.maxActionsPerWindow);
+ assert.equal(actions,300);
  s.stats.elapsed=.11;
  const next=dispatchBuildEvent(context,{kind:'onHit',targetId:40});assert.equal(next.length,3);
  const poison=next.find(action=>action.kind==='status'&&action.status==='poison');assert.ok(poison&&poison.kind==='status');close(poison.duration,4.2);
  for(const depth of [1,2,100,-1])assert.equal(dispatchBuildEvent(context,{kind:'onHit',targetId:40,depth}).length,0);
- const huge=dispatchBuildEvent(context,{kind:'onCrit',damage:1e12,targetId:40});assert.equal(huge[0]?.kind,'area');assert.ok(huge[0]?.kind==='area');assert.equal(huge[0].damage,BUILD_LIMITS.maxEffectDamage);
+ const huge=dispatchBuildEvent(context,{kind:'onCrit',damage:1e12,targetId:40});assert.equal(huge[0]?.kind,'area');assert.ok(huge[0]?.kind==='area');assert.equal(huge[0].damage,3.5e11);
  assert.equal(dispatchBuildEvent(context,{kind:'onHit',sourceId:999,targetId:40}).length,0);
 });
 
@@ -173,8 +173,8 @@ test('element and target-status requirements keep interaction procs specific',()
 test('build summary is deterministic, serializable and reflects actual owned definitions',()=>{
  const s=state([25,100],['storm-coil','multi-lens','storm-coil']);const before=JSON.stringify(s);const summary=getBuildSummary(s);
  assert.deepEqual(summary,getBuildSummary(s));assert.equal(JSON.stringify(s),before,'reading a summary must not mutate the run');
- assert.equal(summary.items.length,2);assert.ok(summary.items.every(item=>item.stacks===1));assert.ok(summary.synergies.some(synergy=>synergy.id==='storm-circuit'));
- assert.equal(summary.modifiers.chains,4);assert.equal(summary.modifiers.projectiles,1);assert.ok(JSON.parse(JSON.stringify(summary)));
+ assert.equal(summary.items.length,2);assert.equal(summary.items.find(item=>item.id==='storm-coil')!.stacks,2);assert.ok(summary.synergies.some(synergy=>synergy.id==='storm-circuit'));
+ assert.equal(summary.modifiers.chains,6);assert.equal(summary.modifiers.projectiles,1);assert.ok(JSON.parse(JSON.stringify(summary)));
  assert.equal(getSpecies(s.party[0].speciesId).types[0],'electric');
 });
 

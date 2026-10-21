@@ -41,11 +41,11 @@ test('minibosses begin sparsely and tier-two enemies remain the large majority l
   }
   const chance=tierEncounterChance(3,elapsed);
   assert.ok(Math.abs(minibosses/count-chance)<.006,`${elapsed}s minibosses ${minibosses}/${count} should follow ${chance}`);
-  assert.ok(ordinary/count>=.94,'Third-stage evolutions do not replace the ordinary population');
-  if(elapsed>=600)assert.ok(tierTwo/count>=.94,'Tier-two Pokemon remain the late and endless population');
+  assert.ok(ordinary/count>=.92,'Third-stage evolutions do not replace the ordinary population');
+  if(elapsed>=600)assert.ok(tierTwo/count>=.92,'Tier-two Pokemon remain the late and endless population');
  }
  assert.equal(tierEncounterChance(3,359.99),0);assert.equal(tierEncounterChance(3,360),.01);
- assert.equal(tierEncounterChance(3,840),.05);
+ assert.equal(tierEncounterChance(3,840),.07);
 });
 
 test('tier-four variants and legendary encounters remain scarce and cannot appear before the final two minutes',()=>{

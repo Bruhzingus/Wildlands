@@ -41,7 +41,8 @@ export function getAttackProfile(speciesId:number,level=1):AttackDefinition {
   const {rank:_rank,description:_description,status,...changes}=milestone;
   profile={...profile,...changes,status:{...profile.status,...status}};
  }
- return {...profile,damageScale:profile.damageScale*(1+(species.stage-1)*.12),range:profile.range+rank*growth.range,radius:profile.radius+rank*growth.radius,width:profile.width===undefined?undefined:profile.width+rank*growth.radius,
+ const melee=profile.kind==='slash'?1.25:1;
+ return {...profile,damageScale:profile.damageScale*(1+(species.stage-1)*.12)*melee,range:(profile.range+rank*growth.range)*melee,radius:(profile.radius+rank*growth.radius)*melee,width:profile.width===undefined?undefined:(profile.width+rank*growth.radius)*melee,
   projectiles:profile.projectiles+(growth.projectilesEvery?Math.floor(rank/growth.projectilesEvery):0),
   chains:profile.chains+(growth.chainsEvery?Math.floor((rank+1)/growth.chainsEvery):0)};
 }

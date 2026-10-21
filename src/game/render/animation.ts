@@ -13,7 +13,7 @@ export function attackStyle(kind:AttackKind):AttackStyle {
 const SPECIAL_ATTACK_STYLES:Record<SpecialKind,AttackStyle>={
  garden:'pulse',flamethrower:'ranged',surf:'ranged',thunder:'pulse',quickstep:'quick',web:'ranged',
  whirlwind:'ranged',fissure:'heavy',foxfire:'pulse',sleep:'pulse',payday:'ranged',charge:'quick',
- teleport:'ranged',flurry:'heavy',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
+ teleport:'ranged',flurry:'heavy','fury-swipes':'melee',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
 };
 /** Specials follow their actual cast: a charge, heavy combo and sanctuary retain
  * their own body motion even when the species' ordinary attack has another shape. */

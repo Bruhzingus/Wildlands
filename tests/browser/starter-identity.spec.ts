@@ -9,7 +9,7 @@ test('starter choices explain different attacks and the HUD names the equipped Q
  await page.goto('/?dev=1');
  const descriptions=await page.locator('.starter-card .starter-moves').allTextContents();
  expect(descriptions).toHaveLength(4);expect(new Set(descriptions).size).toBe(4);
- for(const id of [1,4,7,25])await expect(page.locator(`[data-starter="${id}"] .starter-move`)).toHaveCount(2);
+ for(const id of [1,4,7,25])await expect(page.locator(`[data-starter="${id}"] .starter-move`)).toHaveCount(id===25?3:2);
  await expect(page.locator('[data-starter="1"]')).toContainText('Bramble Garden');
  await expect(page.locator('[data-starter="4"]')).toContainText('Flamethrower');
  await expect(page.locator('[data-starter="7"]')).toContainText('Surf');

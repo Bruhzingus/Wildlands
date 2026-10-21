@@ -2,9 +2,9 @@ import {test,expect,type Page} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
 
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
-const starters=[1,4,7,10,16,25,27,37,43,52,58,63,66,92,133];
+const starters=[1,4,7,10,16,25,27,37,41,43,52,58,63,66,92,129,133];
 
-test('all fifteen starter specials cast with Q, render, pause and deal their distinct damage',async({page})=>{
+test('all seventeen starter specials cast with Q, render, pause and deal damage',async({page})=>{
  test.setTimeout(180000);
  const errors:string[]=[],consoleErrors:string[]=[];
  page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});

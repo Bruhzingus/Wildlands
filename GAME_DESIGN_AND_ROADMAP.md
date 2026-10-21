@@ -34,6 +34,34 @@ npm run preview     # Production bundle local preview
 
 ## 1. The creative vision
 
+**N1 movement presentation (October 21, 2026):** Renderer-owned travel sampling
+drives grounded walk cadence and facing, preserves loop phase through stops and
+attacks, and holds grounded frames during jumps. Walk foot anchors and contact
+shadows follow the shared terrain; native hovering sheets retain their timing.
+Controls, follower formation and simulation outcomes are preserved. See
+[the N1 handoff](docs/N1_IMPLEMENTATION_REPORT.md) for evidence and limits.
+
+**N3 upgrade rework (October 21, 2026):** Attack speed keeps increasing actual
+cast rate; haste no longer adds hit/heal strength. Iron Defense is removed.
+Numeric relic bonuses and their drawbacks stack, including normal/Legendary
+copies. See [the N3 audit and handoff](docs/N3_IMPLEMENTATION_REPORT.md)
+for every upgrade disposition, uncapped stat/crit changes, verification and limits.
+
+**October 21, 2026 follow-up:** Improvement entries N2 (paused evolution
+presentation) and S1 (terrain/biome composition) are implemented. See
+[the N2/S1 handoff](docs/N2_S1_IMPLEMENTATION_REPORT.md) for changed behavior,
+validation, resource costs and remaining human review.
+
+**Upgrade follow-up (October 21, 2026):** Percentage bonuses add against the base
+stat: `100 * (1 + 0.05 + 0.10) = 115`. Training and relics now have very rare
+Legendary variants, and upgrade cards preview current and resulting percentages.
+See [the upgrade handoff](docs/LEGENDARY_UPGRADES_REPORT.md) and
+[the current catalogue](UPGRADE_CATALOGUE.md).
+
+The title and pause menus now include **Browse all upgrades**: a scrollable,
+colour-coded catalogue grouped like the document, with search, filters, sorting
+and expandable progression details. See [the menu handoff](docs/UPGRADE_CATALOGUE_MENU_REPORT.md).
+
 ### High concept
 
 A low-poly third-person Pokémon action roguelite. Start with one first-stage Pokémon; fight swarms through mostly automatic attacks; explore a compact multi-biome woodland; pause completely when offered upgrades; slowly recruit new **first-stage Pokémon** and evolve them later; choose rare items that create extreme team builds; survive escalating variants and a final legendary encounter at 15:00. After winning, choose to end the run or continue endless.

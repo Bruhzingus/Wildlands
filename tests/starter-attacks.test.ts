@@ -59,7 +59,8 @@ test('Pikachu jumps through clustered targets while Swift seeks separate targets
  lightning.cast(a);assert.deepEqual(lightning.hits.map(hit=>hit.enemy.uid),[a.uid,b.uid,c.uid]);assert.equal(lightning.shots.length,0);
  assert.deepEqual(lightning.visuals.map(visual=>visual.shape),['chain','chain','chain']);
  const swift=arena(133),first=swift.add(4),second=swift.add(4,4);swift.cast(first);
- assert.ok(swift.shots.every(shot=>shot.silhouette==='star'),'Swift-family shots carry their star silhouette even when the species move label differs');
+ assert.equal(getSpecies(133).moveName,'Swift');
+ assert.ok(swift.shots.every(shot=>shot.silhouette==='star'),'Swift shots carry their star silhouette');
  assert.deepEqual(swift.shots.map(shot=>shot.targetId),[first.uid,second.uid]);assert.ok(swift.shots.every(shot=>shot.behavior==='homing'));
  swift.launch();for(let step=0;step<30;step++)swift.step(.04);
  assert.deepEqual(new Set(swift.hits.map(hit=>hit.enemy.uid)),new Set([first.uid,second.uid]));
@@ -86,6 +87,7 @@ test('coins ricochet without revisiting a target, and trained spore pods scatter
 });
 
 test('pounces sweep the approach, chop combos repeat only in front, and psychic lances cross from separate origins',()=>{
+ assert.equal(getSpecies(58).moveName,'Bite');
  const pounce=arena(58),approach=pounce.add(3),target=pounce.add(7);pounce.add(3,5);pounce.cast(target);
  assert.deepEqual(pounce.hits.map(hit=>hit.enemy.uid),[approach.uid,target.uid]);assert.ok(approach.x>3&&target.x>7);
  const chops=arena(66),front=chops.add(3);chops.add(-2);chops.cast(front);

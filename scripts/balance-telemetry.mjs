@@ -9,7 +9,7 @@ import {runExperiment,normalizeExperiment,summarizeExperiments,metricsCSV,BEHAVI
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {values}=parseArgs({options:{
  help:{type:'boolean',short:'h'},runs:{type:'string',default:'240'},seconds:{type:'string',default:'1000'},seed:{type:'string',default:'1001'},stride:{type:'string',default:'197'},
- seeds:{type:'string'},starters:{type:'string',default:'1,4,7,25'},behaviors:{type:'string',default:'cautious,orbit,stationary'},builds:{type:'string',default:'balanced,offense,survival'},pools:{type:'string',default:'fresh'},
+ seeds:{type:'string'},starters:{type:'string',default:'1,4,7,25'},behaviors:{type:'string',default:'cautious,orbit,stationary'},builds:{type:'string',default:'balanced,offense,survival'},pools:{type:'string',default:'fresh'},map:{type:'string',default:'wildlands'},
  assisted:{type:'boolean',default:false},endless:{type:'boolean',default:false},step:{type:'string',default:'.04'},out:{type:'string',default:'artifacts/telemetry/latest'},
  replay:{type:'string'},index:{type:'string',default:'0'},quiet:{type:'boolean',default:false},
 }});
@@ -22,6 +22,7 @@ Usage: npm run balance:telemetry -- [options]
   --starters 1,4,7,25             Cycle explicit Kanto starter IDs (title locks ignored for QA)
   --pools fresh                  Fresh32-item pool, gated single-stage recruits excluded
   --pools legacy-full            Full36-item/first-stage recruit pools (legacy/unlocked QA)
+  --map volcanic-ridge            Map family to measure (default wildlands)
   --behaviors ${BEHAVIORS.join(',')}   Cycle scripted movement policies
   --builds ${BUILDS.join(',')}        Cycle choice priorities
   --assisted                     Restore HP before each tick; progression only!
@@ -51,13 +52,13 @@ let configs,previousFingerprint=null;
 if(values.replay){
  const previous=JSON.parse(await readFile(resolve(values.replay),'utf8')),index=integer(values.index,'index',0,100000);
  const config=previous.results?.[index]?.config;if(!config)throw Error(`No result at index ${index}`);
- configs=[normalizeExperiment({...config,pools:config.pools??'legacy-full'})];previousFingerprint=previous.sourceFingerprint;
+ configs=[normalizeExperiment({...config,pools:config.pools??'legacy-full',mapId:config.mapId??'wildlands'})];previousFingerprint=previous.sourceFingerprint;
 }else{
  const count=integer(values.runs,'runs',1,10000),seed=integer(values.seed,'seed',1,0xffffffff),stride=integer(values.stride,'stride',1,0xffffffff);
  const seeds=values.seeds?list(values.seeds,'seeds').map(value=>integer(value,'seed',1,0xffffffff)):Array.from({length:count},(_,index)=>((seed-1+index*stride)%0xffffffff)+1);
  const starters=list(values.starters,'starters').map(value=>integer(value,'starter',1,151)),behaviors=list(values.behaviors,'behaviors'),builds=list(values.builds,'builds');
  configs=seeds.map((seed,index)=>normalizeExperiment({seed,starter:starters[index%starters.length],seconds:Number(values.seconds),behavior:behaviors[Math.floor(index/starters.length)%behaviors.length],
-  build:builds[Math.floor(index/(starters.length*behaviors.length))%builds.length],maintainHealth:values.assisted,continueEndless:values.endless,step:Number(values.step),pools:values.pools}));
+  build:builds[Math.floor(index/(starters.length*behaviors.length))%builds.length],maintainHealth:values.assisted,continueEndless:values.endless,step:Number(values.step),pools:values.pools,mapId:values.map}));
 }
 const fingerprint=await sourceFingerprint();
 if(previousFingerprint&&previousFingerprint!==fingerprint)console.warn('Source fingerprint differs from the report. Seed/config replay is preserved; game behavior may have changed.');

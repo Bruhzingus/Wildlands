@@ -7,6 +7,7 @@ import {createEnemy} from '../src/game/systems/spawning.ts';
 import {createEnvironment} from '../src/game/systems/environment.ts';
 import {DESIGN} from '../src/data/config.ts';
 import {SPECIAL_LIMITS} from '../src/game/combat/specials.ts';
+import {getMovementTrait} from '../src/data/movementTraits.ts';
 import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import type {Enemy} from '../src/game/types.ts';
 
@@ -27,8 +28,8 @@ function advance(sim:Simulation,seconds:number){
 }
 const hits=(events:GameEvent[],enemy:Enemy)=>events.filter(event=>event.kind==='hit'&&event.damageTo==='enemy'&&event.targetId===enemy.uid);
 
-test('each starter has a distinct special mechanic and every species has a valid bounded profile',()=>{
- const starters=starterChoices();assert.equal(new Set(starters.map(id=>getSpecialProfile(id).kind)).size,starters.length);
+test('each starter has a distinct special and movement combination and every species has a valid bounded profile',()=>{
+ const starters=starterChoices();assert.equal(new Set(starters.map(id=>`${getSpecialProfile(id).kind}/${getMovementTrait(id).kind}`)).size,starters.length);
  for(const species of KANTO){
   const first=getSpecialProfile(species.id),last=getSpecialProfile(species.id,12);
   assert.ok(first.name.length>0&&first.description.length>20);
@@ -43,6 +44,9 @@ test('each starter has a distinct special mechanic and every species has a valid
  for(const [base,evolved] of [[1,3],[4,6],[7,9],[25,26]]){
   assert.equal(getSpecialProfile(base).kind,getSpecialProfile(evolved).kind);
   assert.ok(getSpecialProfile(evolved).damageScale>getSpecialProfile(base).damageScale);
+ }
+ for(const [ids,name] of [[[10,11,12],'Electroweb'],[[27,28],'Fissure'],[[52,53],'Fury Swipes']] as const){
+  for(const id of ids)assert.equal(getSpecialProfile(id).name,name);
  }
 });
 
@@ -152,11 +156,12 @@ test('Abra teleport endpoints stop at solid scenery',()=>{
  assert.ok(Math.hypot(lance.s.player.x-beam.toX!,lance.s.player.z-beam.toZ!)<1e-8);
 });
 
-test('adding a projectile to silk and coin fans preserves a direct shot at the selected distant enemy',()=>{
- for(const starter of [10,52]){
+test('adding a projectile to Electroweb preserves a direct shot at the selected distant enemy',()=>{
+ for(const starter of [10]){
   const {sim,s}=arena(starter);s.items=['multi-lens'];const target=foe(sim,0,16);
   sim.update(.02,{...idle,special:true});
   assert.equal(s.projectiles.length,getSpecialProfile(starter).projectiles+1);
+  assert.ok(s.projectiles.every(projectile=>projectile.type==='electric'&&projectile.moveName==='Electroweb'));
   advance(sim,1.2);assert.ok(target.hp<target.maxHp,`Starter ${starter} must retain its aimed shot with an even fan`);
  }
 });
@@ -168,6 +173,22 @@ test('Thunder Circuit strikes separate remote enemies over time and stuns its ta
  advance(sim,.5);assert.ok(targets.some(enemy=>enemy.stunTime>0));advance(sim,.9);
  assert.ok(targets.every(enemy=>enemy.hp<enemy.maxHp));
  assert.ok(events.filter(event=>event.shape==='column').length>=targets.length);
+});
+
+test('Fury Swipes repeatedly claws one aimed enemy without hitting its neighbors or firing coins',()=>{
+ const {sim,s,events}=arena(52),target=foe(sim,0,5),neighbor=foe(sim,1,5),rear=foe(sim,0,-3),distant=foe(sim,0,12);
+ sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});advance(sim,.7);
+ assert.equal(hits(events,target).length,3);
+ for(const enemy of [neighbor,rear,distant])assert.equal(enemy.hp,enemy.maxHp);
+ assert.equal(s.projectiles.length,0);assert.ok(events.some(event=>event.shape==='slash'));
+});
+
+test('trained Fury Swipes adds up to five hits and retargets after a foe falls',()=>{
+ const {sim,events}=arena(52,7),first=foe(sim,0,4),next=foe(sim,0,6);first.hp=1;
+ sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});advance(sim,.7);
+ assert.ok(first.dead);assert.equal(hits(events,first).length,1);assert.equal(hits(events,next).length,4);
+ assert.equal(getSpecialProfile(52,999).pulses,5);
+ assert.match(describeSpecialUpgrade(52,3,4),/Fury Swipes: \+1 combo hit/);
 });
 
 test('Thunder Circuit automatically chains on every side regardless of mouse aim',()=>{

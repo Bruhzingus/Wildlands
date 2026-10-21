@@ -79,8 +79,9 @@ export function learnableMoves(speciesId:number,level=Infinity):LearnableMove[] 
 export function getLearnedMoveProfile(id:string,rank=1):AttackDefinition {
  const definition=getMoveDefinition(id);if(!definition)throw new Error(`Unknown learned move: ${id}`);
  const base=definition.profile,level=Math.max(0,Number.isFinite(rank)?rank-1:0),growth=base.growth;
- return {...base,growth:{...growth},status:{...base.status},cooldown:base.cooldown/(1+level*PROGRESSION.moves.speedPerRank),
-  range:base.range*(1+level*PROGRESSION.moves.rangePerRank),radius:base.radius*(1+level*PROGRESSION.moves.rangePerRank),
+ const melee=base.kind==='slash'?1.25:1;
+ return {...base,growth:{...growth},status:{...base.status},cooldown:base.cooldown/(1+level*PROGRESSION.moves.speedPerRank),damageScale:base.damageScale*melee,
+  range:base.range*(1+level*PROGRESSION.moves.rangePerRank)*melee,radius:base.radius*(1+level*PROGRESSION.moves.rangePerRank)*melee,
   projectiles:base.projectiles+(growth.projectilesEvery?Math.floor(level/growth.projectilesEvery):0),
   chains:base.chains+(growth.chainsEvery?Math.floor(level/growth.chainsEvery):0)};
 }

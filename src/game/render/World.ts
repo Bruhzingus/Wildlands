@@ -2,7 +2,7 @@ import {Scene,StandardMaterial,Color3,Color4,Mesh,MeshBuilder,Vector3,VertexBuff
 import {DESIGN} from '../../data/config.ts';
 import {worldProfile,siteAvailable,type WorldProfile,type MapId} from '../../data/maps.ts';
 import {CHEST_TIERS,SHRINE,chestRarity} from '../../data/economy.ts';
-import type {LootRarity,POI} from '../types.ts';
+import type {LootRarity,POI,TerrainFeature} from '../types.ts';
 import {biomeAt,createEnvironment,explorationRoute,terrainHeight} from '../systems/environment.ts';
 export class World{
  setQuality(quality:'low'|'balanced'|'high'){
@@ -10,10 +10,11 @@ export class World{
   for(const mesh of this.spawned)if(mesh.name.startsWith('flower-')||mesh.name.startsWith('bush-'))mesh.setEnabled(quality!=='low');
  }
  private spawned:AbstractMesh[]=[];private landmarks=new Map<number,{marker:TransformNode;mesh:AbstractMesh;body:AbstractMesh}>();
+ private terrainFeatures=new Map<number,{root:TransformNode;ring:AbstractMesh;body:AbstractMesh}>();
  private chestMaterials:Partial<Record<LootRarity,StandardMaterial>>={};
  private reusable:Mesh[]=[];private materials:StandardMaterial[]=[];private lights:(HemisphericLight|DirectionalLight)[]=[];private scene:Scene;
  readonly profile:WorldProfile;
- constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands'){this.scene=scene;this.profile=worldProfile(seed,mapId);this.buildTerrain(pois);this.buildEnvironment(seed,pois);this.buildLandmarks(pois);this.update(0,pois);}
+ constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands'){this.scene=scene;this.profile=worldProfile(seed,mapId);this.buildTerrain(pois);this.buildEnvironment(seed,pois);this.buildLandmarks(pois);this.buildTerrainFeatures(createEnvironment(seed,pois,mapId).features);this.update(0,pois);}
  height(x:number,z:number){return terrainHeight(x,z,this.profile);}
  mat(name:string,hex:string,alpha=1){const m=new StandardMaterial(name,this.scene);m.diffuseColor=Color3.FromHexString(hex);m.emissiveColor=m.diffuseColor.scale(.13);m.specularColor=new Color3(.06,.07,.06);m.alpha=alpha;this.materials.push(m);return m;}
  private buildTerrain(pois:POI[]){
@@ -21,10 +22,15 @@ export class World{
   const ground=MeshBuilder.CreateGround('rolling forest terrain',{width:size,height:size,subdivisions:116},this.scene);
   const positions=ground.getVerticesData(VertexBuffer.PositionKind)!;const indices=ground.getIndices()!;
   const colors:number[]=[],palette=Object.fromEntries(Object.entries(definition.palette).map(([id,biome])=>[id,Color3.FromHexString(biome.color)]));
-  const routes=pois.map(poi=>explorationRoute(poi,this.profile));
+  const routes=pois.map(poi=>explorationRoute(poi,this.profile)),stone=Color3.FromHexString(definition.scenery.rock);
   for(let i=0;i<positions.length;i+=3){const x=positions[i],z=positions[i+2];positions[i+1]=this.height(x,z);
    const n=(Math.sin(x*.18)*Math.cos(z*.21)+1)/2;
-   const biome=palette[biomeAt(x,z,this.profile)];
+   // Blend the shared regions across a narrow ecotone; height bands expose the
+   // ridge shape without adding decals, geometry or additional draw calls.
+   const biome=palette[biomeAt(x,z,this.profile)].scale(.4);
+   for(const [dx,dz] of [[-4,0],[4,0],[0,-4],[0,4]])biome.addInPlace(palette[biomeAt(x+dx,z+dz,this.profile)].scale(.15));
+   const exposed=Math.max(0,Math.min(.18,(positions[i+1]-5)*.018));
+   Color3.LerpToRef(biome,stone,exposed,biome);
    const path=routes.some(route=>route.slice(1).some((end,index)=>{
     const start=route[index],dx=end.x-start.x,dz=end.z-start.z,t=Math.max(0,Math.min(1,((x-start.x)*dx+(z-start.z)*dz)/(dx*dx+dz*dz||1)));
     return Math.hypot(x-start.x-t*dx,z-start.z-t*dz)<1.25;
@@ -44,8 +50,8 @@ export class World{
   this.spawned.push(ground,lake,rim);
   this.scene.clearColor=Color4.FromColor3(Color3.FromHexString(definition.skyColor));
   this.scene.fogMode=Scene.FOGMODE_EXP2;this.scene.fogDensity=.0064;this.scene.fogColor=Color3.FromHexString(definition.fogColor);
-  const ambient=new HemisphericLight('ambient sky',new Vector3(0,1,0),this.scene);ambient.intensity=1.55;ambient.groundColor=new Color3(.28,.32,.24);
-  const sun=new DirectionalLight('sun',new Vector3(-.5,-1,.4),this.scene);sun.intensity=1.05;sun.position.set(35,90,-60);
+  const ambient=new HemisphericLight('ambient sky',new Vector3(0,1,0),this.scene);ambient.intensity=definition.lighting.sky;ambient.groundColor=new Color3(.28,.32,.24);
+  const sun=new DirectionalLight('sun',new Vector3(-.5,-1,.4),this.scene);sun.intensity=definition.lighting.sun;sun.position.set(35,90,-60);
   this.lights.push(ambient,sun);
   // Lighting without live dynamic shadow maps is much cheaper for dense enemy scenes.
  }
@@ -93,13 +99,28 @@ export class World{
    this.landmarks.set(poi.uid,{marker:root,mesh:ring,body:mesh});this.spawned.push(mesh,ring);
   }
  }
- update(_dt:number,pois:POI[],elapsed=0){
+ private buildTerrainFeatures(features:TerrainFeature[]){
+  const bramble=this.mat('bramble ground','#62713f',.72),beacon=this.mat('ruin beacon','#d49d50');
+  // Reuse the landmark primitives; interaction markers must not turn seven
+  // small objects into seven new geometries on every restart.
+  const brambleSource=MeshBuilder.CreateDisc('bramble ground source',{radius:1,tessellation:14},this.scene);brambleSource.material=bramble;brambleSource.isVisible=false;this.reusable.push(brambleSource);
+  const beaconSource=this.scene.getMeshByName('obelisk') as Mesh,ringSource=this.scene.getMeshByName('shrine marker source') as Mesh;
+  for(const feature of features){const root=new TransformNode(`terrain-feature-${feature.uid}`,this.scene);root.position.set(feature.x,this.height(feature.x,feature.z)+.04,feature.z);
+   const brambles=feature.kind==='bramble',body=brambles?brambleSource.createInstance(`bramble-${feature.uid}`):beaconSource.clone(`ruin-beacon-${feature.uid}`)!;
+   body.rotation.x=brambles?Math.PI/2:0;body.position.y=brambles?.01:.9;body.scaling.set(brambles?feature.radius:.42,brambles?feature.radius:.7,brambles?1:.42);if(!brambles)body.material=beacon;body.parent=root;
+   // Clones retain shared geometry but permit the beacon's distinctive material.
+   const ring=brambles?ringSource.createInstance(`feature-ring-${feature.uid}`):ringSource.clone(`feature-ring-${feature.uid}`)!;if(!brambles)ring.material=beacon;ring.parent=root;ring.position.y=.05;ring.scaling.set(feature.radius/2,1,feature.radius/2);ring.isVisible=!brambles;
+   this.terrainFeatures.set(feature.uid,{root,ring,body});this.spawned.push(body,ring);
+  }
+ }
+ update(_dt:number,pois:POI[],elapsed=0,features:TerrainFeature[]=[]){
   for(const poi of pois){const entry=this.landmarks.get(poi.uid);if(!entry)continue;
    entry.marker.setEnabled(siteAvailable(poi,elapsed)&&(!poi.used||poi.respawnAt!==undefined||!!poi.challenge));
    entry.body.scaling.y=poi.used?.35:poi.price!==undefined?.8:1;
    entry.mesh.scaling.set(poi.challenge?SHRINE.radius/2:1,1,poi.challenge?SHRINE.radius/2:1);
    if(poi.price!==undefined)entry.body.material=entry.mesh.material=this.chestMaterials[chestRarity({stats:{elapsed}},poi)]!;
   }
+  for(const feature of features){const view=this.terrainFeatures.get(feature.uid);if(!view)continue;view.root.setEnabled(feature.state!=='spent');if(feature.kind==='ruin-beacon')view.ring.scaling.set(feature.state==='arming'?1.18:1,1,feature.state==='arming'?1.18:1);}
  }
- dispose(){for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
+ dispose(){for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.terrainFeatures.values())root.root.dispose();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.terrainFeatures.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
 }

@@ -2,6 +2,7 @@ import {getEnemyAttackLoadout,getEnemyAttackProfile,resolveCommittedEnemyProfile
 import {getVariant} from '../../data/variants.ts';
 import type {Enemy,EnemyWindup,PartyMember,RunState,Vec2} from '../types.ts';
 import type {ProjectileSpawn} from './projectiles.ts';
+import {canReachAirbornePlayer} from '../systems/movement.ts';
 
 export interface EnemyMoveVisual {
  kind:'attack'|'tell';x:number;z:number;sourceId:number;label:string;color:string;shape:string;
@@ -78,7 +79,7 @@ export function enemyMoveTell(enemy:Enemy,windup:EnemyWindup,profile=resolveComm
 }
 function inCommittedStrike(enemy:Enemy,windup:EnemyWindup,target:Vec2,radius:number){
  const dx=target.x-enemy.x,dz=target.z-enemy.z,d=Math.hypot(dx,dz);
- // A committed forward cone leaves a clear escape behind or beside the attacker.
+ // The cone still determines incidental hits on actors other than the chosen target.
  return d<=radius+enemy.size*.3&&(d<.65||(dx*Math.sin(windup.facing)+dz*Math.cos(windup.facing))/d>.24);
 }
 export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,hooks:EnemyMoveHooks,profile:EnemyAttackProfile=resolveCommittedEnemyProfile(enemy,windup,state.stats.elapsed)):void {
@@ -96,9 +97,9 @@ export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,h
  }
  if(role==='melee-fast'||role==='melee-slow'){
   visual('slash');
-  if(inCommittedStrike(enemy,windup,state.player,profile.radius))hooks.hurtPlayer(damage,poison,enemy.uid);
+  if(canReachAirbornePlayer(enemy,state)&&(windup.targetUid===state.party[0].uid||inCommittedStrike(enemy,windup,state.player,profile.radius)))hooks.hurtPlayer(damage,poison,enemy.uid);
   if(state.result!==null)return;
-  for(const member of [...state.party].slice(1))if(inCommittedStrike(enemy,windup,member,profile.radius))hooks.hurtCompanion(member,damage*.55,poison,enemy.uid);
+  for(const member of [...state.party].slice(1))if(windup.targetUid===member.uid||inCommittedStrike(enemy,windup,member,profile.radius))hooks.hurtCompanion(member,damage*.55,poison,enemy.uid);
   return;
  }
  if(role==='explosive-suicide'){

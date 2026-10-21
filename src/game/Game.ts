@@ -15,11 +15,13 @@ import {GameAudio} from './audio.ts';
 import {ImpactFeedback} from './feedback.ts';
 import {AutomaticQuality,graphicsProfile,initialQuality} from './graphics.ts';
 import {FrameMetrics} from './performance.ts';
+import type {EvolutionReceipt} from './evolution.ts';
 
 const isActive=(sim:Simulation|null)=>sim?.state.phase==='playing'||sim?.state.phase==='boss';
 const withoutActions=(input:MoveInput):MoveInput=>({...input,jump:false,dodge:false,special:false,interact:false});
 
 export class Game{
+ private evolution:EvolutionReceipt|null=null;
  private damageNumbers:DamageNumbers|null=null;
  private canvas=document.querySelector<HTMLCanvasElement>('#renderCanvas')!;
  private engine:Engine;private scene:Scene;private camera:ArcRotateCamera;
@@ -50,7 +52,10 @@ export class Game{
   this.ui.onStart=id=>this.start(id);
   this.ui.onPick=id=>this.pick(id);
   this.ui.onReroll=()=>{if(this.sim?.reroll()){this.audio.unlock();this.audio.cue('upgrade');this.ui.update(this.sim.state);}};
-  this.ui.onResume=()=>this.captureForPlay();
+  this.ui.onResume=()=>{
+   if(this.evolution){this.evolution=null;this.visuals?.finishEvolution();this.ui.clearEvolution();if(this.sim)this.ui.update(this.sim.state);}
+   this.captureForPlay();
+  };
   this.ui.onRestart=()=>this.restart();
   this.ui.onEndless=()=>{this.ended=false;this.clearInput();this.sim?.continueEndless();this.captureForPlay();};
   this.installInput();this.engine.runRenderLoop(()=>this.frame());
@@ -70,9 +75,11 @@ export class Game{
  }
  private clearInput(){this.pressed.clear();this.justPressed.clear();this.pendingActions={jump:false,dodge:false,special:false,interact:false};}
  private pick(id:string){
+  if(this.evolution)return;
   this.audio.unlock();this.audio.setActive(false);this.clearInput();
   const choice=this.sim?.state.upgradeChoices.find(choice=>choice.id===id);
-  if(this.sim?.choose(id)){this.audio.cue(choice?.kind==='recruit'?'recruit':choice?.kind==='evolve'?'evolve':'upgrade');this.observeProgression();}
+  if(this.sim?.choose(id)){if(choice?.kind!=='evolve')this.audio.cue(choice?.kind==='recruit'?'recruit':'upgrade');this.observeProgression();}
+  if(this.evolution&&this.sim){if(isActive(this.sim))this.sim.pause();this.releasePointer();this.ui.showEvolution(this.evolution,this.sim.state.phase==='choice');return;}
   this.captureForPlay();
  }
  private releasePointer(){
@@ -82,6 +89,7 @@ export class Game{
  private pause(){this.clearInput();if(isActive(this.sim))this.sim?.pause();this.releasePointer();this.audio.silence();this.feedback.reset();this.flashUntil=0;}
  /** Called directly from a click/key gesture; browsers require that to capture. */
  private captureForPlay(){
+  if(this.evolution)return;
   const sim=this.sim;if(!sim||(!isActive(sim)&&sim.state.phase!=='paused'))return;
   this.audio.unlock();this.audio.setActive(false);this.feedback.reset();
   this.clearInput();
@@ -115,7 +123,7 @@ export class Game{
  private installInput(){const signal=this.listeners.signal;
   // Space belongs to jumping, including when a popup takes focus mid-press.
   // Cancel both native activation events before controls can consume them.
-  const preventSpaceActivation=(event:KeyboardEvent)=>{if(event.code==='Space')event.preventDefault();};
+  const preventSpaceActivation=(event:KeyboardEvent)=>{if(event.code==='Space'&&!this.ui.isCatalogueOpen())event.preventDefault();};
   window.addEventListener('keydown',preventSpaceActivation,{signal,capture:true});
   window.addEventListener('keyup',preventSpaceActivation,{signal,capture:true});
   window.addEventListener('keydown',e=>{
@@ -176,11 +184,17 @@ export class Game{
  }
  private restart(){if(this.sim)this.progression?.finish(this.sim.state);this.cleanupRun();this.ui.showTitle();}
  private cleanupRun(){this.releasePointer();this.healthBars?.dispose();this.fx?.dispose();this.visuals?.dispose();this.assets?.dispose();this.world?.dispose();
+  this.evolution=null;this.ui.clearEvolution();
   this.damageNumbers?.dispose();this.damageNumbers=null;
   this.healthBars=null;this.fx=null;this.visuals=null;this.assets=null;this.world=null;this.sim=null;this.progression=null;this.clearInput();this.ended=false;this.lastPhase='title';this.flashUntil=0;
   this.audio.reset();this.feedback.reset();this.previousSpecialCooldown=null;
  }
  private event(event:GameEvent){if(event.label)this.ui.toast(event.label,['boss','faint','win','death'].includes(event.kind)?2:1);this.fx?.onEvent(event);
+  if(event.kind==='evolve'&&event.evolution){
+   this.evolution=event.evolution;this.visuals?.beginEvolution(event.evolution.uid,event.evolution.from);
+   this.audio.setActive(false);this.audio.cue('evolve',event.speciesId);this.clearInput();this.feedback.reset();this.flashUntil=0;
+   return;
+  }
   if(this.sim)this.damageNumbers?.onEvent(event,this.sim.state);
   if(event.kind==='kill'&&event.variant)this.progression?.onKill(event.variant,event.targetId);
   if(event.kind==='level'||event.kind==='win'||event.kind==='death'){
@@ -204,11 +218,12 @@ export class Game{
   const tap=(...codes:string[])=>codes.some(c=>this.justPressed.has(c));
   // Camera aim is consumed only by directional/placed specials, including
   // sustained casts. Ordinary and learned attacks acquire their own targets.
-  return {...movement,...cameraAimDirection(this.camera.alpha),jump:tap('Space'),dodge:tap('ShiftLeft','ShiftRight'),special:tap('KeyQ'),interact:tap('KeyE')};
+  return {...movement,...cameraAimDirection(this.camera.alpha),jump:tap('Space'),jumpHeld:down('Space'),dodge:tap('ShiftLeft','ShiftRight'),special:tap('KeyQ'),interact:tap('KeyE')};
  }
  private frame(){const now=performance.now();const frameInterval=Math.max(0,(now-this.previous)/1000),dt=Math.min(.08,frameInterval);this.previous=now;
   if(!this.sim||!this.world){this.justPressed.clear();this.scene.render();return;}
   const sim=this.sim,state=sim.state;
+  if(this.evolution){if(isActive(sim))sim.pause();if(!this.ui.isEvolving()){this.releasePointer();this.ui.showEvolution(this.evolution,state.phase==='choice');}}
   if(state.phase!==this.lastPhase){this.clearInput();if(!isActive(sim)&&!(state.phase==='paused'&&this.captureWanted))this.releasePointer();this.lastPhase=state.phase;}
   if(isActive(sim)&&document.pointerLockElement!==this.canvas)this.pause();
   const active=isActive(sim)&&document.pointerLockElement===this.canvas,input=this.input();sim.setWalking(active&&Math.hypot(input.mx,input.mz)>.01);
@@ -229,7 +244,7 @@ export class Game{
      if(this.feedback.inspect().freeze)break;
     }
    }
-   this.world.update(dt,state.pois,state.stats.elapsed);
+   this.world.update(dt,state.pois,state.stats.elapsed,state.terrainFeatures);
    if(!isActive(sim)){this.clearInput();this.releasePointer();this.lastPhase=state.phase;}
   }
   const simulationEnd=this.metrics?performance.now():0;
@@ -244,7 +259,7 @@ export class Game{
   if(playing)Vector3.LerpToRef(this.camera.target,target,1-Math.exp(-9*dt),this.camera.target);
   const cameraAngle=-this.camera.alpha-Math.PI/2;
   const presentationDt=playing&&!impactFrame.freeze&&!this.feedback.inspect().freeze?dt:0;
-  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y);
+  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y,this.evolution&&!document.hidden?dt:0,!!state.player.movement?.flying);
   this.healthBars?.sync(state,presentationDt,(x,z)=>this.world!.height(x,z));
   this.fx?.update(state,presentationDt);
   document.querySelector<HTMLElement>('#damage-flash')!.style.opacity=now<this.flashUntil?'.38':'0';

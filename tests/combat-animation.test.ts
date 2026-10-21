@@ -39,16 +39,11 @@ test('follower attack aim is independent of leader and pauses with its timer',()
  assert.equal(follower.facing,aim);assert.ok(follower.attackTimer<timer);
 });
 
-test('high attack speed completes each short pose before the next shot without slowing cadence',()=>{
- const {sim,s,leader}=arena();s.buffs.haste=10;
- sim.update(.02,idle);
- assert.equal(leader.cooldown,.2);
- assert.equal(leader.attackDuration,.2*ATTACK_ANIMATION.cadenceFraction);
- assert.equal(leader.attackTimer,leader.attackDuration);
- for(let i=0;i<19;i++)sim.update(.01,idle);
- assert.equal(leader.attackTimer,0);assert.notEqual(leader.animation,'attack');
- sim.update(.02,idle);assert.equal(leader.animation,'attack');
- assert.equal(leader.attackTimer,leader.attackDuration);
+test('high attack speed keeps short poses and continues firing below the former floor',()=>{
+ const {sim,s,leader}=arena();s.buffs.haste=10;let casts=0;sim.onEvent=event=>{if(event.kind==='cast')casts++;};
+ sim.update(.02,idle);assert.ok(leader.cooldown<.2);assert.ok(leader.attackDuration!<.2*ATTACK_ANIMATION.cadenceFraction);
+ for(let i=0;i<25;i++)sim.update(.01,idle);assert.ok(casts>=3);
+ leader.cooldown=10;for(let i=0;i<10;i++)sim.update(.01,idle);assert.equal(leader.attackTimer,0);assert.notEqual(leader.animation,'attack');
 });
 
 test('learned moves retain their own pose kind until recovery, then restore the primary move',()=>{
@@ -79,7 +74,7 @@ test('overlapping learned and primary casts complete one motion without delaying
   assert.ok(Math.abs(leader.attackTimer-(duration-tick*.02))<1e-10);
   assert.equal(leader.attackDuration,duration);assert.equal(leader.facing,facing);assert.equal(leader.attackKind,'beam');
  }
- assert.equal(casts,5,'All three learned attacks and two primary attacks fire on their own cooldowns');
+ assert.equal(casts,7,'All three learned attacks and two primary attacks fire on their own cooldowns');
  leader.cooldown=10;for(const learned of leader.learnedMoves)learned.cooldown=10;
  for(let i=0;i<5;i++)sim.update(.02,idle);
  assert.equal(leader.attackTimer,0);assert.notEqual(leader.animation,'attack');assert.equal(leader.attackKind,undefined);

@@ -32,7 +32,7 @@ test('biome scenery reuses geometry and rendered ground matches the shared colli
   assert.equal(scene.meshes.filter(m=>m.name.startsWith('gate-pillar-')).length,2);
   const terrain=scene.getMeshByName('rolling forest terrain')!,positions=terrain.getVerticesData(VertexBuffer.PositionKind)!;
   for(let index=0;index<positions.length;index+=3*137){
-   const x=positions[index],z=positions[index+2];assert.ok(Math.abs(positions[index+1]-terrainHeight(x,z,profile))<.000001);assert.equal(world.height(x,z),terrainHeight(x,z,profile));
+   const x=positions[index],z=positions[index+2];assert.ok(Math.abs(positions[index+1]-terrainHeight(x,z,profile))<.000004);assert.equal(world.height(x,z),terrainHeight(x,z,profile));
   }
   const site=pois[0],node=scene.getTransformNodeByName(`landmark-${site.uid}`)!;
   assert.equal(node.position.y,terrainHeight(site.x,site.z,profile));assert.equal(node.isEnabled(),true);
@@ -50,7 +50,8 @@ test('every map shares seeded geography with the renderer and releases its own p
    const seed=map.seed??42,pois=createPOIs(seed,map.id),profile=worldProfile(seed,map.id),world=new World(scene,seed,pois,map.id);
    const ground=scene.getMeshByName('rolling forest terrain')!,positions=ground.getVerticesData(VertexBuffer.PositionKind)!;
    assert.equal(ground.getBoundingInfo().boundingBox.extendSize.x*2,287.5);assert.ok(scene.geometries.length<=20);
-   for(let i=0;i<positions.length;i+=3*137)assert.ok(Math.abs(positions[i+1]-terrainHeight(positions[i],positions[i+2],profile))<.000001);
+   // Babylon stores x/z/y in Float32; taller relief also amplifies x/z rounding.
+   for(let i=0;i<positions.length;i+=3*137)assert.ok(Math.abs(positions[i+1]-terrainHeight(positions[i],positions[i+2],profile))<.000004);
    const future=pois.find(p=>p.availableAt===180)!,node=scene.getTransformNodeByName(`landmark-${future.uid}`)!;
    assert.equal(node.isEnabled(),false);world.update(.02,pois,180);assert.equal(node.isEnabled(),true);
    world.dispose();assert.deepEqual({meshes:scene.meshes.length,materials:scene.materials.length,lights:scene.lights.length,geometries:scene.geometries.length,transforms:scene.transformNodes.length},baseline);

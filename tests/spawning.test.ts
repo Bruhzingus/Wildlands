@@ -55,7 +55,7 @@ test('actual arrivals stay sparse in the first minute and build gradually throug
  }
  const samples=[0,180,420,780].map(arrivals);
  assert.ok(samples[0]>=20&&samples[0]<=24,`Opening should have roughly one arrival per 2.8s, got ${samples[0]}`);
- assert.ok(samples[1]>=32&&samples[1]<=37);assert.ok(samples[2]>=49&&samples[2]<=54);assert.ok(samples[3]>=84&&samples[3]<=86);
+ assert.ok(samples[1]>=32&&samples[1]<=37);assert.ok(samples[2]>=54&&samples[2]<=58);assert.ok(samples[3]>=95&&samples[3]<=99);
  assert.ok(samples.every((count,index)=>index===0||count>samples[index-1]));
  assert.equal(arrivals(0),samples[0],'Seeded pacing is repeatable');
 });

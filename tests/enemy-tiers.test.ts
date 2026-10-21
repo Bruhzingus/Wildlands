@@ -67,7 +67,7 @@ test('miniboss budgets begin sparsely and tier-four appearances fit only the fin
  const {tier3,tier4}=ENEMY_TIER_TUNING;
  assert.equal(tier3.earliestSeconds,360);
  assert.equal(tier3.initialChance,.01);
- assert.equal(tier3.lateChance,.05);
+ assert.equal(tier3.lateChance,.07);
  assert.ok(tier3.fullChanceSeconds>tier3.earliestSeconds);
  assert.equal(tier4.earliestSeconds,780);
  assert.equal(tier4.fullChanceSeconds,900);

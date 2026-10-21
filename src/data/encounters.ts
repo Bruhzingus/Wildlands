@@ -37,6 +37,8 @@ export function tierEncounterChance(tier:3|4,elapsed:number):number {
 }
 export interface EncounterLimits {allowTier3?:boolean;allowTier4?:boolean;}
 export type BossPattern='volley'|'psychicRing'|'summon';
+export type BossEncounterId='mewtwo'|'moltres';
+export interface BossStage {threshold:number;label:string;patterns:readonly BossPattern[];shots?:number;spread?:number;summonCount?:number;}
 export interface EncounterDefinition {
  id:string;favoredSpecies:readonly number[];weight:number;guardians:readonly number[];
  boss:{speciesId:number;name:string;element:Element;color:string;patterns:readonly BossPattern[];moves:Record<BossPattern,string>;summons:readonly number[];
@@ -49,6 +51,24 @@ export const ENCOUNTER_DEFINITIONS:Readonly<Record<'wildlands'|'volcanic',Encoun
   boss:{speciesId:146,name:'Moltres',element:'fire',color:'#f2ae6d',patterns:['volley','summon','psychicRing','volley'],moves:{volley:'Ember Fan',psychicRing:'Solar Flare',summon:'Ashen Flock'},summons:[5,37,77,126],
    rules:{...BOSS_RULES,volleyWindup:1,ringWindup:1.4,volleyCooldown:2.65,ringSpeed:6.6,ringMaxRadius:33,ringWidth:1.4,volleySpeed:9,volleyDamage:16,summonCount:3,speed:3.3},shots:9,spread:.22,warning:'Heat gathers above the ridge — Moltres descends at 15:00'}},
 };
+/** Boss identity, stage rhythm and scheduling are content data rather than map flags. */
+export type BossEncounterDefinition=EncounterDefinition['boss']&{id:BossEncounterId;stages:readonly BossStage[];};
+export const BOSS_ENCOUNTERS:Readonly<Record<BossEncounterId,BossEncounterDefinition>>={
+ mewtwo:{id:'mewtwo',...ENCOUNTER_DEFINITIONS.wildlands.boss,stages:[
+  {threshold:1,label:'Mind games',patterns:['volley','psychicRing','summon','volley']},
+  {threshold:.5,label:'Psychic storm',patterns:['psychicRing','volley','summon','psychicRing'],shots:9,spread:.23,summonCount:3},
+ ]},
+ moltres:{id:'moltres',...ENCOUNTER_DEFINITIONS.volcanic.boss,stages:[
+  {threshold:1,label:'Ashen flight',patterns:['volley','summon','psychicRing','volley']},
+  {threshold:.5,label:'Firestorm',patterns:['psychicRing','volley','summon','volley'],shots:11,spread:.25,summonCount:2},
+ ]},
+};
+export const bossEncounter=(id:BossEncounterId)=>BOSS_ENCOUNTERS[id];
+/** First chapter follows the selected map; later chapters alternate, with no overlap. */
+export function scheduledBossEncounter(mapId:MapId|undefined,round:number):BossEncounterDefinition {
+ const initial=mapEncounter(mapId).boss.speciesId===146?'moltres':'mewtwo';
+ return BOSS_ENCOUNTERS[round%2===0?initial:(initial==='mewtwo'?'moltres':'mewtwo')];
+}
 export const mapEncounter=(mapId?:MapId)=>ENCOUNTER_DEFINITIONS[getMapDefinition(mapId).encounterId];
 
 /** The fifth argument also accepts a map ID for the original map-aware API. */

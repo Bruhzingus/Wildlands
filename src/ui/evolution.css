@@ -1,0 +1,13 @@
+.overlay.evolution-mode{align-items:flex-end;background:linear-gradient(transparent 10%,#18201a44 45%,#18201ae8 80%);padding:18px}
+.evolution-mode #overlay-content{max-width:660px;max-height:62vh}
+.evolution-screen{padding:18px 22px;background:#20291ff2;border:1px solid #c6d99c80;border-top:2px solid var(--accent);box-shadow:0 10px 40px #10180f66}
+.evolution-screen h2{font-family:var(--mono);font-size:19px;margin:8px 0}
+.evolution-forms{display:flex;align-items:center;justify-content:center;gap:24px;margin:10px 0 0}
+.evolution-forms figure{margin:0;min-width:100px;font-family:var(--mono);font-size:12px}
+.evolution-forms img{width:72px;height:72px;object-fit:contain}
+.evolution-before{opacity:.65}.evolution-after{animation:evolution-arrive 1.2s ease-out both}
+.evolution-gains,.evolution-moves{font-size:12px;line-height:1.7;margin:9px 0;color:var(--paper)}
+.evolution-moves{color:var(--muted)}.evolution-moves strong{color:var(--accent)}
+@keyframes evolution-arrive{from{opacity:.25;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.evolution-after{animation:none}}
+@media(max-width:480px){.evolution-screen{padding:14px 10px}.evolution-screen h2{font-size:15px}.evolution-mode #overlay-content{max-height:72vh}}

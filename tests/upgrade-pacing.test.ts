@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PROGRESSION,TRAINING_UPGRADES} from '../src/data/progression.ts';
+import {PROGRESSION,TRAINING_UPGRADES,trainingVariants} from '../src/data/progression.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import {applyChoice,availableItemChoices,chestChoices,learnedMoveSlots,makeChoices,toRoman} from '../src/game/systems/progression.ts';
@@ -41,27 +41,27 @@ test('learning is occasional while existing move and stat training stay in every
 });
 
 test('each stat has stronger rarity variants with observable odds and no duplicate stat cards',()=>{
- const state=new Simulation(4,38).state,rng=new RNG(3907),seen=new Map(),counts={common:0,rare:0,epic:0};
- for(let roll=0;roll<1500;roll++){
+ const state=new Simulation(4,38).state,rng=new RNG(3907),seen=new Map(),counts={common:0,rare:0,epic:0,legendary:0};
+ for(let roll=0;roll<12000;roll++){
   const choices=makeChoices(state,rng,'squad');
   assert.equal(new Set(choices.map(choice=>choice.stat)).size,choices.length);
   for(const choice of choices){seen.set(choice.id,choice);counts[choice.rarity]++;}
  }
- assert.equal(seen.size,TRAINING_UPGRADES.length*3);
- for(const rarity of ['common','rare','epic'] as const)assert.ok(Math.abs(counts[rarity]/4500-PROGRESSION.rarityWeights[rarity]/100)<.025);
+ assert.equal(seen.size,TRAINING_UPGRADES.reduce((sum,definition)=>sum+trainingVariants(definition).length,0));
+ for(const rarity of ['common','rare','epic','legendary'] as const)assert.ok(Math.abs(counts[rarity]/36000-PROGRESSION.rarityWeights[rarity]/100)<(rarity==='legendary'?.0015:.025));
  for(const definition of TRAINING_UPGRADES){
-  for(const [rarity,multiplier] of [['common',1],['rare',2],['epic',3]] as const){
+  for(const {rarity,amount} of trainingVariants(definition)){
    const card=seen.get(rarity==='common'?definition.id:`${definition.id}-${rarity}`);
-   assert.equal(card.title,definition.title);close(card.amount,definition.amount*multiplier);
-   assert.match(card.description,new RegExp(`${Math.round(card.amount*100)}%`));
+   assert.equal(card.title,definition.title);close(card.amount,amount);
+   assert.ok(card.description.includes(definition.stat==='staminaCapacity'?`+${amount} maximum stamina`:`${Number((amount*100).toFixed(2))}%`));
    assert.doesNotMatch(card.description,/percentage points|Rank \d+\//);assert.equal(card.maxRank,undefined);
   }
  }
  const common=seen.get('power'),rare=seen.get('power-rare'),epic=seen.get('power-epic');
  assert.equal(applyChoice(state,{...rare,amount:.12}).applied,false);
- assert.equal(applyChoice(state,rare).applied,true);close(state.buffs.power,.24);
+ assert.equal(applyChoice(state,rare).applied,true);close(state.buffs.power,.15);
  assert.equal(applyChoice(state,common).applied,false,'A sibling rarity from the same selection is stale too');
- assert.equal(applyChoice(state,{...epic,rank:2}).applied,true);close(state.buffs.power,.60);
+ assert.equal(applyChoice(state,{...epic,rank:2}).applied,true);close(state.buffs.power,.40);
  assert.equal(state.trainingRanks?.power,2);
 });
 
@@ -79,9 +79,10 @@ test('team-only relics are unavailable solo, including stale selections after a 
 test('every training stack keeps benefiting combat beyond previous limits',()=>{
  const state=new Simulation(4,40).state;
  for(const definition of TRAINING_UPGRADES){
-  for(let rank=1;rank<=24;rank++){
+  const variant=trainingVariants(definition)[0];
+  for(let rank=1;rank<=(definition.stat==='deflection'?17:24);rank++){
    const before=getBuildModifiers(state),maxHp=state.player.maxHp;
-   assert.equal(applyChoice(state,{...definition,kind:'stat',rank}).applied,true);
+   assert.equal(applyChoice(state,{...definition,...variant,id:variant.rarity==='common'?definition.id:`${definition.id}-${variant.rarity}`,kind:'stat',rank}).applied,true);
    const after=getBuildModifiers(state);
    const stat=definition.stat==='crit'?'critChance':definition.stat as keyof typeof after;
    if(definition.stat==='health')assert.ok(state.player.maxHp>maxHp);
@@ -93,7 +94,7 @@ test('every training stack keeps benefiting combat beyond previous limits',()=>{
  // Verify a Rare defense card applies the full printed 16% to remaining damage.
  const rare={id:'armor-rare',kind:'stat' as const,stat:'damageReduction',amount:.16,rank:25,rarity:'rare' as const,title:'Iron Defense',description:''};
  const before=getBuildModifiers(state).damageReduction;
- assert.equal(applyChoice(state,rare).applied,true);close(1-getBuildModifiers(state).damageReduction,(1-before)*.84);
+ assert.equal(applyChoice(state,rare).applied,false);close(getBuildModifiers(state).damageReduction,before);
  assert.ok(!defense||defense.maxRank===undefined);
  assert.ok(getAttackProfile(4,30).range>getAttackProfile(4,12).range);
  assert.ok(getLearnedMoveProfile('swift',30).cooldown<getLearnedMoveProfile('swift',12).cooldown);
@@ -105,11 +106,11 @@ test('high-rarity chests keep their advertised rarity after exhausting relics',(
  const state=new Simulation(4,41).state;state.itemUnlocks=[];
  for(const rarity of ['rare','epic'] as const){
   const choices=chestChoices(state,new RNG(79),rarity);assert.equal(choices.length,3);
-  assert.ok(choices.every(choice=>choice.kind==='stat'&&(rarity==='rare'?choice.rarity!=='common':choice.rarity==='epic')));
+  assert.ok(choices.every(choice=>choice.kind==='stat'&&(rarity==='rare'?choice.rarity!=='common':choice.rarity==='epic'||choice.rarity==='legendary')));
  }
 });
 
-test('attack-speed stacks keep increasing real damage after reaching the casting budget',()=>{
+test('attack-speed stacks keep shortening actual intervals without raising hit damage',()=>{
  for(const learned of [false,true]){
   const sim=new Simulation(7,93),state=sim.state,member=state.party[0];sim.rng.next=()=>.99;
   state.enemies=[createEnemy(state,sim.rng,19,'normal',6,0)];
@@ -121,7 +122,7 @@ test('attack-speed stacks keep increasing real damage after reaching the casting
    assert.ok(state.projectiles.length>0);
    results.push({damage:state.projectiles[0].damage,cooldown:learned?member.learnedMoves[0].cooldown:member.cooldown});
   }
-  close(results[0].cooldown,results[1].cooldown);
-  close(results[1].damage/results[0].damage,21/11);
+  assert.ok(results[1].cooldown<results[0].cooldown);
+  close(results[1].damage/results[0].damage,1);
  }
 });

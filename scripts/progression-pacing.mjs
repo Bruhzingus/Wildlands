@@ -9,6 +9,16 @@ const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 export function runPacingExperiment({seeds=Array.from({length:24},(_,index)=>1001+index*197),seconds=900,maintainHealth=true,preferNewMoves=false}={}){
  return seeds.map((seed,index)=>{
   const starter=starters[index%starters.length],sim=new Simulation(starter,seed),state=sim.state;
+  // Controlled pacing also survives hits larger than maximum HP. Healing only
+  // between frames allowed lethal bursts to turn this into a survival test.
+  if(maintainHealth)sim.onEvent=event=>{
+   if(event.kind!=='hit')return;
+   if(event.damageTo==='player')state.player.hp=state.player.maxHp;
+   if(event.damageTo==='companion'){
+    const member=state.party.find(member=>member.uid===event.targetId);
+    if(member)member.hp=member.maxHp;
+   }
+  };
   let choices=0;const rewardCounts={level:0,recruit:0,squad:0,cache:0,shop:0};
   while(state.stats.elapsed+1e-8<seconds&&state.phase!=='result'){
    if(state.phase==='choice'){

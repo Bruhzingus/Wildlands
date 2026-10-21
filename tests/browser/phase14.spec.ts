@@ -1,5 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {ITEM_DEFINITIONS} from '../../src/data/items.ts';
 
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
 const capture=async(page:Page)=>{await expect.poll(()=>page.evaluate(()=>document.pointerLockElement?.id)).toBe('renderCanvas');await expect(page.locator('#overlay')).toBeHidden();};
@@ -13,7 +14,7 @@ test('collection has10 readable achievements and reviewed safe import/export wit
  const oldSave={version:1,unlocked:[1,4,7,25,133],wins:0,games:6,bestKills:444,longestRun:888,settings:{volume:.45,camera:28,quality:'high'}};
  const file={name:'wildlands-old.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(oldSave))};
  await input.setInputFiles(file);await expect(page.locator('[data-import-preview]')).toContainText('5 partners');await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(await game(page,'g=>g.save.unlocked.length')).toBe(4);
- await input.setInputFiles(file);await page.locator('[data-confirm-import]').click();await expect(page.locator('[data-starter="133"]')).toBeVisible();expect(await game(page,'g=>[g.save.version,g.save.games,g.save.bestKills,g.save.unlockedItems.length]')).toEqual([2,6,444,36]);
+ await input.setInputFiles(file);await page.locator('[data-confirm-import]').click();await expect(page.locator('[data-starter="133"]')).toBeVisible();expect(await game(page,'g=>[g.save.version,g.save.games,g.save.bestKills,g.save.unlockedItems.length]')).toEqual([2,6,444,ITEM_DEFINITIONS.length]);
  await page.locator('.unlock-library>summary').click();const downloadPromise=page.waitForEvent('download');await page.locator('[data-export-save]').click();const download=await downloadPromise;expect(download.suggestedFilename()).toBe('wildlands-save.json');
  await page.reload();await expect(page.locator('[data-starter="133"]')).toBeVisible();await page.setViewportSize({width:390,height:844});await page.locator('.unlock-library>summary').click();
  expect(await page.evaluate(()=>document.querySelector('#overlay-content')!.scrollWidth<=document.querySelector('#overlay-content')!.clientWidth)).toBe(true);

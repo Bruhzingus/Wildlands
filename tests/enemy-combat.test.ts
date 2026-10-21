@@ -36,7 +36,7 @@ test('all 151 species have one explicit, named attack in one of seven battlefiel
  assert.equal(getEnemyAttackProfile(113).moveName,'Soft-Boiled');
 });
 
-test('fast and heavy melee commit to a visible direction and can be sidestepped',()=>{
+test('fast and heavy melee hit their committed target after it backs out of range',()=>{
  for(const species of [19,20]){
   const {sim,s,enemy,events}=arena(species,1.5);
   sim.update(.01,idle);assert.equal(s.player.hp,s.player.maxHp);
@@ -44,9 +44,15 @@ test('fast and heavy melee commit to a visible direction and can be sidestepped'
   const windup=structuredClone(enemy.windup);s.phase='paused';sim.update(.04,idle);assert.deepEqual(enemy.windup,windup);
   s.phase='playing';s.player.x=5;
   for(let i=0;i<=Math.ceil(windup!.duration/.02);i++)sim.update(.02,idle);
-  assert.equal(s.player.hp,s.player.maxHp,'Escaping behind the committed strike avoids damage');
+  assert.ok(s.player.hp<s.player.maxHp,'The committed target takes damage after leaving the strike radius');
   assert.equal(enemy.windup,undefined);
  }
+});
+
+test('enemy melee reach grows 15% and starting damage grows 25%',()=>{
+ const fast=getEnemyAttackProfile(19),heavy=getEnemyAttackProfile(20);
+ assert.equal(fast.range,2.4*1.15);assert.equal(fast.radius,2.9*1.15);assert.equal(fast.damageScale,.8*1.25);
+ assert.equal(heavy.range,3.1*1.15);assert.equal(heavy.radius,3.7*1.15);assert.equal(heavy.damageScale,1.6*1.25);
 });
 
 test('stunning a charging enemy cancels the move without damage or projectiles',()=>{
@@ -81,7 +87,8 @@ test('ranged enemies hold distance while melee closes and healers seek wounded a
 });
 
 test('large fast and heavy melee keep approaching until they can attack a stationary target',()=>{
- for(const [species,size,start] of [[19,2.8,3.535],[20,4.5,5.1]]){
+ for(const [species,size] of [[19,2.8],[20,4.5]]){
+  const start=getEnemyAttackProfile(species).radius+size*.3+.05;
   const {sim,s,enemy}=arena(species,start);sim.spawnAccum=-1000;enemy.size=size;enemy.speed=4;enemy.damage=10;
   assert.equal(canStartEnemyMove(enemy,s.player,s),false);
   assert.ok(enemyMovementIntent(enemy,s.player,s).x<0,'Body spacing cannot stop an enemy outside its attack range');

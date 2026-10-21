@@ -3,9 +3,11 @@ import {Simulation,type GameEvent,type MoveInput} from '../../src/game/Simulatio
 import type {RunState,UpgradeChoice} from '../../src/game/types.ts';
 import {getAttackProfile} from '../../src/data/attacks.ts';
 import {getSpecies} from '../../src/data/kanto.ts';
+import {relicFamily} from '../../src/data/items.ts';
 import {DESIGN} from '../../src/data/config.ts';
 import {getVariant} from '../../src/data/variants.ts';
 import {BASE_ITEMS,GATED_RECRUITS} from '../../src/data/unlocks.ts';
+import type {MapId} from '../../src/data/maps.ts';
 
 export const BEHAVIORS=['cautious','orbit','stationary'] as const;
 export const BUILDS=['balanced','offense','survival'] as const;
@@ -13,13 +15,13 @@ export type Behavior=typeof BEHAVIORS[number];
 export type Build=typeof BUILDS[number];
 export interface ExperimentConfig {
  seed:number;starter:number;seconds:number;behavior:Behavior;build:Build;
- maintainHealth:boolean;continueEndless:boolean;step:number;pools:'fresh'|'legacy-full';
+ maintainHealth:boolean;continueEndless:boolean;step:number;pools:'fresh'|'legacy-full';mapId:MapId;
 }
 export const DEFAULT_EXPERIMENT:Readonly<ExperimentConfig>=Object.freeze({
- seed:1001,starter:7,seconds:1000,behavior:'cautious',build:'balanced',maintainHealth:false,continueEndless:false,step:.04,pools:'fresh',
+ seed:1001,starter:7,seconds:1000,behavior:'cautious',build:'balanced',maintainHealth:false,continueEndless:false,step:.04,pools:'fresh',mapId:'wildlands',
 });
 const round=(value:number)=>Math.round(value*1000)/1000;
-const emptyRarity=()=>({common:0,rare:0,epic:0});
+const emptyRarity=()=>({common:0,uncommon:0,rare:0,epic:0,legendary:0});
 export interface LevelMetric {level:number;at:number;secondsSincePrevious:number}
 export interface ChoiceMetric {at:number;level:number;kind:UpgradeChoice['kind'];id:string;rarity:UpgradeChoice['rarity']}
 export interface RecruitOffer {at:number;level:number;ordinal:number;species:number[]}
@@ -75,7 +77,7 @@ export class RunMetricRecorder {
   }
   for(const choice of state.upgradeChoices)if(choice.kind==='item'){
    this.offeredItemRarity[choice.rarity]++;
-   if(state.itemUnlocks&&!state.itemUnlocks.includes(choice.id))this.validationErrors.add('item-offered-before-meta-unlock');
+   if(state.itemUnlocks&&!state.itemUnlocks.includes(relicFamily(choice.id)))this.validationErrors.add('item-offered-before-meta-unlock');
   }
  }
  selected(state:RunState,choice:UpgradeChoice,accepted:boolean){
@@ -182,12 +184,13 @@ export function normalizeExperiment(input:Partial<ExperimentConfig>={}):Experime
  if(!BEHAVIORS.includes(config.behavior))throw Error('Unknown scripted behavior');
  if(!BUILDS.includes(config.build))throw Error('Unknown scripted build priority');
  if(config.pools!=='fresh'&&config.pools!=='legacy-full')throw Error('Pools must be fresh or legacy-full');
+ if(config.mapId!=='wildlands'&&config.mapId!=='pinewood-route'&&config.mapId!=='ruins-route'&&config.mapId!=='volcanic-ridge')throw Error('Unknown map');
  if(typeof config.maintainHealth!=='boolean'||typeof config.continueEndless!=='boolean')throw Error('Assistance and endless flags must be boolean');
  return config;
 }
 
 export function runExperiment(input:Partial<ExperimentConfig>={}):RunMetrics {
- const config=normalizeExperiment(input),sim=new Simulation(config.starter,config.seed),state=sim.state,recorder=new RunMetricRecorder(config,state);
+ const config=normalizeExperiment(input),sim=new Simulation(config.starter,config.seed,{mapId:config.mapId}),state=sim.state,recorder=new RunMetricRecorder(config,state);
  if(config.pools==='fresh'){state.itemUnlocks=[...BASE_ITEMS];state.recruitUnlocks=[];}
  sim.onEvent=event=>recorder.event(event);
  let tick=0,staleChoices=0;
@@ -225,10 +228,10 @@ export function summarizeExperiments(runs:readonly RunMetrics[]){
    meanFirstLevel:mean(present(cohort.map(run=>run.levels[0]?.at??null))),meanLongestUpgradeGap:mean(cohort.map(run=>run.longestUpgradeGap)),
    bossReached:cohort.filter(run=>run.bossOutcome!=='not-reached').length,bossVictories:cohort.filter(run=>run.bossOutcome==='victory').length,
    deaths:cohort.filter(run=>run.result==='defeat').length,
-   selectedItemRarity:cohort.reduce((sum,run)=>({common:sum.common+run.itemRarity.common,rare:sum.rare+run.itemRarity.rare,epic:sum.epic+run.itemRarity.epic}),emptyRarity()),
+   selectedItemRarity:cohort.reduce((sum,run)=>({common:sum.common+run.itemRarity.common,uncommon:sum.uncommon+run.itemRarity.uncommon,rare:sum.rare+run.itemRarity.rare,epic:sum.epic+run.itemRarity.epic,legendary:sum.legendary+run.itemRarity.legendary}),emptyRarity()),
    validationFailures:cohort.filter(run=>run.validationErrors.length).length};
  };
- const cohortName=(run:RunMetrics)=>`${run.config.pools}/${run.assistance}/${run.config.behavior}/${run.config.build}`;
+ const cohortName=(run:RunMetrics)=>`${run.config.mapId}/${run.config.pools}/${run.assistance}/${run.config.behavior}/${run.config.build}`;
  const cohorts=[...new Set(runs.map(cohortName))].map(name=>({name,...group(runs.filter(run=>cohortName(run)===name))}));
  const unassisted=runs.filter(run=>run.assistance==='none'),progression=runs.filter(run=>run.assistance==='health-maintained');
  const firstLevel=present(unassisted.map(run=>run.levels[0]?.at??null)),parties=present(progression.map(run=>run.partyAt15m));
@@ -242,12 +245,12 @@ export function summarizeExperiments(runs:readonly RunMetrics[]){
  ]};
 }
 
-export const CSV_COLUMNS=['seed','starter','pools','behavior','build','assistance','requestedSeconds','elapsed','level','kills','killsPerMinute','leaderDamage','followerDamage','faints','followerFaintRate','recruits','livingParty','partyAt15m','evolutions','firstLevelAt','firstRecruitOfferAt','secondRecruitOfferAt','thirdRecruitOfferAt','commonItems','rareItems','epicItems','bossOutcome','bossFightSeconds','longestUpgradeGap','peakEnemies','peakProjectiles','peakDrops','validationErrors'] as const;
+export const CSV_COLUMNS=['seed','starter','mapId','pools','behavior','build','assistance','requestedSeconds','elapsed','level','kills','killsPerMinute','leaderDamage','followerDamage','faints','followerFaintRate','recruits','livingParty','partyAt15m','evolutions','firstLevelAt','firstRecruitOfferAt','secondRecruitOfferAt','thirdRecruitOfferAt','commonItems','uncommonItems','rareItems','epicItems','legendaryItems','bossOutcome','bossFightSeconds','longestUpgradeGap','peakEnemies','peakProjectiles','peakDrops','validationErrors'] as const;
 export function metricsCSV(runs:readonly RunMetrics[]):string {
  const cell=(value:unknown)=>value===null||value===undefined?'':`"${String(value).replaceAll('"','""')}"`;
- const rows=runs.map(run=>[run.config.seed,run.config.starter,run.config.pools,run.config.behavior,run.config.build,run.assistance,run.config.seconds,run.elapsed,run.level,run.kills,run.killsPerMinute,
+ const rows=runs.map(run=>[run.config.seed,run.config.starter,run.config.mapId,run.config.pools,run.config.behavior,run.config.build,run.assistance,run.config.seconds,run.elapsed,run.level,run.kills,run.killsPerMinute,
   run.leaderDamage,run.followerDamage,run.faints,run.followerFaintRate,run.recruits,run.livingParty,run.partyAt15m,run.evolutions,run.levels[0]?.at,
-  run.recruitOffers[0]?.at,run.recruitOffers[1]?.at,run.recruitOffers[2]?.at,run.itemRarity.common,run.itemRarity.rare,run.itemRarity.epic,run.bossOutcome,run.bossFightSeconds,
+  run.recruitOffers[0]?.at,run.recruitOffers[1]?.at,run.recruitOffers[2]?.at,run.itemRarity.common,run.itemRarity.uncommon,run.itemRarity.rare,run.itemRarity.epic,run.itemRarity.legendary,run.bossOutcome,run.bossFightSeconds,
   run.longestUpgradeGap,run.peakEnemies,run.peakProjectiles,run.peakDrops,run.validationErrors.join(';')]);
  return [CSV_COLUMNS.join(','),...rows.map(row=>row.map(cell).join(','))].join('\n')+'\n';
 }

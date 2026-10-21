@@ -56,6 +56,18 @@ test('meaningful upgrade gaps include opening and trailing time, excluding rejec
  assert.equal(result.itemRarity.common,0);
 });
 
+for(const [rarity,id] of [['legendary','leftovers-legendary'],['uncommon','razor-claw']] as const)test(`${rarity} relic telemetry is counted in run summaries and CSV exports`,()=>{
+ const sim=new Simulation(7,26),s=sim.state,recorder=new RunMetricRecorder(normalizeExperiment(),s);
+ s.phase='choice';s.itemUnlocks=['leftovers','razor-claw'];
+ s.upgradeChoices=[{...fakeChoice,kind:'item',id,rarity}];
+ recorder.offered(s);recorder.selected(s,s.upgradeChoices[0],true);
+ const run=recorder.finish(s);
+ assert.equal(run.itemRarity[rarity],1);assert.equal(run.offeredItemRarity[rarity],1);
+ assert.deepEqual(run.validationErrors,[]);
+ assert.equal(summarizeExperiments([run]).cohorts[0].selectedItemRarity[rarity],1);
+ assert.ok(metricsCSV([run]).includes(`${rarity}Items`));
+});
+
 test('follower hit and poison loss are counted before healing and faint denominator is recruited followers',()=>{
  const config=normalizeExperiment(),sim=new Simulation(7,19),s=sim.state,recorder=new RunMetricRecorder(config,s);
  s.party.push({...s.party[0],uid:2,poisonTime:.02});s.stats.recruits=2;s.stats.faints=1;
@@ -94,7 +106,7 @@ test('summaries retain assistance cohorts and never infer a human victory rate f
 });
 
 test('invalid replay configs fail clearly instead of starting a stalled or unbounded run',()=>{
- for(const input of [{seed:0},{seconds:Infinity},{seconds:8000},{step:0},{starter:152},{behavior:'teleport'},{maintainHealth:'yes'},{pools:'imaginary'}])
+ for(const input of [{seed:0},{seconds:Infinity},{seconds:8000},{step:0},{starter:152},{behavior:'teleport'},{maintainHealth:'yes'},{pools:'imaginary'},{mapId:'unknown'}])
   assert.throws(()=>normalizeExperiment(input as Parameters<typeof normalizeExperiment>[0]));
 });
 

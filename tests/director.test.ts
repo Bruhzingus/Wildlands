@@ -1,3 +1,4 @@
+import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
@@ -6,6 +7,7 @@ import {createEnemy,lateEnemyScale} from '../src/game/systems/spawning.ts';
 import {canRecruit} from '../src/game/systems/progression.ts';
 import {variantRewardXP,getVariant} from '../src/data/variants.ts';
 import {BOSS_RULES,DIRECTOR_PHASES} from '../src/data/director.ts';
+import {tierEncounterChance} from '../src/data/encounters.ts';
 import {DESIGN} from '../src/data/config.ts';
 import type {PsychicRing} from '../src/game/types.ts';
 
@@ -49,6 +51,17 @@ test('ordinary pacing grows smoothly through phase boundaries with single arriva
  assert.equal(previousInterval,DESIGN.spawnEndInterval);
  s.stats.elapsed=900;s.bossSpawned=true;const boss=updateDirector(s);
  assert.ok(boss.enemyBudget<previousBudget);assert.ok(boss.spawnInterval>previousInterval);
+});
+
+test('late pressure grows after the calm opening and minibosses remain spaced',()=>{
+ const {s}=arena();
+ s.stats.elapsed=0;assert.equal(updateDirector(s).spawnInterval,2.8);
+ s.stats.elapsed=180;assert.equal(updateDirector(s).spawnInterval,1.8);
+ s.stats.elapsed=420;assert.equal(updateDirector(s).spawnInterval,1.08);
+ s.stats.elapsed=780;assert.equal(updateDirector(s).spawnInterval,.62);
+ assert.equal(tierEncounterChance(3,359),0);
+ assert.equal(tierEncounterChance(3,840),.07);
+ assert.equal(tierEncounterChance(4,359),0);
 });
 
 test('runtime budget adaptation delays future arrivals without despawning or moving existing enemies',()=>{
@@ -120,7 +133,7 @@ test('psychic ring collision sweeps radial movement and supports jump, dodge and
  for(const avoidance of ['none','jump','dodge'] as const){const {sim,s}=arena();s.player.x=6.3;s.psychicRings=[ring(500)];
   if(avoidance==='jump')s.player.y=2;if(avoidance==='dodge')s.player.iframes=.3;
   const hp=s.player.hp;sim.update(.04,idle);
-  assert.equal(s.player.hp,hp-(avoidance==='none'?20:0));assert.ok(s.psychicRings[0].hit.has(1));
+  assert.equal(s.player.hp,hp-(avoidance==='none'?20-getBuildModifiers(s).armor:0));assert.ok(s.psychicRings[0].hit.has(1));
   const after=s.player.hp;sim.update(.04,idle);assert.equal(s.player.hp,after);
   s.phase='choice';const frozen=structuredClone(s.psychicRings);sim.update(.04,idle);assert.deepEqual(s.psychicRings,frozen);
  }

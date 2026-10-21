@@ -39,6 +39,20 @@ test('solid scenery shares collision dimensions and keeps spawn and interaction 
  assert.equal(layout.obstacles.length,layout.props.filter(p=>p.kind==='tree'||p.kind==='rock'||p.kind==='ruin').length+1,'Only the lake adds a collider without a prop');
 });
 
+test('terrain interactions are seeded, finite, and leave routes, sites, and the lake clear',()=>{
+ for(const seed of [1,4,301,808]){
+  const pois=createPOIs(seed),layout=createEnvironment(seed,pois),profile=worldProfile(seed);
+  assert.deepEqual(layout.features,createEnvironment(seed,pois).features);
+  assert.equal(layout.features.filter(feature=>feature.kind==='bramble').length,4);
+  assert.equal(layout.features.filter(feature=>feature.kind==='ruin-beacon').length,3);
+  for(const feature of layout.features){
+   assert.equal(feature.state,'ready');assert.ok(Math.hypot(feature.x,feature.z)>=30);
+   assert.ok(Math.hypot(feature.x-profile.lake.x,feature.z-profile.lake.z)>=profile.lake.shoreRadius+feature.radius+3);
+   assert.ok(pois.every(poi=>Math.hypot(feature.x-poi.x,feature.z-poi.z)>WORLD.poiClearance+feature.radius+2));
+  }
+ }
+});
+
 test('all optional sites are reachable through the generated open routes with actual player collision',()=>{
  for(const seed of [1,4,12,100,301,808]){
   const profile=worldProfile(seed),pois=createPOIs(seed),field=new ObstacleField(createEnvironment(seed,pois).obstacles);
@@ -61,7 +75,7 @@ test('rolling ground stays continuous and the pond has a shallow shared shorelin
   const h=terrainHeight(x,z);assert.ok(Number.isFinite(h));minimum=Math.min(minimum,h);maximum=Math.max(maximum,h);
   assert.ok(Math.abs(terrainHeight(x+.1,z)-h)<.09);assert.ok(Math.abs(terrainHeight(x,z+.1)-h)<.09);
  }
- assert.ok(maximum>4&&maximum<7);assert.ok(minimum> -2);
+ assert.ok(maximum>10&&maximum<16);assert.ok(minimum> -3);
  assert.ok(terrainHeight(WORLD.lake.x,WORLD.lake.z)<WORLD.lake.waterHeight);
  const profile=worldProfile(6),lake=profile.lake,field=new ObstacleField(createEnvironment(6,createPOIs(6)).obstacles);
  const stopped=field.move({x:lake.x,z:lake.z-30},0,25);

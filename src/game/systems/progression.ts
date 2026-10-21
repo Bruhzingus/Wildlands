@@ -3,12 +3,12 @@ import {evolutionRule,evolutionRequirement} from '../../data/evolutions.ts';
 import {DESIGN} from '../../data/config.ts';
 import {describeAttackUpgrade,getAttackProfile,type AttackDefinition} from '../../data/attacks.ts';
 import {describeSpecialUpgrade,getSpecialProfile} from '../../data/specials.ts';
-import {ITEMS,getItemDefinition,type BuildStat} from '../../data/items.ts';
+import {ITEMS,getItemDefinition,relicFamily,type BuildStat} from '../../data/items.ts';
 import {getLearnedMoveProfile,getMoveDefinition,learnableMoves,learnedMovePower,MAX_LEARNED_MOVES} from '../../data/moves.ts';
 import {getSpecies,RECRUIT_POOL,type Species} from '../../data/kanto.ts';
-import {PROGRESSION,TRAINING_UPGRADES,TRAINING_RARITY_MULTIPLIERS,type TrainingUpgrade} from '../../data/progression.ts';
+import {PROGRESSION,TRAINING_UPGRADES,trainingVariants,trainingDescription,type TrainingUpgrade} from '../../data/progression.ts';
 import {RNG} from '../../utils/random.ts';
-import {BUILD_STAT_CAPS,getBuildModifiers} from './builds.ts';
+import {BUILD_STAT_CAPS,getBuildModifiers,itemStacks} from './builds.ts';
 import type {LootRarity,PartyMember,RewardSource,RunState,UpgradeChoice} from '../types.ts';
 
 export {ITEMS} from '../../data/items.ts';
@@ -65,9 +65,9 @@ export function trainingRank(state:RunState,upgrade:TrainingUpgrade):number {
 }
 
 function trainingChoices(state:RunState):UpgradeChoice[] {
- return TRAINING_UPGRADES.flatMap(upgrade=>(['common','rare','epic'] as const).map(rarity=>{
-  const rank=trainingRank(state,upgrade)+1,amount=Number((upgrade.amount*TRAINING_RARITY_MULTIPLIERS[rarity]).toFixed(4));
-  const description=upgrade.description.replace(/\d+%/,`${Math.round(amount*100)}%`);
+ const damaging=state.party.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
+ return TRAINING_UPGRADES.filter(upgrade=>(upgrade.stat!=='deflection'||getBuildModifiers(state).deflection<.5-1e-9)&&(!['power','crit','radius'].includes(upgrade.stat)||damaging)).flatMap(upgrade=>trainingVariants(upgrade).map(({rarity,amount})=>{
+  const rank=trainingRank(state,upgrade)+1,description=trainingDescription(upgrade,rarity);
   return {id:rarity==='common'?upgrade.id:`${upgrade.id}-${rarity}`,kind:'stat' as const,stat:upgrade.stat,amount,
    title:upgrade.title,description,rarity,category:'training',rank};
  }));
@@ -142,7 +142,7 @@ function evolutionChoices(state:RunState):UpgradeChoice[] {
 /** Roll rarity first, then a candidate in that rarity. Missing buckets are renormalized. */
 export function weightedUpgradeChoices(pool:readonly UpgradeChoice[],count:number,rng:RNG,luck=0):UpgradeChoice[] {
  const remaining=[...pool],selected:UpgradeChoice[]=[];
- const rarities=['common','rare','epic'] as const;
+ const rarities=Object.keys(PROGRESSION.rarityWeights) as UpgradeChoice['rarity'][];
  const safeLuck=Math.max(0,Number.isFinite(luck)?luck:0);
  while(remaining.length&&selected.length<count){
   const weights=rarities.map(rarity=>remaining.some(choice=>choice.rarity===rarity)?
@@ -151,21 +151,24 @@ export function weightedUpgradeChoices(pool:readonly UpgradeChoice[],count:numbe
   for(let i=0;i<rarities.length;i++){roll-=weights[i];if(roll<0){rarity=rarities[i];break;}}
   const candidates=remaining.filter(choice=>choice.rarity===rarity),chosen=rng.pick(candidates);
   selected.push({...chosen});
-  for(let i=remaining.length-1;i>=0;i--)if(remaining[i].id===chosen.id||(chosen.category==='training'&&remaining[i].category==='training'&&remaining[i].stat===chosen.stat))remaining.splice(i,1);
+  for(let i=remaining.length-1;i>=0;i--)if(remaining[i].id===chosen.id||
+   (chosen.kind==='item'&&remaining[i].kind==='item'&&relicFamily(remaining[i].id)===relicFamily(chosen.id))||
+   (chosen.category==='training'&&remaining[i].category==='training'&&remaining[i].stat===chosen.stat))remaining.splice(i,1);
  }
  return selected;
 }
 
-function moveUsesModifier(profile:AttackDefinition,stat:BuildStat,currentBonus:number):boolean {
- if(stat==='chains')return profile.kind==='chain'&&!profile.pattern&&profile.chains+currentBonus<16;
+function moveUsesModifier(profile:AttackDefinition,stat:BuildStat,currentBonus:number,amount=1):boolean {
+ if(['power','critChance','critDamage','radius'].includes(stat)&&profile.kind==='heal')return false;
+ if(stat==='chains')return profile.kind==='chain'&&!profile.pattern&&profile.chains+currentBonus+amount<=16;
  if(stat==='projectiles'){
   const usesCount=profile.pattern?!['pounce','combo'].includes(profile.pattern):['bolt','beam','lob'].includes(profile.kind);
-  return usesCount&&profile.projectiles+currentBonus<12;
+  return usesCount&&profile.projectiles+currentBonus+amount<=12;
  }
  if(stat==='pierce'){
   if(profile.pattern==='pounce'||profile.pattern==='combo')return false;
-  if(profile.pattern&&['vine','thread','sand-wave'].includes(profile.pattern))return profile.pierce+currentBonus<15;
-  return (Boolean(profile.pattern)||['bolt','beam','lob'].includes(profile.kind))&&profile.pierce+currentBonus<16;
+  if(profile.pattern&&['vine','thread','sand-wave'].includes(profile.pattern))return profile.pierce+currentBonus+amount<=15;
+  return (Boolean(profile.pattern)||['bolt','beam','lob'].includes(profile.kind))&&profile.pierce+currentBonus+amount<=16;
  }
  if(stat==='projectileSpeed')return profile.pattern?!['vine','thread','sand-wave','pounce','combo'].includes(profile.pattern):['bolt','beam','lob'].includes(profile.kind);
  return true;
@@ -177,7 +180,14 @@ function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
  const item=getItemDefinition(id);if(!item)return false;
  const teammates=state.party.slice(1).filter(member=>member.hp>0);
  if(!teammates.length&&item.modifiers?.length&&item.modifiers.every(modifier=>['xpCatchup','partyRegeneration','partyRegenerationPercent'].includes(modifier.stat))&&!item.effects?.length)return false;
- if(item.effects?.length)return true;
+ if(item.effects?.some(effect=>{
+  if(effect.action.kind==='selfDamage')return false;
+  if(state.challenge==='famine'&&effect.action.kind==='heal')return false;
+  const damaging=state.party.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
+  if(['onCrit','onHit','onDeath'].includes(effect.event)&&!damaging)return false;
+  if(['area','chain'].includes(effect.action.kind)&&'damageScale' in effect.action&&effect.action.damageScale&&!damaging)return false;
+  return true;
+ }))return true;
  // A conditional bonus remains useful even while its condition is inactive.
  if(item.modifiers?.some(modifier=>modifier.healthBelow!==undefined||modifier.evolution))return true;
  const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0&&
@@ -188,25 +198,33 @@ function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
    ...(member.learnedMoves||[]).flatMap(move=>getMoveDefinition(move.moveId)?[getLearnedMoveProfile(move.moveId,move.rank)]:[])];
   return (item.modifiers||[]).some(modifier=>{
    const stat=modifier.stat;
+   if(state.challenge==='famine'&&['regeneration','partyRegeneration','regenerationPercent','partyRegenerationPercent'].includes(stat))return false;
+   if((stat==='xp'||stat==='xpCatchup')&&!state.party.some(member=>member.hp>0&&member.level<PROGRESSION.leveling.maxLevel))return false;
+   if(stat==='duration')return moves.some(profile=>Object.values(profile.status).some(chance=>chance!>0))||state.items.some(id=>getItemDefinition(id)?.effects?.some(effect=>effect.action.kind==='status'))||getSpecialProfile(member.speciesId,member.attackLevel).duration>0;
    if(modifier.amount<=0||modifiers[stat]>=BUILD_STAT_CAPS[stat]-1e-9)return false;
    if(stat==='partyRegeneration'||stat==='partyRegenerationPercent')return member!==state.party[0];
    if(stat==='projectiles'&&member===state.party[0]){
     const special=getSpecialProfile(member.speciesId,member.attackLevel);
-    if(['quickstep','web','foxfire','payday','volley'].includes(special.kind)&&special.projectiles+modifiers.projectiles<12)return true;
+    if(['quickstep','web','foxfire','payday','volley'].includes(special.kind)&&special.projectiles+modifiers.projectiles+modifier.amount<=12)return true;
    }
-   return moves.some(profile=>moveUsesModifier(profile,stat,modifiers[stat]));
+   if(member===state.party[0]&&['power','radius'].includes(stat)&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0)return true;
+   return moves.some(profile=>moveUsesModifier(profile,stat,modifiers[stat],modifier.amount));
   });
  });
 }
 
 export function availableItemChoices(state:RunState):UpgradeChoice[] {
- return ITEMS.filter(item=>(!state.itemUnlocks||state.itemUnlocks.includes(item.id))&&!state.items.includes(item.id)&&itemImprovesCurrentBuild(state,item.id)).map(item=>({...item,description:state.party.length===1?item.description.replace(/squad/g,'Pokémon'):item.description,category:'item'}));
+ return ITEMS.filter(item=>(!state.itemUnlocks||state.itemUnlocks.includes(relicFamily(item.id)))&&canAcquireItem(state,item.id)&&itemImprovesCurrentBuild(state,item.id)).map(item=>({...item,description:state.party.length===1?item.description.replace(/squad/g,'Pokémon'):item.description,category:'item'}));
+}
+export function canAcquireItem(state:RunState,id:string):boolean {
+ const item=getItemDefinition(id);if(!item||item.offerable===false||state.party.filter(member=>member.hp>0).length<(item.minimumParty??0))return false;
+ return item.stacking==='unique'?!state.items.some(owned=>relicFamily(owned)===relicFamily(id)):itemStacks(state,id)<item.maxStacks;
 }
 
 /** Paid treasure prioritizes relics at the advertised rarity or better. Training
  * fills empty slots only after eligible relics run out; all cards remain valid. */
 export function chestChoices(state:RunState,rng:RNG,rarity:LootRarity):UpgradeChoice[] {
- const rank={common:0,rare:1,epic:2};
+ const rank={common:0,uncommon:.5,rare:1,epic:2,legendary:3};
  const items=availableItemChoices(state).filter(item=>rank[item.rarity]>=rank[rarity]);
  const chosen=weightedUpgradeChoices(items,3,rng,state.buffs.luck||0);
  const fallback=weightedUpgradeChoices(trainingChoices(state).filter(choice=>rank[choice.rarity]>=rank[rarity]),3-chosen.length,rng,state.buffs.luck||0);
@@ -257,7 +275,7 @@ export function makeChoices(state:RunState,rng:RNG,source:RewardSource='level'):
  return rng.shuffle([...chosen,...weightedUpgradeChoices(remaining,3-chosen.length,rng,luck)]);
 }
 
-/** Keep each rarity slot and exclude every currently displayed option. */
+/** Match rarity where possible; an exhausted tier can upgrade, never downgrade. */
 export function rerollChoices(state:RunState,rng?:RNG):UpgradeChoice[]|null {
  if(state.phase!=='choice'||!state.upgradeChoices.length)return null;
  const source=state.choiceSource??'level';
@@ -272,19 +290,24 @@ export function rerollChoices(state:RunState,rng?:RNG):UpgradeChoice[]|null {
  else if(source==='squad')pool=stats;
  else pool=[...moveChoices(state),...learnedMoveChoices(state),...evolutionChoices(state),...stats];
  const sameOption=(a:UpgradeChoice,b:UpgradeChoice)=>a.id===b.id||
+  (a.kind==='item'&&b.kind==='item'&&relicFamily(a.id)===relicFamily(b.id))||
   (a.kind==='stat'&&b.kind==='stat'&&a.stat===b.stat);
  pool=pool.filter(choice=>!state.upgradeChoices.some(old=>sameOption(choice,old)));
  if(rng)pool=rng.shuffle(pool);
+ const rarityRank:Record<UpgradeChoice['rarity'],number>={common:0,uncommon:1,rare:2,epic:3,legendary:4};
  const selected:UpgradeChoice[]=[];
- const fill=(slot:number):boolean=>{
+ const fill=(slot:number,allowHigher=false):boolean=>{
   if(slot===state.upgradeChoices.length)return true;
-  for(const choice of pool){
-   if(choice.rarity!==state.upgradeChoices[slot].rarity||selected.some(other=>sameOption(choice,other)))continue;
-   selected.push(choice);if(fill(slot+1))return true;selected.pop();
+  const tier=rarityRank[state.upgradeChoices[slot].rarity];
+  const candidates=pool.filter(choice=>allowHigher?rarityRank[choice.rarity]>=tier:rarityRank[choice.rarity]===tier)
+   .sort((a,b)=>rarityRank[a.rarity]-rarityRank[b.rarity]);
+  for(const choice of candidates){
+   if(selected.some(other=>sameOption(choice,other)))continue;
+   selected.push(choice);if(fill(slot+1,allowHigher))return true;selected.pop();
   }
   return false;
  };
- return fill(0)?selected.map(choice=>({...choice})):null;
+ return fill(0)||fill(0,true)?selected.map(choice=>({...choice})):null;
 }
 
 export function toRoman(n:number):string {
@@ -372,8 +395,9 @@ export function applyChoice(state:RunState,choice:UpgradeChoice):ChoiceResult {
   }
   case 'item': {
    const item=ITEMS.find(candidate=>candidate.id===choice.id);
-   if(!item||!itemImprovesCurrentBuild(state,item.id)||state.items.includes(item.id)||(state.itemUnlocks&&!state.itemUnlocks.includes(item.id)))return unavailable('Item unavailable');
-   state.items.push(item.id);
+   if(!item||!itemImprovesCurrentBuild(state,item.id)||!canAcquireItem(state,item.id)||(state.itemUnlocks&&!state.itemUnlocks.includes(relicFamily(item.id))))return unavailable('Item unavailable');
+   const count=itemStacks(state,item.id);(state.itemStacks??={})[item.id]=count+1;
+   if(!state.items.includes(item.id))state.items.push(item.id);
    return {event:`Obtained ${item.title}!`,applied:true};
   }
   case 'stat': {
@@ -382,10 +406,9 @@ export function applyChoice(state:RunState,choice:UpgradeChoice):ChoiceResult {
    if(!offered||!upgrade||choice.amount!==offered.amount||(choice.rank!==undefined&&choice.rank!==offered.rank))return unavailable();
    const rank=offered.rank!;
    const previous=state.buffs[upgrade.stat]||0;
-   if(upgrade.stat==='damageReduction'){
-    state.buffs.trainingDamageTaken=(state.buffs.trainingDamageTaken??Math.pow(.92,previous/.08))*(1-offered.amount!);
-   }
-   state.buffs[upgrade.stat]=previous+offered.amount!;
+   const recovery=trainingVariants(upgrade).find(variant=>variant.rarity===offered.rarity)!.rechargeReduction;
+   if(recovery)state.buffs.staminaRechargeReduction=1-(1-(state.buffs.staminaRechargeReduction||0))*(1-recovery);
+   state.buffs[upgrade.stat]=upgrade.stat==='deflection'?Math.min(.5,previous+offered.amount!):previous+offered.amount!;
    (state.trainingRanks??={})[upgrade.id]=rank;
    if(upgrade.stat==='health'){
     const multiplier=(1+state.buffs.health)/(1+previous);

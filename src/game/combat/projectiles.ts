@@ -5,8 +5,14 @@ import {enemiesInRadius,nearestEnemy,sweptTargets} from './targeting.ts';
 
 export type ProjectileSpawn=Omit<Projectile,'uid'|'prevX'|'prevZ'|'hit'>;
 export function addProjectile(state:RunState,spawn:ProjectileSpawn):boolean {
- if(state.projectiles.length>=DESIGN.maxProjectiles)return false;
- if(!Number.isFinite(spawn.x+spawn.z+spawn.vx+spawn.vz+spawn.damage+spawn.ttl))return false;
+ if(![spawn.x,spawn.z,spawn.vx,spawn.vz,spawn.damage,spawn.ttl].every(Number.isFinite))return false;
+ if(state.projectiles.length>=DESIGN.maxProjectiles){
+  // Repeated friendly casts keep their hit count when the visual pool is full.
+  // Damage remains per hit; the existing flight represents the matching stream.
+  const stream=spawn.friendly?state.projectiles.find(projectile=>projectile.friendly&&projectile.sourceId===spawn.sourceId&&projectile.moveName===spawn.moveName&&projectile.kind===spawn.kind&&projectile.type===spawn.type&&projectile.targetId===spawn.targetId&&projectile.damage===spawn.damage&&projectile.critTier===spawn.critTier&&projectile.ttl>0):undefined;
+  if(!stream)return false;
+  stream.hitCount=(stream.hitCount??1)+(spawn.hitCount??1);return true;
+ }
  state.projectiles.push({...spawn,uid:state.idCounter++,prevX:spawn.x,prevZ:spawn.z,hit:new Set()});return true;
 }
 export interface ProjectileHooks {hit:(enemy:Enemy,projectile:Projectile)=>void;hurtPlayer:(damage:number,poison:boolean,projectile?:Projectile)=>void;hurtCompanion?:(member:PartyMember,damage:number,poison:boolean,projectile:Projectile)=>void;explode?:(projectile:Projectile)=>void}

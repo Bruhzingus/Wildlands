@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import {DESIGN} from '../src/data/config.ts';
 import {KANTO,getSpecies} from '../src/data/kanto.ts';
 import {ITEMS} from '../src/data/items.ts';
-import {PROGRESSION,TRAINING_UPGRADES} from '../src/data/progression.ts';
+import {PROGRESSION,TRAINING_UPGRADES,trainingVariants} from '../src/data/progression.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {applyChoice,canRecruit,eligibleEvolutions,makeChoices,maxMoveRank,moveRankGain,weightedUpgradeChoices} from '../src/game/systems/progression.ts';
 import type {UpgradeChoice} from '../src/game/types.ts';
 import {RNG} from '../src/utils/random.ts';
 import {runPacingExperiment} from '../scripts/progression-pacing.mjs';
+import {relicFamily} from '../src/data/items.ts';
 
 test('all five recruitment gates require exact time and level, with first-stage random candidates',()=>{
  assert.deepEqual(DESIGN.recruitUnlockSeconds,[165,420,690,960,1200]);
@@ -129,14 +130,15 @@ test('single-stage species gain faster move training at their own level five wit
 test('training keeps canonical amounts and stale-card guards beyond the old caps',()=>{
  for(const definition of TRAINING_UPGRADES){
   const state=new Simulation(1,5).state;
-  for(let rank=1;rank<=30;rank++){
-   const upgrade:UpgradeChoice={...definition,kind:'stat',rank,category:'training'};
+  const variant=trainingVariants(definition)[0],count=definition.stat==='deflection'?17:30;
+  for(let rank=1;rank<=count;rank++){
+   const upgrade:UpgradeChoice={...definition,...variant,id:variant.rarity==='common'?definition.id:`${definition.id}-${variant.rarity}`,kind:'stat',rank,category:'training'};
    for(const amount of [-1,0,Infinity,NaN,100000])assert.equal(applyChoice(state,{...upgrade,amount}).applied,false);
    assert.equal(applyChoice(state,{...upgrade,stat:'unknown'}).applied,false);
    assert.equal(applyChoice(state,upgrade).applied,true);
    assert.equal(applyChoice(state,upgrade).applied,false,'Same training rank cannot be applied twice');
   }
-  assert.ok(Math.abs(state.buffs[definition.stat]-30*definition.amount)<1e-9);
+  assert.ok(Math.abs(state.buffs[definition.stat]-(definition.stat==='deflection'?.5:count*variant.amount))<1e-9);
  }
 });
 
@@ -153,16 +155,12 @@ test('upgrade rarity follows configured weights and luck improves high rarity od
  assert.equal(new Set(weightedUpgradeChoices(duplicated,20,new RNG(1)).map(choice=>choice.id)).size,3);
 });
 
-test('owned relics disappear while high-rank training remains available and categorized',()=>{
+test('repeat relics stay available alongside uncapped categorized training',()=>{
  const state=new Simulation(113,3).state;state.party[0].attackLevel=100;state.party[0].level=100;
- state.items=ITEMS.slice(1).map(item=>item.id);
- const training=makeChoices(state,new RNG(8));
- assert.equal(training.length,3);assert.ok(training.some(choice=>choice.kind==='attack'&&choice.rank!>100));
- assert.ok(training.every(choice=>choice.category&&choice.maxRank===undefined));
- const options=makeChoices(state,new RNG(8),'cache');assert.deepEqual(options.map(option=>option.id),[ITEMS[0].id]);
- assert.equal(options[0].category,'item');assert.equal(applyChoice(state,options[0]).applied,true);
- assert.equal(applyChoice(state,options[0]).applied,false);
- assert.ok(makeChoices(state,new RNG(8),'cache').every(choice=>choice.kind==='stat'));
+ state.items=ITEMS.map(item=>item.id);state.itemUnlocks=['echo-bell'];
+ const training=makeChoices(state,new RNG(8));assert.equal(training.length,3);assert.ok(training.some(choice=>choice.kind==='attack'&&choice.rank!>100));
+ const options=makeChoices(state,new RNG(8),'cache');assert.equal(options.length,1);assert.equal(relicFamily(options[0].id),'echo-bell');
+ assert.equal(applyChoice(state,options[0]).applied,true);assert.equal(applyChoice(state,options[0]).applied,true);
 });
 
 test('six seeded 15-minute routes reach four living members; six slots require endless timing',()=>{

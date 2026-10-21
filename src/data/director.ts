@@ -3,9 +3,9 @@ import type {Variant} from '../game/types.ts';
 export const DIRECTOR_PHASES=[
  {id:'opening',title:'Quiet meadow',at:0,budget:18,interval:2.8,tier:'early',variants:[1,0,0,0,0]},
  {id:'stirring',title:'The wilds stir',at:180,budget:38,interval:1.8,tier:'mid',variants:[.83,.04,.035,.045,.05]},
- {id:'gathering',title:'Gathering danger',at:420,budget:66,interval:1.2,tier:'mid',variants:[.70,.08,.07,.08,.07]},
- {id:'pressure',title:'Deep wilds',at:660,budget:92,interval:.9,tier:'late',variants:[.57,.12,.105,.115,.09]},
- {id:'surge',title:'Legendary approach',at:780,budget:118,interval:.7,tier:'late',variants:[.49,.145,.14,.125,.10]},
+ {id:'gathering',title:'Gathering danger',at:420,budget:66,interval:1.08,tier:'mid',variants:[.68,.085,.075,.085,.075]},
+ {id:'pressure',title:'Deep wilds',at:660,budget:92,interval:.78,tier:'late',variants:[.54,.13,.115,.12,.095]},
+ {id:'surge',title:'Legendary approach',at:780,budget:118,interval:.62,tier:'late',variants:[.46,.155,.15,.13,.105]},
  {id:'legendary',title:'Mewtwo awakened',at:900,budget:48,interval:1.8,tier:'late',variants:[.43,.16,.16,.14,.11]},
 ] as const;
 export const DIRECTOR_VARIANTS:readonly Variant[]=['normal','dark','rocket','rabid','poisoned'];

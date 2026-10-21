@@ -64,7 +64,7 @@ const rows=`
 55|ranged|bolt|Hydro Pump|22
 56|skirmisher|slash|Karate Chop|14
 57|skirmisher|slash|Close Combat|23
-58|ranged|bolt|Flame Wheel|14
+58|skirmisher|slash|Bite|14
 59|area|burst|Heat Wave|26
 60|ranged|bolt|Bubble Beam|12
 61|ranged|bolt|Muddy Water|17
@@ -139,7 +139,7 @@ const rows=`
 130|piercing|beam|Hyper Beam|25
 131|piercing|beam|Ice Beam|22
 132|ranged|bolt|Struggle|20
-133|ranged|bolt|Covet|14
+133|ranged|bolt|Swift|14
 134|ranged|bolt|Surf|25
 135|control|chain|Volt Switch|25
 136|area|burst|Overheat|27
@@ -220,9 +220,9 @@ const starterSignatures=Object.fromEntries(starterFamilies.flatMap(([ids,tuning]
 export const SPECIES_ATTACK_PARAMETERS:Readonly<Record<number,AttackTuning>>={
  1:{radius:2.3},3:{radius:3.9,cooldown:1.1},4:{speed:21,status:{burn:.28}},6:{radius:4.7,damageScale:1.08},
  7:{speed:18},10:{status:{slow:.35}},11:{status:{slow:.4}},12:{radius:3.2,damageScale:1,status:{slow:.35}},15:{cooldown:.59},
- 38:{radius:4.6,damageScale:.98},59:{damageScale:.98},65:{pierce:6},
+ 38:{radius:4.6,damageScale:.98},41:{description:'A close forward bite sweeps nearby foes. Short flight creates room to approach and retreat.'},59:{damageScale:.98},65:{pierce:6},
  76:{radius:4.8},82:{chains:4},94:{radius:5,status:{poison:.22}},
- 113:{cooldown:1.9},123:{range:6,radius:5.1,cooldown:.57},129:{speed:21},130:{pierce:5,damageScale:1.22},131:{pierce:5,status:{slow:.4}},
+ 113:{cooldown:1.9},123:{range:6,radius:5.1,cooldown:.57},129:{speed:21,description:'A simple homing shot targets one foe at a time; Splash leap provides repositioning rather than extra attack coverage.'},130:{pierce:5,damageScale:1.22},131:{pierce:5,status:{slow:.4}},
  135:{chains:4,chainRange:5.6},136:{damageScale:.97},143:{radius:5.4},149:{pierce:6,projectiles:2},150:{pierce:7},
  ...starterSignatures,
  9:{...starterSignatures[9],projectiles:3,pierce:1,milestones:starterSignatures[9].milestones?.map(step=>({...step,...(step.projectiles?{projectiles:step.projectiles+2,description:`${step.projectiles+2}-bubble hydro stream`}:{} )}))},

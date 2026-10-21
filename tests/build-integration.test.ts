@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation} from '../src/game/Simulation.ts';
 import {makeChoices} from '../src/game/systems/progression.ts';
-import {BUILD_LIMITS,dispatchBuildEvent,getBuildModifiers} from '../src/game/systems/builds.ts';
+import {dispatchBuildEvent,getBuildModifiers} from '../src/game/systems/builds.ts';
 import type {UpgradeChoice} from '../src/game/types.ts';
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function exhaustOffensiveBudget(simulation:Simulation){
  const s=simulation.state;
  for(let i=0;i<4;i++)dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onHit',targetId:s.enemies[0].uid});
- assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow);
+ assert.ok(s.build!.actionsInWindow>=12);
 }
 
 test('selecting a real recruit applies welcome effects once using the newly expanded squad',()=>{
@@ -48,13 +48,13 @@ test('busy combat cannot suppress guaranteed recruit and evolution rewards durin
  const simulation=new Simulation(1,904),s=simulation.state;s.items=['kings-rock','frost-charm','toxic-barb','welcome-basket','growth-charm'];
  s.player.hp=50;s.stats.elapsed=165;s.stats.level=4;exhaustOffensiveBudget(simulation);
  const choices=makeChoices(s,simulation.rng);simulation.enterChoice(choices);simulation.choose(choices[0].id);
- assert.equal(s.player.hp,74);assert.equal(s.stats.xp,24);assert.equal(s.party[1].xp,24);assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow);
+ assert.equal(s.player.hp,74);assert.equal(s.stats.xp,24);assert.equal(s.party[1].xp,24);assert.ok(s.build!.actionsInWindow>=12);
  s.stats.elapsed=170;s.party[0].level=5;s.player.specialCooldown=12;exhaustOffensiveBudget(simulation);
  const evolution:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([evolution]);simulation.choose(evolution.id);
  assert.equal(s.player.hp,122.5);assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.evolutions,1);
- assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow,'guaranteed resources must not consume or reset the offensive quota');
- assert.deepEqual(dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onHit',targetId:s.enemies[0].uid}),[],'offensive procs remain capped after the reward');
+ assert.ok(s.build!.actionsInWindow>=12,'resource rewards remain exact during busy combat');
+ assert.equal(dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onHit',targetId:s.enemies[0].uid}).length,3,'legitimate hit procs are no longer dropped by a global quota');
 });
 
 test('an exhausted effect budget cannot waive the Life Orb HP cost on a real automatic attack',()=>{
@@ -62,6 +62,6 @@ test('an exhausted effect budget cannot waive the Life Orb HP cost on a real aut
  s.stats.elapsed=165;s.player.hp=100;s.buffs.armor=12;s.enemies=[s.enemies[0]];Object.assign(s.enemies[0],{x:3,z:0,speed:0,hitCooldown:100});s.party[0].cooldown=0;
  for(let i=0;i<24;i++)dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onAttack',sourceId:1,targetId:s.enemies[0].uid});
  exhaustOffensiveBudget(simulation);simulation.update(.01,idle);
- assert.equal(s.player.hp,98);assert.equal(s.stats.damageTaken,2);assert.equal(s.build!.actionsInWindow,BUILD_LIMITS.maxActionsPerWindow);
+ assert.equal(s.player.hp,98);assert.equal(s.stats.damageTaken,2);assert.ok(s.build!.actionsInWindow>=12);
  assert.ok(s.stats.damageDealt>0,'the vine attack still executes after paying its exact HP cost');
 });

@@ -8,11 +8,14 @@ import type {AchievementDefinition} from '../data/unlocks.ts';
 import './unlocks.css';
 import './upgrades.css';
 import './pokemonProgression.css';
+import './evolution.css';
+import './movement.css';
+import type {EvolutionReceipt} from '../game/evolution.ts';
 import {loadSettings,saveSettings,type GameSettings} from '../game/settings.ts';
-import {getBuildSummary} from '../game/systems/builds.ts';
+import {getBuildSummary,getBuildModifiers} from '../game/systems/builds.ts';
 import {distance2} from '../utils/random.ts';
 import {worldProfile,siteAvailable,type WorldProfile} from '../data/maps.ts';
-import {mapEncounter} from '../data/encounters.ts';
+import {bossEncounter,mapEncounter,scheduledBossEncounter} from '../data/encounters.ts';
 import {biomeAt} from '../game/systems/environment.ts';
 import {layoutMapMarkers,projectMapPoint,MAP_SIZE,type MapMarker} from './minimap.ts';
 import {VARIANTS,SPAWN_VARIANTS} from '../data/variants.ts';
@@ -20,9 +23,13 @@ import {upgradeIcon} from './upgradeIcons.ts';
 import {getMoveDefinition} from '../data/moves.ts';
 import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
+import {getMovementTrait,movementTraitLabel,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
 import {PROGRESSION,nextMilestone} from '../data/progression.ts';
 import {CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
+import {optionalChallenge} from '../data/optionalChallenges.ts';
+import {formatPercent,upgradeStatPreview} from './upgradePreview.ts';
 import {rerollChoices,xpThreshold} from '../game/systems/progression.ts';
+import {UpgradeCatalogue} from './UpgradeCatalogue.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const fmt=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(Math.floor(n%60)).padStart(2,'0')}`;
@@ -31,6 +38,31 @@ const percent=(value:number,max:number)=>Math.min(100,Math.max(0,max>0?100*value
 const controls='WASD move · Mouse look · Space jump · Shift dodge · Q special · E use · Esc pause';
 
 export class UI {
+ private catalogue:UpgradeCatalogue|null=null;
+ isCatalogueOpen(){return this.catalogue!==null;}
+ private clearCatalogue(){this.catalogue?.dispose();this.catalogue=null;this.overlay.classList.remove('catalogue-mode');}
+ private openCatalogue(state?:RunState){
+  this.clearCatalogue();this.clearDetachedImages();this.overlay.classList.add('catalogue-mode');
+  this.catalogue=new UpgradeCatalogue(this.content,this.save,()=>{
+   this.clearCatalogue();
+   if(state?.phase==='paused')this.showPause(state);else this.showTitle();
+   cancelAnimationFrame(this.focusFrame);this.content.querySelector<HTMLElement>('[data-open-catalogue]')?.focus();
+  });
+  this.clearDetachedImages();this.focusFirst();
+ }
+ private bindCatalogue(state?:RunState){this.content.querySelector('[data-open-catalogue]')?.addEventListener('click',()=>this.openCatalogue(state));}
+ private evolving=false;
+ isEvolving(){return this.evolving;}
+ showEvolution(receipt:EvolutionReceipt,queued:boolean){
+  this.evolving=true;this.overlay.classList.remove('hidden');this.overlay.classList.add('evolution-mode');
+  const from=getSpecies(receipt.from),to=getSpecies(receipt.to),number=(value:number)=>Number(value.toFixed(1));
+  this.content.innerHTML=`<section class="evolution-screen" aria-label="Evolution complete"><div class="eyebrow">TEAM MILESTONE / GAME PAUSED</div><div class="evolution-forms"><figure class="evolution-before">${this.portrait(from.id)}<figcaption>${esc(from.name)}</figcaption></figure><span aria-hidden="true">→</span><figure class="evolution-after">${this.portrait(to.id)}<figcaption>${esc(to.name)}</figcaption></figure></div><h2>${esc(to.name)} joins your journey</h2><p class="evolution-gains">Max HP ${number(receipt.hpBefore)} → ${number(receipt.hpAfter)} · +${Math.round(receipt.powerGain*100)}% permanent attack<br>LV ${receipt.level} and XP kept · Current health fraction kept</p><p class="evolution-moves">${receipt.moves.map(move=>`${esc(move.name)} <strong>R${move.before} → R${move.rank}</strong>`).join(' · ')}${receipt.freedSlots?`<br>Signature training merged · ${receipt.freedSlots} move slot${receipt.freedSlots===1?'':'s'} freed`:''}</p><div class="pause-buttons"><button id="evolution-continue" class="btn btn-primary">${queued?'Next reward':'Resume'}</button><button id="restart-btn" class="btn btn-ghost">New run</button></div></section>`;
+  this.content.querySelector('#evolution-continue')!.addEventListener('click',()=>this.onResume());
+  if(movementTraitLabel(receipt.from)!==movementTraitLabel(receipt.to))this.content.querySelector('.evolution-moves')!.insertAdjacentHTML('afterend',`<p class="evolution-gains">Movement when leading: ${esc(movementTraitLabel(receipt.from))} → ${esc(movementTraitLabel(receipt.to))}</p>`);
+  this.content.querySelector('#restart-btn')!.addEventListener('click',()=>this.onRestart());
+  this.imageFallbacks(this.content);this.focusFirst();
+ }
+ clearEvolution(){this.evolving=false;this.overlay.classList.remove('evolution-mode');this.lastPhase='';}
  private overlay=q('#overlay');private content=q('#overlay-content');private hud=q('#hud');
  private lastPhase='';private lastChoices='';private toastTimer=0;private focusFrame=0;private listeners=new AbortController();
  private imageLoads=new Map<HTMLImageElement,HTMLImageElement>();
@@ -59,18 +91,22 @@ export class UI {
  }
 
  showTitle(){
+  this.clearCatalogue();
+  this.clearEvolution();
   clearTimeout(this.toastTimer);this.toastPriority=0;this.toastExpires=0;q('#toast').classList.remove('show');
   this.previousParty.clear();this.previousFaints=0;this.previousElapsed=0;this.faintUntil=0;this.faintNotice='';this.cooldowns={};this.readyNotice='';this.readyUntil=0;
   this.lastPhase='title';this.hud.classList.add('hidden');this.overlay.classList.remove('hidden');
   const options=starterChoices().filter(id=>this.save.unlocked.includes(id));
   this.content.innerHTML=`<div class="front-page"><div class="eyebrow">KANTO SURVIVAL / v0.3</div><h1>WILD<span>LANDS</span></h1><p class="subtitle">Survive 15 minutes. Build your squad.</p><h2>Choose your partner</h2><div class="starter-grid">${options.map(id=>this.pokemonCard(id)).join('')}</div>${renderRunOptions(this.save)}${renderUnlockLibrary(this.save)}<p class="control-help">${controls}</p>${this.settingsPanel()}<p class="disclaimer">Unofficial, noncommercial fan prototype. Pokémon names and artwork belong to their respective owners.</p></div>`;
   this.content.querySelectorAll<HTMLElement>('[data-starter]').forEach(el=>el.addEventListener('click',()=>this.onStart(Number(el.dataset.starter))));
-  this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
+  this.content.querySelector('.starter-grid')!.insertAdjacentHTML('afterend','<div class="catalogue-menu-link"><button type="button" class="btn btn-ghost" data-open-catalogue>Browse all upgrades</button></div>');
+  this.bindCatalogue();this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
   bindProgressionUI(this.content,this.save,{onImport:imported=>{Object.assign(this.save,imported);const saved=persist(this.save);this.showTitle();this.toast(saved?'Save imported. Collection updated.':'Save imported for this session. Browser storage is unavailable.');}});
  }
 
- private pokemonCard(id:number){const s=getSpecies(id),special=getSpecialProfile(id),primary=describeAttackMechanic(id);const color=ELEMENT_COLORS[s.types[0]];
-  return `<button class="starter-card" data-starter="${id}" style="--accent:${color}" aria-label="Start with ${esc(s.name)}" aria-describedby="starter-moves-${id}">${this.portrait(id)}<span class="starter-name">${esc(s.name)}</span><small>${s.types.join(' / ').toUpperCase()}</small><span class="starter-moves" id="starter-moves-${id}"><span class="starter-move"><span class="starter-move-key">AUTO</span><strong>${esc(s.moveName)}</strong><span>${esc(primary)}</span></span><span class="starter-move"><span class="starter-move-key">Q SPECIAL</span><strong>${esc(special.name)}</strong><span>${esc(special.description)}</span></span></span></button>`;
+ private pokemonCard(id:number){const s=getSpecies(id),special=getSpecialProfile(id),primary=describeAttackMechanic(id),movement=getMovementTrait(id);const color=ELEMENT_COLORS[s.types[0]];
+  const trait=movement.kind==='normal'?'':`<span class="starter-move"><span class="starter-move-key">MOVEMENT</span><strong>${esc(movement.name)}</strong><span>${esc(movement.description)}</span></span>`;
+  return `<button class="starter-card" data-starter="${id}" style="--accent:${color}" aria-label="Start with ${esc(s.name)}" aria-describedby="starter-moves-${id}">${this.portrait(id)}<span class="starter-name">${esc(s.name)}</span><small>${s.types.join(' / ').toUpperCase()}</small><span class="starter-moves" id="starter-moves-${id}"><span class="starter-move"><span class="starter-move-key">AUTO</span><strong>${esc(s.moveName)}</strong><span>${esc(primary)}</span></span><span class="starter-move"><span class="starter-move-key">Q SPECIAL</span><strong>${esc(special.name)}</strong><span>${esc(special.description)}</span></span>${trait}</span></button>`;
  }
 
  private portrait(id:number,className=''){const species=getSpecies(id);
@@ -127,6 +163,8 @@ export class UI {
  private focusFirst(){cancelAnimationFrame(this.focusFrame);this.focusFrame=requestAnimationFrame(()=>{if(!this.overlay.classList.contains('hidden'))this.content.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});});}
 
  update(s:RunState){const choices=s.phase==='choice'?JSON.stringify([s.upgradeChoices,s.rerolls,s.levelUpMemberId,s.party.find(member=>member.uid===s.levelUpMemberId)?.level,s.pendingLevelUps?.length,s.choiceTitle]):'';
+  if(this.catalogue){if(s.phase==='paused')return;this.clearCatalogue();}
+  if(this.evolving){this.refresh(s);return;}
   if(s.phase!==this.lastPhase||choices!==this.lastChoices){this.lastPhase=s.phase;this.lastChoices=choices;this.displayPhase(s);}
   if(s.phase==='playing'||s.phase==='boss'||s.phase==='choice')this.refresh(s);
  }
@@ -145,12 +183,14 @@ export class UI {
   this.content.innerHTML=`<div class="choice-screen"><div class="eyebrow">${owner?'POKÉMON MILESTONE':'SQUAD UPGRADE'} / GAME PAUSED</div>${context}<h2>${esc(s.choiceTitle)}</h2><div class="choices">${s.upgradeChoices.map((c,i)=>this.upgradeCard(c,i,s)).join('')}</div><p class="subtle">Click a card or press ${s.upgradeChoices.map((_,i)=>i+1).join(', ')} to choose</p></div>`;
   this.content.querySelectorAll<HTMLElement>('[data-choice]').forEach(el=>el.addEventListener('click',()=>this.onPick(el.dataset.choice!)));
   const canReroll=(s.rerolls??0)>0&&rerollChoices(s)!==null;
-  this.content.querySelector('.choice-screen')!.insertAdjacentHTML('beforeend',`<div class="choice-reroll"><button type="button" data-reroll ${canReroll?'':'disabled'}>Reroll (${s.rerolls??0})</button><p class="subtle">+1 reroll every 5 minutes of play · Next in ${fmt(PROGRESSION.rerolls.intervalSeconds-s.stats.elapsed%PROGRESSION.rerolls.intervalSeconds)}<br>All options change. Rarities stay in the same slots.${(s.rerolls??0)>0&&!canReroll?'<br>No complete set of new options is available.':''}</p></div>`);
+  this.content.querySelector('.choice-screen')!.insertAdjacentHTML('beforeend',`<div class="choice-reroll"><button type="button" data-reroll ${canReroll?'':'disabled'}>Reroll (${s.rerolls??0})</button><p class="subtle">+1 reroll every 5 minutes of play · Next in ${fmt(PROGRESSION.rerolls.intervalSeconds-s.stats.elapsed%PROGRESSION.rerolls.intervalSeconds)}<br>All options change. Rarities stay the same or improve.${(s.rerolls??0)>0&&!canReroll?'<br>No complete set of new options is available.':''}</p></div>`);
   this.content.querySelector('[data-reroll]')!.addEventListener('click',()=>this.onReroll());
   this.imageFallbacks(this.content);this.focusFirst();
  }
 
  private upgradeCard(c:UpgradeChoice,index:number,s:RunState){const tags={recruit:'RECRUIT',evolve:'EVOLUTION',attack:'MOVE',learn:'NEW MOVE',stat:'TRAINING',item:'RELIC'};
+  const cardType=c.kind==='item'?'relic':c.kind==='learn'?'new-move':c.kind==='stat'?'training':c.kind==='attack'?'move':c.kind;
+  const cardNote=c.kind==='item'?'CARRY A RELIC':c.kind==='learn'?'LEARN A NEW MOVE':c.kind==='stat'?'TRAIN YOUR SQUAD':'UPGRADE';
   const portraitId=c.kind==='evolve'?c.targetId:c.kind==='recruit'?c.speciesId:undefined;
   const p=portraitId?getSpecies(portraitId):null;
   const img=p?this.portrait(p.id,'upgrade-pokemon'):`<div class="upgrade-glyph" aria-hidden="true">${upgradeIcon(c)}</div>`;
@@ -158,14 +198,16 @@ export class UI {
   const member=c.kind!=='recruit'?s.party.find(member=>member.uid===c.speciesId):undefined;
   const owner=member?`${getSpecies(member.speciesId).name} · LV ${member.level}`:c.kind==='recruit'?'NEW TEAMMATE':s.party.length>1?'SQUAD BONUS':'YOUR POKÉMON';
   const slot=member&&(c.kind==='learn'||c.kind==='attack')?` · MOVE ${c.kind==='learn'?2+(member.learnedMoves?.length??0):c.moveId?(member.learnedMoves?.findIndex(move=>move.moveId===c.moveId)??0)+2:1} / 4`:'';
-  const raritySymbol={common:'◆',rare:'◆◆',epic:'◆◆◆'}[c.rarity];
-  return `<button type="button" class="choice-card ${c.rarity}" style="--choice-order:${index}" data-choice="${esc(c.id)}"${member?` data-choice-member="${member.uid}"`:''} aria-keyshortcuts="${index+1}"><span class="choice-header"><span class="choice-kind">${tags[c.kind]}</span><span class="choice-index">${index+1}</span></span><span class="choice-art">${img}</span><strong class="choice-title">${esc(c.title)}</strong><span class="choice-owner">${esc(owner+slot)}</span><span class="choice-rarity"><span class="rarity-symbol" aria-hidden="true">${raritySymbol}</span><span class="rarity-label">${c.rarity.toUpperCase()}</span><span class="rarity-rule" aria-hidden="true"></span></span>${rank}<p>${esc(c.description)}</p><span class="choice-footer"><span>UPGRADE</span><span>SELECT &rarr;</span></span></button>`;
+  const raritySymbol={uncommon:'\u25c6+',common:'◆',rare:'◆◆',epic:'◆◆◆',legendary:'◆◆◆◆'}[c.rarity];
+  const preview=upgradeStatPreview(s,c).map(row=>`<span class="choice-stat"><span>${esc(row.label)}</span><strong>${esc(row.before)} → ${esc(row.after)}</strong></span>`).join('');
+  return `<button type="button" class="choice-card ${c.rarity} card-${cardType}" data-card-type="${cardType}" style="--choice-order:${index}" data-choice="${esc(c.id)}"${member?` data-choice-member="${member.uid}"`:''} aria-keyshortcuts="${index+1}"><span class="choice-header"><span class="choice-kind">${tags[c.kind]}</span><span class="choice-index">${index+1}</span></span><span class="choice-art">${img}</span><strong class="choice-title">${esc(c.title)}</strong><span class="choice-owner">${esc(owner+slot)}</span><span class="choice-rarity"><span class="rarity-symbol" aria-hidden="true">${raritySymbol}</span><span class="rarity-label">${c.rarity.toUpperCase()}</span><span class="rarity-rule" aria-hidden="true"></span></span>${rank}<p>${esc(c.description)}</p>${preview?`<span class="choice-preview" aria-label="Stat changes">${preview}</span>`:''}<span class="choice-footer"><span>${cardNote}</span><span>SELECT &rarr;</span></span></button>`;
  }
 
  setCaptureHint(message:string){this.captureHint=message;const help=this.content.querySelector('#capture-help');if(help)help.textContent=message;}
 
  private showPause(s:RunState){this.content.innerHTML=`<div class="pause-screen"><div class="eyebrow">${fmt(s.stats.elapsed)} / ${s.stats.kills} DEFEATED</div><h2>Paused</h2><div class="pause-buttons"><button id="resume-btn" class="btn btn-primary">Resume</button><button id="restart-btn" class="btn btn-ghost">New run</button></div>${this.buildSummary(s)}${this.settingsPanel()}<p class="control-help">${controls}</p><p id="capture-help" class="subtle" role="status">${esc(this.captureHint)}</p></div>`;
-  q('#resume-btn').addEventListener('click',()=>this.onResume());q('#restart-btn').addEventListener('click',()=>this.onRestart());this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
+  this.content.querySelector('.pause-buttons')!.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-ghost" data-open-catalogue>Browse all upgrades</button>');
+  q('#resume-btn').addEventListener('click',()=>this.onResume());q('#restart-btn').addEventListener('click',()=>this.onRestart());this.bindCatalogue(s);this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
  }
 
  private showResult(s:RunState){const victory=s.result==='victory';
@@ -176,13 +218,14 @@ export class UI {
  private buildSummary(s:RunState){
   const build=getBuildSummary(s),m=build.modifiers;
   const leader=s.party[0],special=getSpecialProfile(leader.speciesId,leader.attackLevel);
-  const bonus=(value:number)=>`${value>=0?'+':''}${Math.round(value*100)}%`;
-  return `<details class="build-summary" open><summary>Build / ${build.items.length} relics / ${build.synergies.length} synergies</summary>
-   <div class="build-modifiers"><span>Leader damage ${bonus(m.power)}</span><span>Attack speed ${bonus(m.haste)}</span><span>Max HP ${Math.ceil(s.player.maxHp)}</span><span>Damage reduction ${Math.round(m.damageReduction*100)}%</span><span>Movement ${bonus(m.speed)}</span><span>Dodge recovery ${bonus(m.stamina)}</span><span>Special recovery ${bonus(m.specialHaste)}</span><span>Crit ${Math.round(m.critChance*100)}%</span><span>Area ${bonus(m.radius)}</span></div>
-   <p class="progression-help">Full shared XP for every living teammate. Levels add 2% HP and attack up to level ${PROGRESSION.leveling.maxLevel}; choices happen at levels 3, 5, 10, 15… Extra move slots unlock at levels 10, 20 and 30. Training stacks without a rank limit. Choose evolutions and new moves before level ${PROGRESSION.leveling.trainingFocusLevel}; later choices train moves and stats. Coins buy extra upgrades from supply chests.</p><div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member)).join('')}</div>
+  const bonus=(value:number)=>`${value>=0?'+':''}${formatPercent(value)}`;
+  return `<details class="build-summary" open><summary>Build / ${build.items.reduce((total,item)=>total+item.stacks,0)} relic copies / ${build.synergies.length} synergies</summary>
+   <div class="build-modifiers"><span>Leader damage ${bonus(m.power)}</span><span>Attack speed ${bonus(m.haste)}</span><span>Max HP ${Math.ceil(s.player.maxHp)}</span><span>Defense ${Number(m.armor.toFixed(2))}</span><span>Deflection ${formatPercent(m.deflection)}</span><span>Stamina ${s.player.dodgeCharges??1} / ${1+Math.floor(m.staminaCapacity)}</span><span>Movement ${bonus(m.speed)}</span><span>Stamina recharge time -${formatPercent(m.staminaRechargeReduction)}</span><span>Dodge recovery ${bonus(m.stamina)}</span><span>Special recovery ${bonus(m.specialHaste)}</span><span>Crit ${formatPercent(m.critChance)}</span><span>Area ${bonus(m.radius)}</span></div>
+   <p class="progression-help">Full shared XP for every living teammate. Levels add 2% HP and attack up to level ${PROGRESSION.leveling.maxLevel}; choices happen at levels 3, 5, 10, 15… Extra move slots unlock at levels 10, 20 and 30. Training stacks without a rank limit. Choose evolutions and new moves before level ${PROGRESSION.leveling.trainingFocusLevel}; later choices train moves and stats. Coins buy extra upgrades from supply chests.</p><div class="build-party pokemon-team" aria-label="Pokémon levels and moves">${s.party.map(member=>this.pokemonSummary(member,s)).join('')}</div>
    <div class="build-special"><strong>Q / ${esc(special.name)}</strong><span>${esc(special.description)}</span><span>${special.cooldown.toFixed(0)}s base cooldown · Rank ${leader.attackLevel}</span></div>
+   <div class="build-movement"><strong>Movement / ${esc(getMovementTrait(leader.speciesId).name)}</strong><span>${esc(getMovementTrait(leader.speciesId).description)}</span></div>
    <div class="build-synergies">${build.synergies.length?build.synergies.map(synergy=>`<div data-synergy="${esc(synergy.id)}"><strong>${esc(synergy.title)}</strong><span>${esc(synergy.description)}</span></div>`).join(''):'<p>No active team synergies yet.</p>'}</div>
-   <div class="build-items">${build.items.length?build.items.map(item=>`<div data-item="${esc(item.id)}"><strong>${esc(item.title)}${item.stacks>1?` ×${item.stacks}`:''}</strong><span>${esc(item.description)}</span></div>`).join(''):'<p>Find discovery caches for relics.</p>'}</div>
+   <div class="build-items">${build.items.length?build.items.map(item=>`<div data-item="${esc(item.id)}"><strong>${esc(item.title)}${item.stacks>1?` ×${item.stacks}`:''}</strong><span>${item.stacks>1?'Per copy: ':''}${esc(item.description)}</span></div>`).join(''):'<p>Find discovery caches for relics.</p>'}</div>
    ${build.caps.length?`<p class="build-caps">${build.caps.map(esc).join(' · ')}</p>`:''}</details>${this.variantLegend()}`;
  }
 
@@ -190,10 +233,10 @@ export class UI {
   return [{name:getSpecies(member.speciesId).moveName,rank:member.attackLevel},...(member.learnedMoves??[]).slice(0,3).map(move=>({name:getMoveDefinition(move.moveId)?.name??move.moveId,rank:move.rank}))];
  }
 
- private pokemonSummary(member:PartyMember){
+ private pokemonSummary(member:PartyMember,state:RunState){
   const moves=this.pokemonMoves(member),xp=member.xp??0,next=member.xpToNext??xpThreshold(member.level),milestone=nextMilestone(member.level);
   const species=getSpecies(member.speciesId),evolution=member.level>=PROGRESSION.leveling.trainingFocusLevel?' · Move / stat training':species.evolvesTo.length?` · Evolution: LV ${species.stage>=2?PROGRESSION.evolution.finalLevel:PROGRESSION.evolution.firstLevel} + ${PROGRESSION.evolution.maturitySeconds}s training, before LV ${PROGRESSION.leveling.trainingFocusLevel}`:'';
-  return `<section class="pokemon-summary" data-summary-member="${member.uid}"><div class="pokemon-summary-heading">${this.portrait(member.speciesId)}<div><strong>${esc(species.name)}</strong><span>LV ${member.level} · ${Math.floor(xp)} / ${next} XP</span><div class="pokemon-xp-track" aria-hidden="true"><span style="width:${percent(xp,next)}%"></span></div><span>${milestone?`Next choice: LV ${milestone}`:'MAX LEVEL'}${evolution}</span></div><small>${moves.length} / 4 MOVES</small></div><ol class="pokemon-moves">${Array.from({length:4},(_,index)=>{const move=moves[index];return `<li class="pokemon-move-slot${move?'':' empty'}" data-move-slot="${index+1}"><span class="move-slot-number">${index+1}</span><span class="move-slot-name">${move?esc(move.name):'Open move slot'}</span>${move?`<span class="move-slot-rank">RANK ${move.rank}</span>`:'<span class="move-slot-rank">LEARN</span>'}</li>`;}).join('')}</ol></section>`;
+  return `<section class="pokemon-summary" data-summary-member="${member.uid}"><div class="pokemon-summary-heading">${this.portrait(member.speciesId)}<div><strong>${esc(species.name)}</strong><span>LV ${member.level} · ${Math.floor(xp)} / ${next} XP</span><div class="pokemon-xp-track" aria-hidden="true"><span style="width:${percent(xp,next)}%"></span></div><span>${milestone?`Next choice: LV ${milestone}`:'MAX LEVEL'}${evolution}</span></div><small>Defense ${Number(getBuildModifiers(state,member).armor.toFixed(2))} | ${moves.length} / 4 MOVES</small></div><ol class="pokemon-moves">${Array.from({length:4},(_,index)=>{const move=moves[index];return `<li class="pokemon-move-slot${move?'':' empty'}" data-move-slot="${index+1}"><span class="move-slot-number">${index+1}</span><span class="move-slot-name">${move?esc(move.name):'Open move slot'}</span>${move?`<span class="move-slot-rank">RANK ${move.rank}</span>`:'<span class="move-slot-rank">LEARN</span>'}</li>`;}).join('')}</ol></section>`;
  }
 
  private variantLegend(){const glyphs={none:'',diamond:'◇',r:'R',chevrons:'»',droplets:'◦◦',crown:'♛'};
@@ -204,7 +247,8 @@ export class UI {
   q('#clock').textContent=fmt(stats.elapsed);q('#kills').textContent=String(stats.kills);
   q('#coins').textContent=String(s.coins??0);
   q('#progress-fill').style.width=`${Math.min(100,stats.elapsed/900*100)}%`;
-  q('#danger').textContent=boss?'LEGENDARY ENCOUNTER':s.director?.bossWarning?`${mapEncounter(s.mapId).boss.name.toUpperCase()} APPROACHES / ${Math.ceil(s.director.bossCountdown)}s`:(s.director?.title??'QUIET MEADOW').toUpperCase();
+  const scheduled=scheduledBossEncounter(s.mapId,s.stats.bossesDefeated??0);
+  q('#danger').textContent=boss?'LEGENDARY ENCOUNTER':s.director?.bossWarning?`${scheduled.name.toUpperCase()} APPROACHES / ${Math.ceil(s.director.bossCountdown)}s`:(s.director?.title??'QUIET MEADOW').toUpperCase();
   const profile=this.profile(s),biome=profile.definition.palette[biomeAt(p.x,p.z,profile)];q('#map-region').textContent=biome.name.toUpperCase();
   q('#leader-name').textContent=getSpecies(s.party[0].speciesId).name.toUpperCase();
   q('#health-text').textContent=`${Math.ceil(p.hp)} / ${Math.ceil(p.maxHp)}${p.poisonTime>0?' / POISON':''}`;q('#hp-fill').style.width=`${percent(p.hp,p.maxHp)}%`;
@@ -220,7 +264,13 @@ export class UI {
   specialTile.title=`${special.description} (${special.cooldown.toFixed(0)}s base cooldown)`;
   specialTile.dataset.special=special.kind;
   this.refreshCooldown('special-cd',p.specialCooldown,`Q ${special.name} ready`,stats.elapsed);
-  this.refreshCooldown('dodge-cd',p.dodgeCooldown,'Shift dodge ready',stats.elapsed);
+  this.refreshCooldown('dodge-cd',(p.dodgeCharges??0)>0?0:p.dodgeCooldown,`Shift dodge ready (${p.dodgeCharges??1} stamina)`,stats.elapsed);
+  const trait=getMovementTrait(leader.speciesId),movement=p.movement,traitStatus=q('#movement-trait');
+  traitStatus.classList.toggle('hidden',trait.kind==='normal');traitStatus.dataset.trait=trait.kind;traitStatus.title=trait.description;
+  const traitText=trait.kind==='runup'?(movement?.boost?`${trait.name.toUpperCase()} +${Math.round(movement.boost*100)}% SPEED`:`RUN STRAIGHT ${Math.min(MOVEMENT_TRAITS.runupDelay,movement?.straightTime??0).toFixed(1)} / ${MOVEMENT_TRAITS.runupDelay.toFixed(1)}s`)
+   :trait.kind==='flight'?(movement?.flying?`FLYING ${movement.flightRemaining.toFixed(1)}s`:movement?.flightCooldown?`FLIGHT RECHARGE ${movement.flightCooldown.toFixed(1)}s`:p.y>0&&!movement?.flightEligible?'FLIGHT / LAND FOR TAKEOFF':`HOLD SPACE / FLY ${trait.airtime}s`)
+   :trait.kind==='leap'?'SPACE / SPLASH LEAP':trait.kind==='teleport'?'SHIFT / TELEPORT':'';
+  if(traitStatus.textContent!==traitText)traitStatus.textContent=traitText;
   const ready=q('#ability-ready');const readyLabel=stats.elapsed<this.readyUntil?this.readyNotice:'';if(ready.textContent!==readyLabel)ready.textContent=readyLabel;
   const strip=q('#party-strip');const signature=s.party.map(v=>`${v.uid}/${v.speciesId}/${v.attackLevel}/${v.learnedMoves?.map(m=>`${m.moveId}:${m.rank}`).join(';')??''}`).join(',');
   if(strip.dataset.signature!==signature){strip.dataset.signature=signature;strip.innerHTML=Array.from({length:6},(_,i)=>{
@@ -249,7 +299,7 @@ export class UI {
     const label=near.challenge?`SHRINE TRIAL: ${seconds}s · Stay within ${SHRINE.radius}m · ${Math.ceil(distance2(p,near))}m away`
      :near.used?`${near.kind==='shrine'?'Shrine recharges':'Chest restocks'} in ${seconds}s`
      :near.kind==='cache'&&near.price!==undefined?`${chestRarity(s,near).toUpperCase()} chest · ${affordable?'Choose relic':'Need'} ${cost} coins`
-     :({cache:'Open discovery cache · One use',shrine:`Tier ${shrineTier(s,near)} shrine · DANGER: Lv ${SHRINE.recommendedLevel}+ squad recommended · ${SHRINE.duration}s trial, ${SHRINE.radius}m boundary · Relic + training`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
+    :({cache:'Open discovery cache · One use',shrine:`Tier ${shrineTier(s,near)} ${optionalChallenge(near.challengeKind??'guardian').title} · DANGER: Lv ${SHRINE.recommendedLevel}+ squad recommended · ${optionalChallenge(near.challengeKind??'guardian').objective}, ${optionalChallenge(near.challengeKind??'guardian').duration}s, ${optionalChallenge(near.challengeKind??'guardian').radius}m boundary · ${optionalChallenge(near.challengeKind??'guardian').reward}`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
     interaction.innerHTML=`${near.used?'':'<span class="kbd">E</span> '}${near.name?`${esc(near.name)} · `:''}${label}`;interaction.classList.toggle('unaffordable',!affordable&&!near.used);
    }
   }
@@ -257,9 +307,10 @@ export class UI {
   q('#boss-bar').classList.toggle('hidden',!boss);
   if(boss){
    q('#boss-hp-fill').style.width=`${percent(boss.hp,boss.maxHp)}%`;
-   const encounter=mapEncounter(s.mapId).boss;
+   const encounter=bossEncounter(s.activeBossEncounterId??(mapEncounter(s.mapId).boss.speciesId===146?'moltres':'mewtwo'));
    const hints={volley:`${encounter.moves.volley.toUpperCase()} · Move off the aim line`,psychicRing:`${encounter.moves.psychicRing.toUpperCase()} · Jump or dodge through the wave`,summon:`${encounter.moves.summon.toUpperCase()} · Reinforcements incoming`,slam:`${(boss.windup?.moveName??'Psyshock').toUpperCase()} · Leave the marked area`,enemyMove:`${boss.windup?.moveName??'ATTACK'} · Leave the marked area`};
-   q('#boss-action').textContent=boss.windup?hints[boss.windup.kind]:(s.psychicRings?.length?`${encounter.moves.psychicRing.toUpperCase()} RING · Jump or dodge through the wave`:`${encounter.name.toUpperCase()} / LEGENDARY`);
+   const stage=encounter.stages[Math.min(boss.bossStage??s.bossStage??0,encounter.stages.length-1)];
+   q('#boss-action').textContent=boss.windup?hints[boss.windup.kind]:(s.psychicRings?.length?`${encounter.moves.psychicRing.toUpperCase()} RING · Jump or dodge through the wave`:`${encounter.name.toUpperCase()} / STAGE ${(boss.bossStage??s.bossStage??0)+1}: ${stage.label.toUpperCase()}`);
   }
  }
 
@@ -329,6 +380,6 @@ export class UI {
   const el=q('#toast');this.toastPriority=priority;this.toastExpires=now+3100;el.textContent=label;el.classList.add('show');
   clearTimeout(this.toastTimer);this.toastTimer=window.setTimeout(()=>{el.classList.remove('show');this.toastPriority=0;},3100);
  }
- handleNumber(key:string,s:RunState):boolean{if(s.phase!=='choice'||!['1','2','3','4'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
- dispose(){this.listeners.abort();clearTimeout(this.toastTimer);cancelAnimationFrame(this.focusFrame);for(const probe of this.imageLoads.values()){probe.onload=null;probe.onerror=null;probe.removeAttribute('src');}this.imageLoads.clear();this.content.replaceChildren();const strip=q('#party-strip');strip.replaceChildren();delete strip.dataset.signature;}
+ handleNumber(key:string,s:RunState):boolean{if(this.evolving)return ['1','2','3','4'].includes(key);if(s.phase!=='choice'||!['1','2','3','4'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
+ dispose(){this.clearCatalogue();this.listeners.abort();clearTimeout(this.toastTimer);cancelAnimationFrame(this.focusFrame);for(const probe of this.imageLoads.values()){probe.onload=null;probe.onerror=null;probe.removeAttribute('src');}this.imageLoads.clear();this.content.replaceChildren();const strip=q('#party-strip');strip.replaceChildren();delete strip.dataset.signature;}
 }

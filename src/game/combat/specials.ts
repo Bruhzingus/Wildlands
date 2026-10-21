@@ -37,7 +37,7 @@ function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
    behavior:orbit?'orbit':profile.kind==='payday'?'ricochet':homing?'homing':'straight',
    bounces:profile.kind==='payday'?2+Math.floor((member.attackLevel-1)/3):0,bounceRange:7,
    orbitCenterX:origin.x,orbitCenterZ:origin.z,orbitAngle:angle,orbitRadius:profile.radius,orbitSpeed:2.8,
-   status:profile.kind==='web'?{slow:1,stun:1}:orbit?{burn:1}:{},allowProcs:true,moveName:profile.name});
+   status:profile.kind==='web'?{slow:1}:orbit?{burn:1}:{},allowProcs:true,moveName:profile.name});
  }
 }
 function lineHit(context:SpecialContext,from:Vec2,to:Vec2,radius:number,scale:number,status:StatusProc={},forward?:Vec2):void {
@@ -109,7 +109,7 @@ export function castSpecial(context:SpecialContext):void {
  active.push(effect);
  if(targeted)visual(profile.kind,position,{duration:profile.duration});
  else if(profile.kind==='surf'||profile.kind==='whirlwind')visual('wave',origin,{toX:aim.x,toZ:aim.z,duration:profile.duration,endRadius:profile.radius*(profile.kind==='whirlwind'?2:1)});
- else if(profile.kind==='flamethrower'||profile.kind==='flurry')visual('cone',origin,{radius:profile.range,facing,angle:profile.angle});
+ else if(profile.kind==='flamethrower'||profile.kind==='flurry'||profile.kind==='fury-swipes')visual('cone',origin,{radius:profile.range,facing,angle:profile.angle});
  else if(profile.kind==='fissure')visual('trail',origin,{toX:aim.x,toZ:aim.z,radius:.25,duration:profile.duration});
  else if(profile.kind==='thunder')visual('column',target??aim,{radius:profile.radius,duration:.2});
 }
@@ -160,6 +160,13 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
       hit(enemy,profile.damageScale,profile.kind==='flamethrower'?{burn:1}:{},index===profile.pulses-1?profile.knockback:0);
      }
      visual('cone',origin,profile.range,.22,{facing:Math.atan2(effect.dx,effect.dz),angle:profile.angle});break;
+    }
+    case 'fury-swipes':{
+     if(effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
+     const origin={x:state.player.x,z:state.player.z},facing=Math.atan2(effect.dx,effect.dz);
+     const enemy=enemyInAim(state.enemies,origin,profile.range,facing);if(!enemy)break;
+     hit(enemy,profile.damageScale);
+     visual('slash',enemy,1.6,.18,{facing});break;
     }
     case 'thunder':{
      const enemy=effect.manualAim?enemyInAim(state.enemies,effect,profile.range,Math.atan2(effect.dx,effect.dz),effect.hit):nearestEnemy(state.enemies,effect,profile.range,effect.hit);if(!enemy)break;

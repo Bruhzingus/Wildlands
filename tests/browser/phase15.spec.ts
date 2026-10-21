@@ -51,7 +51,7 @@ test('new challenge choices persist and configure real enemy damage and arrival 
  await page.locator('[data-run-map]').selectOption('volcanic-ridge');await page.locator('[data-run-challenge]').selectOption('onslaught');await page.reload();
  await expect(page.locator('[data-run-map]')).toHaveValue('volcanic-ridge');await expect(page.locator('[data-run-challenge]')).toHaveValue('onslaught');
  await page.locator('[data-starter="25"]').click();await captured(page);expect(await game(page,'g=>g.sim.state.challenge')).toBe('onslaught');
- expect(await game(page,'g=>g.sim.state.director.spawnInterval')).toBeLessThan(1.09);
+ expect(await page.evaluate(async()=>{const {updateDirector}=await import('/src/game/systems/director.ts'),s=(window as any).__WILDLANDS__.sim.state;return s.director.spawnInterval/updateDirector({...s,challenge:'standard'}).spawnInterval;})).toBeCloseTo(.8,6);
  await page.keyboard.press('Escape');await page.locator('#restart-btn').click();await page.locator('[data-run-challenge]').selectOption('volatile');await page.locator('[data-starter="25"]').click();await captured(page);
  expect(await game(page,'g=>g.sim.state.challenge')).toBe('volatile');
  expect(await page.evaluate(async()=>{const {createEnemy}=await import('/src/game/systems/spawning.ts'),{RNG}=await import('/src/utils/random.ts'),g=(window as any).__WILDLANDS__,s=g.sim.state;const one=createEnemy({...s,challenge:'standard'},new RNG(1),19,'normal',0,0),two=createEnemy(s,new RNG(1),19,'normal',0,0);return two.damage/one.damage;})).toBe(1.25);

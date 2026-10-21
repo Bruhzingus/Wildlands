@@ -34,8 +34,8 @@ export function updateDirector(state:RunState):DirectorSnapshot {
  if(state.endless){variantWeights.normal=Math.max(.18,.43-.07*(endlessScale-1));variantWeights.rocket=.20;variantWeights.dark=.20;variantWeights.rabid=.17;variantWeights.poisoned=.14;}
  const snapshot:DirectorSnapshot={phaseId,title:state.endless?'Endless wilds':phase.id==='legendary'?`${mapEncounter(state.mapId).boss.name} awakened`:phase.title,elapsed,spawnInterval:interval*challengeRules(state.challenge).spawnIntervalScale,
   batchSize:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,
-  bossWarning:!state.bossSpawned&&elapsed>=DESIGN.bossAtSeconds-BOSS_RULES.warningSeconds,
-  bossCountdown:Math.max(0,DESIGN.bossAtSeconds-elapsed),spawned:previous?.spawned||0,denied:previous?.denied||0,
+  bossWarning:(!state.bossSpawned&&elapsed>=DESIGN.bossAtSeconds-BOSS_RULES.warningSeconds)||(state.endless&&!state.enemies.some(enemy=>enemy.isBoss&&!enemy.dead)&&state.nextBossAt!==undefined&&elapsed>=state.nextBossAt-BOSS_RULES.warningSeconds),
+  bossCountdown:Math.max(0,(state.endless&&state.nextBossAt!==undefined?state.nextBossAt:DESIGN.bossAtSeconds)-elapsed),spawned:previous?.spawned||0,denied:previous?.denied||0,
   transitions:(previous?.transitions||0)+(previous&&previous.phaseId!==phaseId?1:0)};
  state.director=snapshot;return snapshot;
 }

@@ -5,6 +5,7 @@ import {ATTACK_ARCHETYPES,getAttackProfile} from '../src/data/attacks.ts';
 import {ITEM_DEFINITIONS} from '../src/data/items.ts';
 import {DESIGN} from '../src/data/config.ts';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
+import {getLearnedMoveProfile} from '../src/data/moves.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
 import {getBuildModifiers,BUILD_LIMITS} from '../src/game/systems/builds.ts';
 import {chainTargets} from '../src/game/combat/targeting.ts';
@@ -133,6 +134,29 @@ test('slash sweeps a forward cone, aura pulses around its owner, and burst deton
  assert.equal(hits.length,0);assert.equal(projectiles[0].silhouette,'beam');assert.ok(projectiles[0].penetration>0);
 });
 
+test('a selected melee target is hit even after leaving the sweep',()=>{
+ const {sim,s}=arena(),target=foe(sim,3),other=foe(sim,-2),hits:number[]=[];
+ const context:PatternContext={member:s.party[0],target,enemies:s.enemies,profile:getAttackProfile(56),element:'normal',damage:10,crit:false,depth:0,radiusScale:1,extraProjectiles:0,extraPierce:0,extraChains:0,projectileSpeedScale:1,
+  hit:enemy=>hits.push(enemy.uid),projectile:()=>{},visual:()=>{},heal:()=>{}};
+ target.x=30;executePattern(context);
+ assert.deepEqual(hits,[target.uid]);assert.ok(!hits.includes(other.uid));
+ hits.length=0;executePattern({...context,profile:getAttackProfile(58)});
+ assert.deepEqual(hits,[target.uid]);
+ hits.length=0;executePattern({...context,profile:getAttackProfile(66)});
+ assert.deepEqual(hits,[target.uid]);
+});
+
+test('player melee reaches 25% farther and its starting damage is 25% stronger',()=>{
+ const primary=getAttackProfile(56),base=ATTACK_ARCHETYPES.slash;
+ assert.equal(primary.range,base.range*1.25);
+ assert.equal(primary.radius,base.radius*1.25);
+ assert.equal(primary.damageScale,base.damageScale*1.25);
+ const learned=getLearnedMoveProfile('tackle');
+ assert.equal(learned.range,base.range*1.25);
+ assert.equal(learned.radius,base.radius*1.25);
+ assert.equal(learned.damageScale,base.damageScale*1.25);
+});
+
 test('lobs explode on impact and expanded attack range has enough projectile lifetime to reach its target',()=>{
  const {sim,s}=arena(1),a=foe(sim,5),b=foe(sim,6),c=foe(sim,10);const hits:number[]=[];
  addProjectile(s,shot({kind:'lob',radius:2.1,vx:100}));stepProjectiles(s,.05,{hit:enemy=>hits.push(enemy.uid),hurtPlayer:()=>{}});
@@ -191,7 +215,7 @@ test('movement, regeneration and XP use passive modifiers while recruit and evol
 });
 
 test('an invalidated choice refreshes valid offers while the run stays paused',()=>{
- const {sim,s}=arena();s.items=['multi-lens'];sim.enterChoice([{id:'multi-lens',kind:'item',title:'Multi Lens',description:'',rarity:'epic'}],'Treasure cache');
+ const {sim,s}=arena();s.items=['multi-lens'];s.itemUnlocks=[];sim.enterChoice([{id:'multi-lens',kind:'item',title:'Multi Lens',description:'',rarity:'epic'}],'Treasure cache');
  sim.choose('multi-lens');assert.equal(s.phase,'choice');assert.ok(s.upgradeChoices.length>0);assert.ok(s.upgradeChoices.every(choice=>choice.id!=='multi-lens'));
  const time=s.stats.elapsed;sim.update(.04,idle);assert.equal(s.stats.elapsed,time);
 });

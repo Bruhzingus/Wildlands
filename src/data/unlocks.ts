@@ -12,16 +12,16 @@ export interface AchievementDefinition {id:string;title:string;description:strin
 export const STARTING_PARTNERS=[1,4,7,25] as const;
 export const GATED_ITEMS=['echo-bell','life-orb','iron-ball','prism-shard'] as const;
 export const GATED_RECRUITS=GATED_RECRUIT_SPECIES;
-export const BASE_ITEMS=ITEM_DEFINITIONS.filter(item=>!(GATED_ITEMS as readonly string[]).includes(item.id)).map(item=>item.id);
+export const BASE_ITEMS=ITEM_DEFINITIONS.filter(item=>!item.baseId&&!(GATED_ITEMS as readonly string[]).includes(item.id)).map(item=>item.id);
 export const MAP_OPTIONS=Object.values(MAP_DEFINITIONS);
 export const CHALLENGE_OPTIONS=Object.values(CHALLENGE_DEFINITIONS);
 /** Finite accomplishments unlock choices, never permanent combat-stat bonuses. */
 export const ACHIEVEMENTS:readonly AchievementDefinition[]=[
  {id:'first-watch',title:'First watch',description:'Survive for 3 minutes.',target:180,unit:'seconds',reward:{starters:[16,27]}},
  {id:'squad-assembly',title:'Squad assembly',description:'Have 4 living squad members together.',target:4,unit:'members',reward:{starters:[43,52],recruits:[83,95,114]}},
- {id:'trail-reader',title:'Trail reader',description:'Use 4 discoveries in one run.',target:4,unit:'discoveries',reward:{starters:[37,58],maps:['pinewood-route']}},
+ {id:'trail-reader',title:'Trail reader',description:'Use 4 discoveries in one run.',target:4,unit:'discoveries',reward:{starters:[37,58,129],maps:['pinewood-route']}},
  {id:'growing-together',title:'Growing together',description:'Evolve your leader and at least one follower in the same run.',target:2,unit:'roles',reward:{starters:[63,66]}},
- {id:'poison-patrol',title:'Poison patrol',description:'Reach 15 minutes with at least 2 living Poison-type members.',target:900,unit:'seconds',reward:{starters:[92]}},
+ {id:'poison-patrol',title:'Poison patrol',description:'Reach 15 minutes with at least 2 living Poison-type members.',target:900,unit:'seconds',reward:{starters:[41,92]}},
  {id:'rocket-patrol',title:'Rocket patrol',description:'Defeat 100 Rocket enemies across your runs.',target:100,unit:'defeated',reward:{starters:[133],items:['iron-ball'],recruits:[108,115,127,128,131,137,142,143]}},
  {id:'psychic-break',title:'Psychic break',description:'Defeat a map legendary (Mewtwo or Moltres).',target:1,unit:'victory',reward:{starters:[10],items:['prism-shard']}},
  {id:'everyone-home',title:'Everyone home',description:'Defeat a map legendary without a follower fainting.',target:1,unit:'victory',reward:{items:['life-orb'],challenges:['quickened']}},

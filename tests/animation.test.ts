@@ -39,7 +39,7 @@ test('special body motion follows fields, shots, charges, heavy strikes and squa
  const expected:Record<SpecialKind,AttackStyle>={
   garden:'pulse',flamethrower:'ranged',surf:'ranged',thunder:'pulse',quickstep:'quick',web:'ranged',
   whirlwind:'ranged',fissure:'heavy',foxfire:'pulse',sleep:'pulse',payday:'ranged',charge:'quick',
-  teleport:'ranged',flurry:'heavy',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
+  teleport:'ranged',flurry:'heavy','fury-swipes':'melee',curse:'pulse',lance:'ranged',volley:'ranged',mend:'heal',
  };
  const neutral={forward:0,lift:0,scaleX:1,scaleY:1,lean:0};
  for(const [kind,style] of Object.entries(expected) as [SpecialKind,AttackStyle][]){

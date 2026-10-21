@@ -10,7 +10,7 @@ export type EnemyTier=1|2|3|4|5;
  * minibosses among it rather than replacing it with a stronger wave. */
 export const ENEMY_TIER_TUNING={
  tier3:{
-  earliestSeconds:360,fullChanceSeconds:840,initialChance:.01,lateChance:.05,
+  earliestSeconds:360,fullChanceSeconds:840,initialChance:.01,lateChance:.07,
   minimumSpacingSeconds:18,maxAlive:3,
   healthMultiplier:4,minimumHealth:900,healthPerSecond:4,
   damageMultiplier:1.15,sizeMultiplier:1.12,

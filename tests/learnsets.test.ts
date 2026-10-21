@@ -23,6 +23,7 @@ test('cached learnsets cover all 151 species and contain only implemented real m
  assert.ok(!learnableMoves(4).some(move=>move.id==='hyper-beam'),'Charmander cannot learn Charizard’s Hyper Beam');
  assert.ok(learnableMoves(6).some(move=>move.id==='hyper-beam'));
  assert.ok(!learnableMoves(66).some(move=>move.id==='swift'),'Machop cannot learn Swift');
+ assert.ok(!learnableMoves(133).some(move=>move.id==='swift'),'Eevee already knows Swift as its signature');
 });
 
 test('all evolution and new-move unlocks precede level 45; later milestones train moves and stats',()=>{

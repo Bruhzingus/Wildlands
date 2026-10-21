@@ -13,10 +13,10 @@ export const ENEMY_ROLE_LABELS:Record<EnemyAttackRole,string>={
  'explosive-suicide':'Self-destruct','explosive-bomb':'Bomb thrower',healer:'Healer',
 };
 /** Cooldown starts at release. Damage budgets include both anticipation and recovery.
- * Slow attacks commit to a direction or landing point so movement can evade them. */
+ * Melee locks its chosen target; area and projectile moves retain their tells. */
 const tuning:Record<EnemyAttackRole,Omit<EnemyAttackProfile,'speciesId'|'role'|'moveName'|'element'|'color'>>={
- 'melee-fast':{cooldown:.85,windup:.24,range:2.4,radius:2.9,damageScale:.8,projectileSpeed:0,shots:1},
- 'melee-slow':{cooldown:1.45,windup:.75,range:3.1,radius:3.7,damageScale:1.6,projectileSpeed:0,shots:1},
+ 'melee-fast':{cooldown:.85,windup:.24,range:2.4*1.15,radius:2.9*1.15,damageScale:.8*1.25,projectileSpeed:0,shots:1},
+ 'melee-slow':{cooldown:1.45,windup:.75,range:3.1*1.15,radius:3.7*1.15,damageScale:1.6*1.25,projectileSpeed:0,shots:1},
  'ranged-burst':{cooldown:1.65,windup:.5,range:15,radius:.24,damageScale:.55,projectileSpeed:17,shots:3},
  'ranged-projectile':{cooldown:1.9,windup:.65,range:18,radius:.58,damageScale:1.85,projectileSpeed:7.8,shots:1},
  'explosive-suicide':{cooldown:2,windup:1,range:4.4,radius:4.8,damageScale:2.1,projectileSpeed:0,shots:1},

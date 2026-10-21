@@ -29,10 +29,16 @@ export function executeChain(enemies:readonly Enemy[],start:Enemy,damage:number,
  }
 }
 export function executePattern(context:PatternContext):void {
- const {member,target,enemies,profile,element}=context,damage=context.damage*profile.damageScale,color=ELEMENT_COLORS[element];
+ const {member,target,enemies,profile,element}=context,damage=Math.min(Number.MAX_VALUE,context.damage*profile.damageScale),color=ELEMENT_COLORS[element];
  const focus=target;
  const radius=profile.radius*context.radiusScale;
- if(profile.pattern&&executeSignature(context,damage,color))return;
+ // The selected melee target is committed when autoattack starts. Geometry
+ // still decides which other enemies share the sweep.
+ const selected=profile.kind==='slash'?enemies.find(enemy=>enemy.uid===target.uid&&!enemy.dead):undefined;
+ let selectedHit=false;
+ if(selected){const hit=context.hit;context={...context,hit:(enemy,amount)=>{if(enemy.uid===selected.uid)selectedHit=true;hit(enemy,amount);}};}
+ const hitSelected=()=>{if(selected&&!selectedHit&&!selected.dead)context.hit(selected,damage);};
+ if(profile.pattern&&executeSignature(context,damage,color)){hitSelected();return;}
  if(profile.kind==='heal'){
   context.heal(5+member.attackLevel*1.5,3+member.attackLevel*.8);
   context.visual({kind:'attack',x:member.x,z:member.z,color:'#8afaad',amount:radius,shape:'heal',sourceId:member.uid});return;
@@ -51,7 +57,7 @@ export function executePattern(context:PatternContext):void {
    }
    context.hit(enemy,damage);
   }
-  context.visual({kind:'attack',x:center.x,z:center.z,color,amount:radius,radius,shape:profile.kind,facing:Math.atan2(fx,fz),sourceId:member.uid,targetId:target.uid});return;
+  hitSelected();context.visual({kind:'attack',x:center.x,z:center.z,color,amount:radius,radius,shape:profile.kind,facing:Math.atan2(fx,fz),sourceId:member.uid,targetId:target.uid});return;
  }
  const count=Math.min(12,Math.max(1,profile.projectiles+context.extraProjectiles));
  for(let shot=0;shot<count;shot++){

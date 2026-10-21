@@ -42,8 +42,8 @@ test('reroll button replaces all cards in their rarity slots and stops at zero c
  const before=await page.evaluate(()=>{
   const g=(window as any).__WILDLANDS__,s=g.sim.state;
   s.upgradeChoices=[
-   {id:'power',kind:'stat',stat:'power',amount:.12,title:'Swords Dance',description:'+12% damage.',rarity:'common'},
-   {id:'haste-rare',kind:'stat',stat:'haste',amount:.2,title:'Tailwind',description:'+20% attack speed.',rarity:'rare'},
+   {id:'power',kind:'stat',stat:'power',amount:.08,title:'Swords Dance',description:'+8% damage.',rarity:'common'},
+   {id:'haste-rare',kind:'stat',stat:'haste',amount:.15,title:'Tailwind',description:'+15% attack speed.',rarity:'rare'},
    {id:'speed-epic',kind:'stat',stat:'speed',amount:.36,title:'Agility',description:'+36% movement speed.',rarity:'epic'},
   ];s.stats.elapsed=0;s.choiceSource='squad';s.phase='choice';g.ui.update(s);
   return s.upgradeChoices.map((c:any)=>c.id);
@@ -56,6 +56,24 @@ test('reroll button replaces all cards in their rarity slots and stops at zero c
  expect(after.every(id=>!before.includes(id))).toBe(true);
  await reroll.click();await expect(reroll).toHaveText('Reroll (0)');await expect(reroll).toBeDisabled();
  await expect(page.locator('.choice-screen')).toContainText('Next in 05:00');
+ expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.phase)).toBe('choice');
+});
+
+test('treasure-cache reroll works with Razor Claw as the only Uncommon relic',async({page})=>{
+ await page.goto('/');await page.locator('[data-starter="1"]').click();
+ await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {availableItemChoices}=await import('/src/game/systems/progression.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;s.itemUnlocks=undefined;
+  const offers=availableItemChoices(s);
+  g.sim.enterChoice(['razor-claw','toxic-barb','magnet-stone'].map(id=>offers.find((choice:any)=>choice.id===id)),'Treasure cache','cache');
+ });
+ const reroll=page.locator('[data-reroll]');await expect(reroll).toBeEnabled();
+ await reroll.click();await expect(reroll).toHaveText('Reroll (1)');
+ await expect(page.locator('.choice-card')).toHaveCount(3);
+ const replacements=await page.locator('[data-choice]').evaluateAll(cards=>cards.map(card=>({id:(card as HTMLElement).dataset.choice!,rarity:card.querySelector('.rarity-label')!.textContent})));
+ expect(replacements.every(choice=>!['razor-claw','toxic-barb','magnet-stone'].some(id=>choice.id===id||choice.id===`${id}-legendary`))).toBe(true);
+ expect(['RARE','EPIC','LEGENDARY']).toContain(replacements[0].rarity);
  expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.phase)).toBe('choice');
 });
 
@@ -130,10 +148,98 @@ test('real solo rewards prioritize training and show stronger versions with unca
  await expect(page.locator('.choice-rank')).toHaveText(['RANK 1','RANK 1','RANK 1']);
  await expect(page.locator('.choice-owner')).toHaveText(['YOUR POKÉMON','YOUR POKÉMON','YOUR POKÉMON']);
  await expect(page.locator('.choice-card p')).toHaveText([
-  '+12% attack damage, including learned moves.',
-  '+24% attack damage, including learned moves.',
-  '+36% attack damage, including learned moves.',
+  '+8% attack damage, including learned moves.',
+  '+15% attack damage, including learned moves.',
+  '+25% attack damage, including learned moves.',
  ]);
  await page.locator('[data-choice="power-rare"]').click();
- expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.buffs.power)).toBe(.24);
+ expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.buffs.power)).toBe(.15);
+});
+
+test('legendary training and relic cards preview additive percentages and preserve paused state',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/');await page.locator('[data-starter="1"]').click();
+ const before=await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {makeChoices,availableItemChoices}=await import('/src/game/systems/progression.ts');
+  // @ts-ignore Vite resolves browser source imports.
+  const {RNG}=await import('/src/utils/random.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;
+  s.buffs.power=.05;s.items=['life-orb'];s.itemUnlocks=undefined;
+  const rng=new RNG(473),variants=new Map();
+  for(let roll=0;roll<15000&&variants.size<2;roll++)for(const choice of makeChoices(s,rng,'squad')){
+   if(choice.stat==='power'&&(choice.rarity==='legendary'||choice.rarity==='common'))variants.set(choice.rarity,choice);
+  }
+  const relic=availableItemChoices(s).find((choice:any)=>choice.id==='razor-claw-legendary');
+  g.sim.enterChoice([variants.get('common'),variants.get('legendary'),relic],'Legendary upgrades','squad');
+  return {power:s.buffs.power,items:[...s.items],elapsed:s.stats.elapsed};
+ });
+ await expect(page.locator('.rarity-label')).toHaveText(['COMMON','LEGENDARY','LEGENDARY']);
+ await expect(page.locator('[data-choice="power"] .choice-preview')).toContainText('37% → 45%');
+ await expect(page.locator('[data-choice="power-legendary"] .choice-preview')).toContainText('37% → 77%');
+ await expect(page.locator('[data-choice="razor-claw-legendary"] .choice-preview')).toContainText('40%');
+ const colors=await page.locator('.choice-card').evaluateAll(cards=>cards.map(card=>getComputedStyle(card).borderLeftColor));
+ expect(colors[0]).not.toEqual(colors[1]);expect(colors[1]).toEqual(colors[2]);
+ await expectCardsToFit(page);
+ await page.screenshot({path:'artifacts/browser/legendary-upgrades-desktop.png'});
+ for(const width of [390,320]){
+  await page.setViewportSize({width,height:844});await expectCardsToFit(page);
+  for(const row of await page.locator('.choice-preview').all())await expect(row).toBeVisible();
+ }
+ await page.screenshot({path:'artifacts/browser/legendary-upgrades-mobile.png'});
+ expect(await page.evaluate(()=>{
+  const s=(window as any).__WILDLANDS__.sim.state;return {power:s.buffs.power,items:s.items,elapsed:s.stats.elapsed};
+ })).toEqual(before);
+ await page.locator('[data-choice="power-legendary"]').click();
+ expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.buffs.power)).toBeCloseTo(.45);
+ await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {availableItemChoices}=await import('/src/game/systems/progression.ts');
+  const g=(window as any).__WILDLANDS__;
+  g.sim.enterChoice([availableItemChoices(g.sim.state).find((choice:any)=>choice.id==='razor-claw-legendary')],'Legendary relic','cache');
+ });
+ await page.locator('[data-choice="razor-claw-legendary"]').click();
+ expect(await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {availableItemChoices}=await import('/src/game/systems/progression.ts');
+  const s=(window as any).__WILDLANDS__.sim.state;
+  return {owned:s.items.includes('razor-claw-legendary'),offered:availableItemChoices(s).some((choice:any)=>choice.id.startsWith('razor-claw'))};
+ })).toEqual({owned:true,offered:true});
+ expect(errors).toEqual([]);
+});
+
+test('relics, new moves and training have distinct frames and subtle artwork animations',async({page})=>{
+ await page.route('https://raw.githubusercontent.com/**',route=>route.abort());
+ await page.goto('/');await page.locator('[data-starter="4"]').click();
+ await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {makeChoices,availableItemChoices}=await import('/src/game/systems/progression.ts');
+  // @ts-ignore Vite resolves browser source imports.
+  const {RNG}=await import('/src/utils/random.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;s.party[0].level=10;s.itemUnlocks=undefined;
+  const rng=new RNG(3721);let training:any,move:any;
+  for(let roll=0;roll<3000&&(!training||!move);roll++){
+   training??=makeChoices(s,rng,'squad').find((choice:any)=>choice.stat==='power'&&choice.rarity==='rare');
+   move??=makeChoices(s,rng).find((choice:any)=>choice.kind==='learn');
+  }
+  const relic=availableItemChoices(s).find((choice:any)=>choice.id==='leftovers');
+  if(!training||!move||!relic)throw Error('Missing representative card family');
+  g.sim.enterChoice([training,relic,move],'Choose your next upgrade','squad');
+ });
+ await expect(page.locator('.choice-card')).toHaveCount(3);
+ await expect(page.locator('.choice-kind')).toHaveText(['TRAINING','RELIC','NEW MOVE']);
+ await expect(page.locator('.rarity-label')).toHaveText(['RARE','RARE','RARE']);
+ const designs=await page.locator('.choice-card').evaluateAll(cards=>cards.map(card=>{
+  const art=card.querySelector('.choice-art')!,style=getComputedStyle(card);
+  return {type:card.getAttribute('data-card-type'),corners:style.borderRadius,texture:getComputedStyle(art).backgroundImage,
+   animation:getComputedStyle(art,'::before').animationName+'/'+getComputedStyle(art,'::after').animationName};
+ }));
+ expect(designs.map(design=>design.type)).toEqual(['training','relic','new-move']);
+ for(const property of ['corners','texture','animation'] as const)expect(new Set(designs.map(design=>design[property])).size).toBe(3);
+ expect(designs.every(design=>design.animation!=='none/none')).toBe(true);
+ await expectCardsToFit(page);await page.screenshot({path:'artifacts/browser/card-families-desktop.png'});
+ for(const width of [390,320]){await page.setViewportSize({width,height:844});await expectCardsToFit(page);}
+ await page.screenshot({path:'artifacts/browser/card-families-mobile.png'});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ expect(await page.locator('.choice-art').evaluateAll(arts=>arts.every(art=>getComputedStyle(art,'::before').animationName==='none'&&getComputedStyle(art,'::after').animationName==='none'))).toBe(true);
 });

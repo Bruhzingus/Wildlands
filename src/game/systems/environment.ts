@@ -1,19 +1,22 @@
 import {DESIGN} from '../../data/config.ts';
 import {RNG,clamp} from '../../utils/random.ts';
-import type {POI,Vec2} from '../types.ts';
+import type {POI,TerrainFeature,Vec2} from '../types.ts';
 import {WORLD,type BiomeId,type WorldProp} from '../../data/world.ts';
 import {DEFAULT_WORLD,worldProfile,worldPoint,localPoint,type WorldProfile,type MapId} from '../../data/maps.ts';
 import {ECONOMY} from '../../data/economy.ts';
+import type {OptionalChallengeId} from '../../data/optionalChallenges.ts';
 
 export type {WorldProp} from '../../data/world.ts';
-export type Obstacle=({kind:'circle';radius:number}|{kind:'box';halfWidth:number;halfDepth:number;rotation:number})&Vec2;
-export interface EnvironmentLayout {props:WorldProp[];obstacles:Obstacle[];}
+export type Obstacle=({kind:'circle';radius:number}|{kind:'box';halfWidth:number;halfDepth:number;rotation:number})&Vec2&{blocksFlight?:boolean};
+export interface EnvironmentLayout {props:WorldProp[];obstacles:Obstacle[];features:TerrainFeature[];}
 const propRadius=(p:WorldProp)=>p.kind==='ruin'?Math.hypot(1.2*p.scale,.9):(p.kind==='tree'?.37:1.25)*p.scale;
 const worldLandmarkProps=(profile:WorldProfile)=>profile.definition.landmarkProps.map(prop=>({...prop,...worldPoint(prop,profile),rotation:(prop.rotation??0)-profile.turn*Math.PI/2}));
 
 export function biomeAt(x:number,z:number,profile:WorldProfile=DEFAULT_WORLD):BiomeId {
  const point=localPoint({x,z},profile);x=point.x;z=point.z;
  if(Math.hypot(x,z)<32)return 'meadow';
+ const bend=profile.composition.variant;
+ x+=4*Math.sin(z*.035+bend);z+=4*Math.sin(x*.04-bend);
  const lake=localPoint(profile.lake,profile);
  if(Math.hypot(x-lake.x,z-lake.z)<44||(z>48&&x<26))return 'lake';
  if((z< -24&&x<28)||(x< -50&&z<38))return 'woodland';
@@ -23,10 +26,13 @@ export function biomeAt(x:number,z:number,profile:WorldProfile=DEFAULT_WORLD):Bi
 /** Shared by characters, terrain and props; the pond basin never hides actors under a flat disc. */
 export function terrainHeight(x:number,z:number,profile:WorldProfile=DEFAULT_WORLD):number {
  const distance=Math.hypot(x-profile.lake.x,z-profile.lake.z),point=localPoint({x,z},profile);x=point.x;z=point.z;
- const broad=.55*Math.sin(x*.046)+.42*Math.cos(z*.053)+.24*Math.sin((x+z)*.10);
- const hill=(cx:number,cz:number,s:number,h:number)=>h*Math.exp(-((x-cx)**2+(z-cz)**2)/(s*s));
- const shift=profile.hillShift,ridge=profile.definition.geography==='ridge';
- const ground=(broad+hill(-56+shift,-32,37,ridge?7:4.2)+hill(52,40+shift,33,ridge?8:5.1)+hill(62-shift,-55,29,ridge?6:3.8))*profile.relief;
+ const broad=.4*Math.sin(x*.046)+.32*Math.cos(z*.053)+.16*Math.sin((x+z)*.10);
+ const forms=profile.composition.forms.reduce((height,form)=>{
+  const dx=x-form.x,dz=z-form.z,c=Math.cos(form.angle),s=Math.sin(form.angle);
+  return height+form.height*Math.exp(-(((dx*c+dz*s)/form.length)**2)-((-dx*s+dz*c)/form.width)**2);
+ },0);
+ const spawn=clamp((Math.hypot(x,z)-14)/21,0,1),spawnBlend=spawn*spawn*(3-2*spawn);
+ const ground=(broad+forms)*profile.relief*spawnBlend;
  const blend=clamp((distance-profile.lake.waterRadius)/(9*WORLD.scale),0,1);
  const shoreBlend=blend*blend*(3-2*blend);
  return (-.7+distance*.018)*(1-shoreBlend)+ground*shoreBlend;
@@ -36,10 +42,10 @@ const segmentDistance=(point:Vec2,a:Vec2,b:Vec2)=>{
  return Math.hypot(point.x-a.x-t*dx,point.z-a.z-t*dz);
 };
 /** Open, obstacle-free spokes make every optional site reachable from the clearing. */
-export function explorationRoute(poi:Vec2,profile:WorldProfile=DEFAULT_WORLD):Vec2[] {
- const start={x:0,z:0},lake=localPoint(profile.lake,profile),local=localPoint(poi,profile);
+function dryRoute(start:Vec2,local:Vec2,profile:WorldProfile):Vec2[] {
+ const lake=localPoint(profile.lake,profile);
  const localLake={...lake,shoreRadius:profile.lake.shoreRadius/WORLD.scale};
- if(segmentDistance(localLake,start,local)>localLake.shoreRadius+2)return [start,{x:poi.x,z:poi.z}];
+ if(segmentDistance(localLake,start,local)>localLake.shoreRadius+2)return [worldPoint(start,profile),worldPoint(local,profile)];
  // A tiny visibility graph handles destinations on either side of a shifted lake.
  const clearance=localLake.shoreRadius+7,nodes=[start,local,
   ...[-1,1].flatMap(x=>[-1,1].map(z=>({x:lake.x+x*clearance,z:lake.z+z*clearance})))];
@@ -56,13 +62,18 @@ export function explorationRoute(poi:Vec2,profile:WorldProfile=DEFAULT_WORLD):Ve
  }
  throw new Error('No dry exploration route around the lake');
 }
+/** Shared branch junctions create curved approaches instead of one spoke per site. */
+export function explorationRoute(poi:Vec2,profile:WorldProfile=DEFAULT_WORLD):Vec2[] {
+ const local=localPoint(poi,profile),index=local.z<0?(local.x<0?0:1):(local.x<0?3:2),hub=profile.composition.hubs[index];
+ return [{x:0,z:0},...dryRoute(hub,local,profile)];
+}
 export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
  const rng=new RNG(seed^0x6ac690c5),pois:POI[]=[];
  const profile=worldProfile(seed,mapId),lake=profile.lake,landmarks=profile.landmarks,solidLandmarks=worldLandmarkProps(profile);
  const sites:[POI['kind'],number,number,BiomeId?][]=[
   ['cache',24,24,'meadow'],['shrine',-48,-43,'woodland'],['elite',72,-74,'ruins'],
   ['cache',-84,-20,'woodland'],['healing',-28,18,'meadow'],['cache',87,-8,'ruins'],
-  ['elite',-29,-86,'woodland'],['shrine',40,-56,'ruins'],['cache',-26,40,'lake'],
+  ['shrine',-29,-86,'woodland'],['shrine',40,-56,'ruins'],['cache',-26,40,'lake'],
   ['healing',-76,67,'lake'],['cache',28,82,'meadow'],['elite',80,56,'ruins'],
  ];
  // Outer discoveries vary in kind as well as position. Three further sites emerge during play.
@@ -90,7 +101,8 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
   const change=profile.definition.changes[pois.length-18];
   const paid=!change&&kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
   const chestIndex=pois.filter(poi=>poi.price!==undefined).length;
-  pois.push({uid:20+pois.length,...candidate,kind,used:false,...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
+  const uid=20+pois.length,challengeIndex=pois.filter(poi=>poi.kind==='shrine').length,challengeKind=kind==='shrine'?(['guardian','holdout','ring-run'] as const)[challengeIndex%3] as OptionalChallengeId:undefined;
+  pois.push({uid,...candidate,kind,used:false,...(challengeKind?{challengeKind}:{}),...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
  }
  return pois;
 }
@@ -112,7 +124,7 @@ export function boundaryStrength(position:Vec2):number {
 
 /** Shared seeded geometry: rendering and collision must describe the same world. */
 export function createEnvironment(seed:number,pois:readonly POI[]=[],mapId:MapId='wildlands'):EnvironmentLayout {
- const rng=new RNG(seed),props:WorldProp[]=[],obstacles:Obstacle[]=[];
+ const rng=new RNG(seed),props:WorldProp[]=[],obstacles:Obstacle[]=[],features:TerrainFeature[]=[];
  const profile=worldProfile(seed,mapId),lake=profile.lake,landmarks=profile.landmarks;
  const routes=pois.map(poi=>explorationRoute(poi,profile));
  const clear=(x:number,z:number,margin=1.5)=>Math.hypot(x,z)>=WORLD.safeSpawnRadius+margin&&Math.hypot(x-lake.x,z-lake.z)>=lake.shoreRadius+margin
@@ -124,7 +136,9 @@ export function createEnvironment(seed:number,pois:readonly POI[]=[],mapId:MapId
   if(prop.kind==='ruin')obstacles.push({kind:'box',x:prop.x,z:prop.z,halfWidth:1.2*prop.scale,halfDepth:.9,rotation:prop.rotation||0});
  };
  for(let i=0;i<WORLD.propAttempts&&props.length<WORLD.maxProps-profile.definition.landmarkProps.length;i++){
-  const x=rng.between(-110,110)*WORLD.scale,z=rng.between(-110,110)*WORLD.scale,biome=biomeAt(x,z,profile),roll=rng.next();
+  const cluster=profile.composition.clusters[i%profile.composition.clusters.length],spread=profile.definition.terrain.clusterSpread;
+  const point=i%3===0?{x:rng.between(-110,110),z:rng.between(-110,110)}:{x:clamp(cluster.x+rng.between(-spread,spread),-110,110),z:clamp(cluster.z+rng.between(-spread,spread),-110,110)};
+  const {x,z}=worldPoint(point,profile),biome=biomeAt(x,z,profile),roll=rng.next();
   const scale=rng.between(.65,1.4);
   const kind:WorldProp['kind']=roll<profile.definition.scenery.rockChance?'rock':biome==='woodland'?(roll<.80?'tree':roll<.91?'rock':'bush')
    :biome==='ruins'?(roll<.28?'ruin':roll<.62?'rock':roll<.78?'tree':'bush')
@@ -138,8 +152,21 @@ export function createEnvironment(seed:number,pois:readonly POI[]=[],mapId:MapId
  }
  // Authored landmarks reuse the same primitives and colliders as random decoration.
  for(const prop of worldLandmarkProps(profile))add({...prop});
- obstacles.push({kind:'circle',x:lake.x,z:lake.z,radius:lake.waterRadius-1});
- return {props,obstacles};
+ obstacles.push({kind:'circle',x:lake.x,z:lake.z,radius:lake.waterRadius-1,blocksFlight:true});
+ // These are deliberately not collision: brambles are a tactical slow zone and
+ // beacons are a player-triggered, one-shot trap. Routes and lake approaches stay open.
+ const featureRadius={bramble:3.6,'ruin-beacon':4.8} as const;
+ const addFeature=(kind:TerrainFeature['kind'],count:number)=>{
+  for(let added=0,attempt=0;added<count&&attempt<400;attempt++){
+   const local={x:rng.between(-96,96),z:rng.between(-96,96)},point=worldPoint(local,profile),radius=featureRadius[kind];
+   if(Math.hypot(point.x,point.z)<30||Math.hypot(point.x-lake.x,point.z-lake.z)<lake.shoreRadius+radius+3)continue;
+   if(pois.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<WORLD.poiClearance+radius+2)||routes.some(route=>route.slice(1).some((end,index)=>segmentDistance(point,route[index],end)<WORLD.routeHalfWidth+radius+1)))continue;
+   if(obstacles.some(o=>Math.hypot(o.x-point.x,o.z-point.z)<radius+(o.kind==='circle'?o.radius:Math.hypot(o.halfWidth,o.halfDepth))+.5)||features.some(f=>Math.hypot(f.x-point.x,f.z-point.z)<f.radius+radius+5))continue;
+   features.push({uid:400+features.length,kind,x:point.x,z:point.z,radius,state:'ready'});added++;
+  }
+ };
+ addFeature('bramble',4);addFeature('ruin-beacon',3);
+ return {props,obstacles,features};
 }
 
 /** Static grid avoids scanning the whole forest for every controller step. */
@@ -155,7 +182,7 @@ export class ObstacleField {
     }
   }
  }
- move(position:Vec2,dx:number,dz:number,radius=DESIGN.playerRadius):Vec2 {
+ move(position:Vec2,dx:number,dz:number,radius=DESIGN.playerRadius,airborne=false):Vec2 {
   const result={x:position.x,z:position.z};
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.3));
   for(let step=0;step<steps;step++){
@@ -165,7 +192,7 @@ export class ObstacleField {
    for(let x=Math.floor((result.x-radius)/this.cellSize);x<=Math.floor((result.x+radius)/this.cellSize);x++)
     for(let z=Math.floor((result.z-radius)/this.cellSize);z<=Math.floor((result.z+radius)/this.cellSize);z++)
      for(const obstacle of this.cells.get(`${x},${z}`)||[])nearby.add(obstacle);
-   for(let pass=0;pass<3;pass++)for(const obstacle of nearby)this.resolve(result,obstacle,radius,position);
+   for(let pass=0;pass<3;pass++)for(const obstacle of nearby)if(!airborne||obstacle.blocksFlight)this.resolve(result,obstacle,radius,position);
    const bound=WORLD.hardBoundary;
    result.x=clamp(result.x,-bound,bound);result.z=clamp(result.z,-bound,bound);
   }

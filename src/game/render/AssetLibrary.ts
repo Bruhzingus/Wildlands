@@ -1,4 +1,4 @@
-import {Scene,Sprite,SpriteManager,Texture,DynamicTexture,Color4,MeshBuilder,StandardMaterial,Color3,Vector3,Axis,Mesh,VertexData,type InstancedMesh} from '@babylonjs/core';
+import {Scene,Sprite,SpriteManager,Texture,DynamicTexture,Color4,MeshBuilder,StandardMaterial,Color3,Vector3,Quaternion,Axis,Mesh,VertexData,type InstancedMesh} from '@babylonjs/core';
 import type {PartyMember,Enemy,Variant} from '../types.ts';
 import {getSpecies,type AttackKind} from '../../data/kanto.ts';
 import {getAttackProfile} from '../../data/attacks.ts';
@@ -7,11 +7,15 @@ import {ENEMY_MOVE_PROFILES,getEnemyAttackProfile,getEliteAreaMove,type EnemyAtt
 import {ATTACK_ANIMATION,ATTACK_POSES} from '../../data/config.ts';
 import {getVariant,VARIANT_VISUALS,type VariantCue} from '../../data/variants.ts';
 import {animationFrame,oneShotFrame,attackPose,attackStyle,specialAttackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,PMD_SOURCE,ART_SOURCE,type AnimationMetadata,type AnimationMeta,type AnimationName,type AtlasBounds,type AttackStyle,type AttackPose} from './animation.ts';
+import {Locomotion,locomotionDirection} from './locomotion.ts';
+import {LOCOMOTION,NATIVE_HOVER_WALK_SPECIES} from '../../data/locomotion.ts';
 export type {AnimationName} from './animation.ts';
 interface SheetAsset {manager:SpriteManager;meta:AnimationMeta;columns:number;rows:number;bounds:AtlasBounds;source:string;}
 interface AnimatedAsset extends SheetAsset {referenceHeight:number;anchors:number[];attackMotion:boolean;}
 interface AvatarData {
  x:number;z:number;facing:number;animation:AnimationName;size:number;
+ /** Gameplay actors sample travel; the stationary developer gallery previews source timing. */
+ trackTravel?:boolean;airborne?:boolean;flying?:boolean;
  attackTimer?:number;attackDuration?:number;attackKind?:AttackKind;attackSpecial?:SpecialKind;attackStyle?:AttackStyle;enemyRole?:EnemyAttackRole;windup?:Enemy['windup'];
 }
 const DESIGN_MAX_SPRITES=230;
@@ -100,13 +104,17 @@ export class AssetLibrary {
    const meta=metadata[name];if(!meta)continue;
    try{
     const sheet=await this.sheet(id,meta),rest=await reference??sheet;
+    // Grounded walk sheets can place their feet a few pixels below Idle. Use
+    // their own fixed row anchors, retaining frame motion and resting body scale.
+    // Attack and hovering sheets keep their authored lift relative to Idle.
+    const anchors=meta===metadata.Walk&&!NATIVE_HOVER_WALK_SPECIES.has(id)?sheet.bounds.bottoms:rest.bounds.bottoms;
     // Reserve stable head clearance across loaded poses and facings, including
     // attacks that rise above the resting body. Bars must not bounce per frame.
     const stretch=1+MAX_POSE_STRETCH,lean=MAX_POSE_LEAN;
     const clearance=Math.max(...sheet.bounds.tops.map((top,row)=>
-     ((meta.height/2+rest.bounds.bottoms[row%rest.bounds.bottoms.length]-top)*stretch+meta.width/2*stretch*Math.sin(lean))/rest.bounds.visibleHeight));
+     ((meta.height/2+anchors[row%anchors.length]-top)*stretch+meta.width/2*stretch*Math.sin(lean))/rest.bounds.visibleHeight));
     this.headrooms.set(id,Math.max(1,this.headrooms.get(id)??1,clearance));
-    return {...sheet,referenceHeight:rest.bounds.visibleHeight,anchors:rest.bounds.bottoms,attackMotion:meta===metadata.Attack&&meta!==metadata.Idle&&meta!==metadata.Walk};
+    return {...sheet,referenceHeight:rest.bounds.visibleHeight,anchors,attackMotion:meta===metadata.Attack&&meta!==metadata.Idle&&meta!==metadata.Walk};
    }catch(error){if(this.disposed)throw error;}
   }
   throw Error(`No usable animation for #${id}`);
@@ -165,23 +173,31 @@ export class AssetLibrary {
  isDisposed(){return this.disposed;}
 }
 export class Avatar {
- private sprite:Sprite;private current:AnimationName='idle';private time=0;private requestId=0;
+ private sprite:Sprite;private current:AnimationName='idle';private idleTime=0;private walkTime=0;private previewTime=0;private requestId=0;
+ private locomotion=new Locomotion();private visualFacing=0;
+ private ready:Partial<Record<AnimationName,AnimatedAsset>>={};private periods={idle:3600,walk:3600};
  private asset:AnimatedAsset|undefined;private gone=false;private row=0;private frame=0;private attackProgress=0;
  private pose:AttackPose=attackPose(0,'melee');private style:AttackStyle='melee';
  private posePhase:'idle'|'windup'|'attack'='idle';private windupStyle:AttackStyle|undefined;
  private lastData:AvatarData|undefined;private cameraAngle=0;private groundY=0;
- private library:AssetLibrary;private speciesId:number;private variant:Variant;
+ private library:AssetLibrary;private speciesId:number;private variant:Variant;private opacity=1;
  constructor(library:AssetLibrary,speciesId:number,variant:Variant) {
   this.library=library;this.speciesId=speciesId;this.variant=variant;
   this.sprite=new Sprite(`pokemon-${speciesId}`,this.library.getFallback(speciesId));this.sprite.width=2.5;this.sprite.height=2.5;
   this.tint();this.requestAnimation('idle');
-  // Prepare the short attack sheet while resting, so the first swing can use it.
-  void this.library.get(speciesId,'attack').catch(()=>{});
+  // Shared, cached sheets make the first step/swing available without waiting
+  // for a state change. At most three asset references belong to this avatar.
+  for(const kind of ['walk','attack'] as const)void this.library.get(speciesId,kind).then(asset=>{if(!this.gone&&!this.library.isDisposed())this.ready[kind]=asset;}).catch(()=>{});
  }
- private tint(){const [r,g,b]=getVariant(this.variant).tint;this.sprite.color=new Color4(r,g,b,1);}
+ private tint(){const [r,g,b]=getVariant(this.variant).tint;this.sprite.color=new Color4(r,g,b,this.opacity);}
+ setOpacity(value:number){this.opacity=value;this.tint();}
+ isReady(){return !!this.asset;}
  private requestAnimation(kind:AnimationName) {
-  const seq=++this.requestId;void this.library.get(this.speciesId,kind).then(asset=>{
+  const seq=++this.requestId;
+  const apply=(asset:AnimatedAsset)=>{
    if(this.gone||this.library.isDisposed()||seq!==this.requestId)return;
+   this.ready[kind]=asset;
+   if(kind!=='attack')this.periods[kind]=asset.meta.durations.reduce((sum,n)=>sum+n,0)/60;
    if(this.asset?.manager===asset.manager)return;
    const old=this.sprite;this.sprite=new Sprite(old.name,asset.manager);this.sprite.position.copyFrom(old.position);
    this.sprite.width=old.width;this.sprite.height=old.height;this.sprite.angle=old.angle;old.dispose();
@@ -189,14 +205,23 @@ export class Avatar {
    // A loaded sheet must immediately join the current pose, including while
    // paused. Never expose an atlas with the old artwork dimensions or no cell.
    if(this.lastData)this.update(this.lastData,0,this.cameraAngle,this.groundY);
-  }).catch(()=>{/* Retain the last usable animation or visible artwork. Failed promises stay cached. */});
+  };
+  const ready=this.ready[kind];if(ready)apply(ready);
+  else void this.library.get(this.speciesId,kind).then(apply).catch(()=>{/* Retain the last usable animation or visible artwork. Failed promises stay cached. */});
  }
  update(data:AvatarData,dt:number,cameraAngle:number,groundY:number) {
   if(this.gone)return;this.lastData=data;this.cameraAngle=cameraAngle;this.groundY=groundY;
-  if(data.animation!==this.current){this.current=data.animation;this.time=0;this.requestAnimation(data.animation);}
+  this.locomotion.update(data.x,data.z,data.facing,dt);
+  const selected=data.animation==='attack'?'attack':data.flying?'walk':data.trackTravel?(data.airborne&&this.current!=='attack'?this.current:this.locomotion.moving?'walk':'idle'):data.animation;
+  if(selected!==this.current){this.current=selected;this.requestAnimation(selected);}
   // Attack sheets follow authoritative one-shot progress; only looping idle/walk
   // playback speeds up for more agitated variants.
-  this.time+=Math.max(0,dt)*getVariant(this.variant).animationSpeed;const a=this.asset;
+  const a=this.asset,delta=Math.max(0,dt),hovering=NATIVE_HOVER_WALK_SPECIES.has(this.speciesId);
+  // Keep independent loop phases across stops, turns and attacks. Airborne feet
+  // hold their last frame; native flying motion is already authored in its sheet.
+  if(selected==='walk'&&(!data.airborne||hovering||data.flying))this.walkTime=(this.walkTime+delta*(data.trackTravel&&!hovering&&!data.flying?this.locomotion.rate:getVariant(this.variant).animationSpeed))%this.periods.walk;
+  if(selected==='idle'&&(!data.airborne||hovering))this.idleTime=(this.idleTime+delta*getVariant(this.variant).animationSpeed)%this.periods.idle;
+  if(selected==='attack'&&data.attackTimer===undefined)this.previewTime=(this.previewTime+delta*getVariant(this.variant).animationSpeed)%(a?a.meta.durations.reduce((sum,n)=>sum+n,0)/60:3600);
   // Simulation owns attack time. A sheet arriving mid-swing joins at that point;
   // it never restarts a finished attack. Gallery previews still loop at source speed.
   this.attackProgress=data.attackTimer===undefined?0:Math.min(1,Math.max(0,1-data.attackTimer/(data.attackDuration??ATTACK_ANIMATION.seconds)));
@@ -215,8 +240,9 @@ export class Avatar {
   const sample=attackPose(attacking?(data.windup?windupProgress:releaseProgress):0,this.style,!!data.windup);
   const weight=attacking&&!this.library.reducedMotion?(a?.attackMotion?ATTACK_ANIMATION.nativePoseScale:1):0;
   this.pose=weight?{forward:sample.forward*weight,lift:sample.lift*weight,scaleX:1+(sample.scaleX-1)*weight,scaleY:1+(sample.scaleY-1)*weight,lean:sample.lean*weight}:attackPose(0,this.style);
-  this.row=a?.rows===1?0:spriteDirection(data.facing,cameraAngle);
-  this.frame=a?attacking&&a.attackMotion?(data.windup?0:oneShotFrame(a.meta.durations,this.attackProgress)):animationFrame(a.meta.durations,this.time):0;
+  this.visualFacing=data.trackTravel&&!attacking?this.locomotion.facing:data.facing;
+  this.row=a?.rows===1?0:data.trackTravel&&!attacking?locomotionDirection(this.visualFacing,cameraAngle,this.row):spriteDirection(this.visualFacing,cameraAngle);
+  this.frame=a?attacking&&a.attackMotion?(data.windup?0:oneShotFrame(a.meta.durations,this.attackProgress)):animationFrame(a.meta.durations,selected==='walk'?this.walkTime:selected==='attack'?this.previewTime:this.idleTime):0;
   this.sprite.cellIndex=a?this.row*a.columns+this.frame:0;
   const fallback=this.library.fallbackLayout(this.speciesId),referenceHeight=a?.referenceHeight??fallback.bounds.visibleHeight;
   this.sprite.width=data.size*(a?a.meta.width:fallback.width)/referenceHeight*this.pose.scaleX;
@@ -230,7 +256,7 @@ export class Avatar {
    groundY+up.y*anchorY+right.y*anchorX+this.pose.lift,data.z+up.z*anchorY+right.z*anchorX+fz*this.pose.forward);
  }
  /** Read-only diagnostics for the asset gallery and browser regression checks. */
- inspect(){return {speciesId:this.speciesId,variant:this.variant,requested:this.current,resolved:this.asset?.meta.name??'artwork',row:this.row,frame:this.frame,cellIndex:this.sprite.cellIndex,visible:!this.gone&&this.sprite.isVisible,width:this.sprite.width,height:this.sprite.height,source:this.asset?.source??'artwork/generated',durations:this.asset?.meta.durations??[],attackProgress:this.current==='attack'?this.attackProgress:null,attackStyle:this.style,posePhase:this.posePhase,pose:{...this.pose},angle:this.sprite.angle,position:{x:this.sprite.position.x,y:this.sprite.position.y,z:this.sprite.position.z}};}
+ inspect(){return {speciesId:this.speciesId,variant:this.variant,requested:this.current,resolved:this.asset?.meta.name??'artwork',row:this.row,frame:this.frame,cellIndex:this.sprite.cellIndex,visible:!this.gone&&this.sprite.isVisible,opacity:this.opacity,width:this.sprite.width,height:this.sprite.height,source:this.asset?.source??'artwork/generated',durations:this.asset?.meta.durations??[],attackProgress:this.current==='attack'?this.attackProgress:null,attackStyle:this.style,posePhase:this.posePhase,pose:{...this.pose},angle:this.sprite.angle,position:{x:this.sprite.position.x,y:this.sprite.position.y,z:this.sprite.position.z},locomotion:{speed:this.locomotion.speed,rate:this.locomotion.rate,moving:this.locomotion.moving,facing:this.visualFacing,walkTime:this.walkTime,airborne:!!this.lastData?.airborne}};}
  dispose(){this.gone=true;this.requestId++;this.sprite.dispose();}
 }
 const CUE_STROKES:Record<Exclude<VariantCue,'none'>,number[][]>={
@@ -341,18 +367,44 @@ class EnemyMoveLabels {
  dispose(){for(const entry of this.active.values())entry.sprite.dispose();for(const sprite of this.free)sprite.dispose();this.active.clear();this.free=[];this.manager?.dispose();this.manager=undefined;this.cells.clear();}
 }
 export class CharacterVisuals {
+ private shadowNormal=new Vector3();private shadowAxis=new Vector3(0,0,1);
+ private evolutions=new Map<number,{from:number;old?:Avatar;next?:Avatar;elapsed:number;blend:number}>();
+ beginEvolution(uid:number,from:number){this.finishEvolution(uid);this.evolutions.set(uid,{from,elapsed:0,blend:0});}
+ finishEvolution(uid?:number){for(const [id,entry] of this.evolutions)if(uid===undefined||id===uid){entry.old?.dispose();entry.next?.setOpacity(1);this.evolutions.delete(id);}}
  private actors=new Map<number,{avatar:Avatar;speciesId:number;variant:Variant;shadow:InstancedMesh}>();private shadowMaterial:StandardMaterial;
  private assets:AssetLibrary;private cues:VariantCues;private moveLabels:EnemyMoveLabels;
  constructor(assets:AssetLibrary){this.assets=assets;this.shadowMaterial=assets.createShadowMaterial();this.cues=assets.createVariantCues();this.moveLabels=assets.createMoveLabels();}
- sync(party:PartyMember[],enemies:Enemy[],dt:number,cameraAngle:number,ground:(x:number,z:number)=>number,playerHeight=0) {
+ private placeShadow(shadow:InstancedMesh,x:number,z:number,y:number,size:number,ground:(x:number,z:number)=>number){
+  if(shadow.position.x!==x||shadow.position.z!==z||shadow.position.y!==y+.045){
+   const d=LOCOMOTION.shadowSample;
+   this.shadowNormal.set((ground(x+d,z)-ground(x-d,z))/(2*d),-1,(ground(x,z+d)-ground(x,z-d))/(2*d)).normalize();
+   shadow.rotationQuaternion??=Quaternion.Identity();
+   Quaternion.FromUnitVectorsToRef(this.shadowAxis,this.shadowNormal,shadow.rotationQuaternion);
+   shadow.position.set(x,y+.045,z);
+  }
+  shadow.scaling.set(size*.27,size*.18,1);
+ }
+ sync(party:PartyMember[],enemies:Enemy[],dt:number,cameraAngle:number,ground:(x:number,z:number)=>number,playerHeight=0,evolutionDt=0,playerFlying=false) {
   const leader=party[0];if(!leader)return;const found=new Set<number>();
   for(const actor of party) {
    found.add(actor.uid);const sp=getSpecies(actor.speciesId);let v=this.actors.get(actor.uid);
-   if(v&&v.speciesId!==actor.speciesId){v.avatar.dispose();v.shadow.dispose();this.actors.delete(actor.uid);v=undefined;}
+   const evolution=this.evolutions.get(actor.uid);
+   if(v&&v.speciesId!==actor.speciesId){if(evolution)evolution.old=v.avatar;else v.avatar.dispose();v.shadow.dispose();this.actors.delete(actor.uid);v=undefined;}
    if(!v){v={avatar:this.assets.create(actor.speciesId),speciesId:actor.speciesId,variant:'normal',shadow:this.assets.createShadow(`shadow-${actor.uid}`,this.shadowMaterial)};this.actors.set(actor.uid,v);}
    const y=ground(actor.x,actor.z),size=actor.uid===leader.uid?2.8+sp.stage*.18:2.35+sp.stage*.18;
-   v.avatar.update({...actor,size},dt,cameraAngle,y+(actor===leader?playerHeight:0));
-   v.shadow.position.set(actor.x,y+.045,actor.z);v.shadow.scaling.set(size*.27,size*.18,1);
+   const groundY=y+(actor===leader?playerHeight:0);
+   if(evolution){
+    evolution.old??=this.assets.create(evolution.from);evolution.next=v.avatar;
+    evolution.elapsed+=Math.max(0,evolutionDt);
+    // Keep the correctly scaled old body until the new sheet is ready. A bounded
+    // wait also permits a visible fallback when both local and remote art fail.
+    if(evolution.elapsed>.3&&(v.avatar.isReady()||evolution.elapsed>1.4))evolution.blend=Math.min(1,evolution.blend+evolutionDt/(this.assets.reducedMotion?.25:.65));
+    evolution.old.update({...actor,animation:'idle',attackTimer:0,size:actor===leader?2.8+getSpecies(evolution.from).stage*.18:2.35+getSpecies(evolution.from).stage*.18},0,cameraAngle,groundY);
+    evolution.old.setOpacity(1-evolution.blend);v.avatar.setOpacity(evolution.blend);
+   }
+   v.avatar.update(evolution?{...actor,animation:'idle',attackTimer:0,size}:{...actor,size,trackTravel:true,airborne:actor===leader&&playerHeight>.001,flying:actor===leader&&playerFlying},dt,cameraAngle,groundY);
+   if(evolution?.blend===1)this.finishEvolution(actor.uid);
+   this.placeShadow(v.shadow,actor.x,actor.z,y,size,ground);
   }
   for(const enemy of enemies) {
    found.add(enemy.uid);let v=this.actors.get(enemy.uid);
@@ -360,15 +412,17 @@ export class CharacterVisuals {
    if(!v){v={avatar:this.assets.create(enemy.speciesId,enemy.variant),speciesId:enemy.speciesId,variant:enemy.variant,shadow:this.assets.createShadow(`shadow-${enemy.uid}`,this.shadowMaterial)};this.actors.set(enemy.uid,v);}
    const size=1.65*enemy.size,y=ground(enemy.x,enemy.z);
    const role=enemy.windup?.role??enemy.lastAttackRole??getEnemyAttackProfile(enemy.speciesId).role;
-   v.avatar.update({...enemy,size,enemyRole:role,attackStyle:enemy.isBoss&&!enemy.lastAttackRole?'ranged':enemyAttackStyle(role)},dt,cameraAngle,y);
-   v.shadow.position.set(enemy.x,y+.045,enemy.z);v.shadow.scaling.set(size*.27,size*.18,1);
+   v.avatar.update({...enemy,size,trackTravel:true,enemyRole:role,attackStyle:enemy.isBoss&&!enemy.lastAttackRole?'ranged':enemyAttackStyle(role)},dt,cameraAngle,y);
+   this.placeShadow(v.shadow,enemy.x,enemy.z,y,size,ground);
   }
-  for(const [uid,v] of this.actors)if(!found.has(uid)){v.avatar.dispose();v.shadow.dispose();this.actors.delete(uid);}
+  for(const [uid,v] of this.actors)if(!found.has(uid)){this.finishEvolution(uid);v.avatar.dispose();v.shadow.dispose();this.actors.delete(uid);}
+  for(const uid of this.evolutions.keys())if(!found.has(uid))this.finishEvolution(uid);
   this.cues.sync(enemies,leader,ground,id=>this.assets.headroom(id));
   this.moveLabels.sync(enemies,leader,ground,id=>this.assets.headroom(id));
  }
  inspect(){return [...this.actors].map(([uid,actor])=>({uid,...actor.avatar.inspect()}));}
  inspectCues(){return this.cues.inspect();}
+ inspectEvolutions(){return [...this.evolutions].map(([uid,entry])=>({uid,elapsed:entry.elapsed,blend:entry.blend,old:entry.old?.inspect(),next:entry.next?.inspect()}));}
  inspectMoveLabels(){return this.moveLabels.inspect();}
- dispose(){for(const v of this.actors.values()){v.avatar.dispose();v.shadow.dispose();}this.actors.clear();this.cues.dispose();this.moveLabels.dispose();this.shadowMaterial.dispose();}
+ dispose(){this.finishEvolution();for(const v of this.actors.values()){v.avatar.dispose();v.shadow.dispose();}this.actors.clear();this.cues.dispose();this.moveLabels.dispose();this.shadowMaterial.dispose();}
 }

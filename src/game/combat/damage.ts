@@ -11,7 +11,7 @@ export function elementalDamage(amount:number,type:Element,enemy:Enemy,matchup=t
  let total=amount*(matchup?typeMultiplier(type,getSpecies(enemy.speciesId).types):1);
  if(type==='electric'&&enemy.soakedTime>0)total*=1.35;
  if(type==='fire'&&enemy.poisonTime>0)total*=1.18;
- return Math.max(0,Number.isFinite(total)?total:0);
+ return Math.max(0,Number.isNaN(total)?0:Math.min(Number.MAX_VALUE,total));
 }
 const durations={burn:3,poison:4,slow:2.5,soak:3.2,stun:.7} as const;
 const timers={burn:'burnTime',poison:'poisonTime',slow:'slowTime',soak:'soakedTime',stun:'stunTime'} as const;
@@ -19,7 +19,7 @@ export function applyStatusProcs(enemy:Enemy,procs:StatusProc,roll:()=>number,du
  const applied:string[]=[];
  for(const key of Object.keys(timers) as (keyof StatusProc)[]){
   const chance=procs[key]||0;if(chance<=0||roll()>=chance)continue;
-  const timer=timers[key];enemy[timer]=Math.max(enemy[timer],Math.min(8,durations[key]*durationScale));applied.push(key);
+  const timer=timers[key];enemy[timer]=Math.max(enemy[timer],durations[key]*durationScale);applied.push(key);
  }
  return applied;
 }

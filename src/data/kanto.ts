@@ -4,7 +4,7 @@ import {getSpeciesCombat,LEGENDARY_SPECIES} from './rosterContent.ts';
  * PokéAPI is an optional data-enrichment source, not a runtime dependency. */
 export type Element = 'normal'|'fire'|'water'|'grass'|'electric'|'ice'|'fighting'|'poison'|'ground'|'flying'|'psychic'|'bug'|'rock'|'ghost'|'dragon';
 export type AttackKind = 'bolt'|'burst'|'slash'|'aura'|'chain'|'beam'|'lob'|'heal';
-export interface Species { id:number; name:string; types:Element[]; stage:number; evolvesTo:number[]; attack:AttackKind; power:number; moveName:string; recruitable:boolean; }
+export interface Species { id:number; name:string; types:Element[]; stage:number; evolvesTo:number[]; attack:AttackKind; power:number; defense:number; moveName:string; recruitable:boolean; }
 const raw = `
 Bulbasaur|grass,poison
 Ivysaur|grass,poison
@@ -172,11 +172,11 @@ for(const chain of EVOLUTION_CHAINS) for(let i=0;i<chain.length-1;i++){
 export const KANTO: Species[] = raw.map((line,i)=>{
  const [name,t]=line.split('|');const id=i+1;const types=t.split(',') as Element[];
  let p=id,stage=1;while(parents.has(p)){ p=parents.get(p)!;stage++; }
- const combat=getSpeciesCombat(id);return {id,name,types,stage,evolvesTo:childMap.get(id)||[],attack:combat.attack,power:combat.power,moveName:combat.moveName,recruitable:!parents.has(id)&&!LEGENDARY_SPECIES.includes(id)};
+ const combat=getSpeciesCombat(id);return {id,name,types,stage,evolvesTo:childMap.get(id)||[],attack:combat.attack,power:combat.power,defense:Number(Math.max(.5,Math.min(3,3.5-combat.power/12)).toFixed(2)),moveName:combat.moveName,recruitable:!parents.has(id)&&!LEGENDARY_SPECIES.includes(id)};
 });
 if(KANTO.length!==151) throw new Error(`Expected 151 Pokémon, got ${KANTO.length}`);
 export const SPECIES = new Map(KANTO.map(p=>[p.id,p]));
 export function getSpecies(id:number):Species {const species=SPECIES.get(id);if(!species)throw Error(`Unknown Pokémon ${id}`);return species;}
 export const RECRUIT_POOL = KANTO.filter(p=>p.recruitable);
 export const ELEMENT_COLORS:Record<Element,string>={normal:'#DBD4C1',fire:'#ff9748',water:'#4aabf4',grass:'#8edb70',electric:'#ffdb5b',ice:'#94ecf9',fighting:'#eb857a',poison:'#b185ec',ground:'#d5b36e',flying:'#a9d3fe',psychic:'#f68ed4',bug:'#a4d057',rock:'#b6ac95',ghost:'#a29cf8',dragon:'#7a9cff'};
-export function starterChoices(){return [1,4,7,10,16,25,27,37,43,52,58,63,66,92,133];}
+export function starterChoices(){return [1,4,7,10,16,25,27,37,41,43,52,58,63,66,92,129,133];}

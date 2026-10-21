@@ -1,3 +1,4 @@
+import {relicFamily} from '../data/items.ts';
 import {ACHIEVEMENTS,type AchievementDefinition} from '../data/unlocks.ts';
 import {getSpecies} from '../data/kanto.ts';
 import type {RunState,Variant} from './types.ts';
@@ -43,7 +44,7 @@ export class ProgressionTracker {
    'poison-patrol':poisonTeam?state.stats.elapsed:0,
    'rocket-patrol':this.save.totals.rocketKills+Math.max(0,this.rocketKills-(previous?.rocketKills??0)),
    'psychic-break':Number(victory),'everyone-home':Number(victory&&state.stats.faints===0),
-   'relic-satchel':new Set(state.items).size,'beyond-the-watch':state.endless?Math.max(0,state.stats.elapsed-(this.endlessStartedAt??state.stats.elapsed)):0,
+   'relic-satchel':new Set(state.items.map(relicFamily)).size,'beyond-the-watch':state.endless?Math.max(0,state.stats.elapsed-(this.endlessStartedAt??state.stats.elapsed)):0,
   };
   const earned:AchievementDefinition[]=[];
   for(const achievement of ACHIEVEMENTS){

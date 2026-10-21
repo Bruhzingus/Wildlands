@@ -26,7 +26,7 @@ test('seeded treasure offers one chest of each tier and two permanent discovery 
 });
 
 test('paid rewards honor their rarity, sort by rarity and respect unlocks and ownership',()=>{
- const {sim,s}=arena('cache'),rank={common:0,rare:1,epic:2};
+ const {sim,s}=arena('cache'),rank={common:0,rare:1,epic:2,legendary:3};
  for(const rarity of ['common','rare','epic'] as const){
   const choices=chestChoices(s,sim.rng,rarity);
   assert.equal(choices.length,3);assert.equal(new Set(choices.map(c=>c.id)).size,3);
@@ -36,7 +36,7 @@ test('paid rewards honor their rarity, sort by rarity and respect unlocks and ow
  s.itemUnlocks=['life-orb'];
  const limited=chestChoices(s,sim.rng,'epic');
  assert.equal(limited.filter(c=>c.kind==='item').length,1);
- s.items=['life-orb'];assert.ok(chestChoices(s,sim.rng,'epic').every(c=>c.kind==='stat'));
+ s.items=['life-orb'];s.itemUnlocks=[];assert.ok(chestChoices(s,sim.rng,'epic').every(c=>c.kind==='stat'));
 });
 
 test('chests restock on game time, scale locally and cannot charge twice during a choice',()=>{

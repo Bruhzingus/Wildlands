@@ -24,7 +24,7 @@ test('v1 migration retains every prior partner, all available relics/recruits, s
 });
 
 test('new save has finite side unlocks without hidden HP/damage fields or starter regressions',()=>{
- const save=fresh();assert.deepEqual(save.unlocked,[1,4,7,25]);assert.equal(save.unlockedItems.length,32);assert.deepEqual(save.unlockedItems,BASE_ITEMS);
+ const save=fresh();assert.deepEqual(save.unlocked,[1,4,7,25]);assert.equal(save.unlockedItems.length,BASE_ITEMS.length);assert.deepEqual(save.unlockedItems,BASE_ITEMS);
  assert.equal(ACHIEVEMENTS.length,10);assert.equal(new Set(ACHIEVEMENTS.map(entry=>entry.id)).size,10);
  assert.deepEqual(new Set([...save.unlocked,...ACHIEVEMENTS.flatMap(entry=>entry.reward.starters??[])]),new Set(starterChoices()));
  assert.deepEqual(new Set(ACHIEVEMENTS.flatMap(entry=>entry.reward.items??[])),new Set(GATED_ITEMS));

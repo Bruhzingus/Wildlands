@@ -1,3 +1,4 @@
+import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {KANTO,getSpecies,RECRUIT_POOL} from '../src/data/kanto.ts';
@@ -139,6 +140,19 @@ test('environment geometry is seeded, avoids spawn and leaves landmarks clear',(
  assert.ok(layout.obstacles.length>200);
  for(const obstacle of layout.obstacles){assert.ok(Math.hypot(obstacle.x,obstacle.z)>=17);assert.ok(sim.state.pois.every(p=>Math.hypot(p.x-obstacle.x,p.z-obstacle.z)>=5));}
 });
+test('brambles slow ordinary enemies while bosses ignore them, and a beacon is a one-shot player trap',()=>{
+ const sim=new Simulation(1,301),s=sim.state,bramble=s.terrainFeatures!.find(feature=>feature.kind==='bramble')!,beacon=s.terrainFeatures!.find(feature=>feature.kind==='ruin-beacon')!;
+ const ordinary=createEnemy(s,sim.rng,10,'normal',bramble.x,bramble.z),boss=createEnemy(s,sim.rng,150,'legendary',bramble.x,bramble.z,true,true);
+ ordinary.speed=10;boss.speed=10;ordinary.attackCooldown=boss.attackCooldown=100;s.enemies=[ordinary,boss];s.player.x=bramble.x+20;s.player.z=bramble.z;
+ sim.update(.04,idle);
+ const ordinaryDistance=Math.hypot(ordinary.x-bramble.x,ordinary.z-bramble.z),bossDistance=Math.hypot(boss.x-bramble.x,boss.z-bramble.z);
+ assert.ok(bossDistance>ordinaryDistance*1.5,'bosses deliberately ignore bramble slow');
+ s.enemies=[ordinary];ordinary.x=beacon.x;ordinary.z=beacon.z;ordinary.hp=ordinary.maxHp=500;ordinary.speed=0;s.player.x=beacon.x;s.player.z=beacon.z;
+ sim.update(.03,{...idle,interact:true});assert.equal(beacon.state,'arming');
+ sim.update(.03,idle);for(let i=0;i<24;i++)sim.update(.03,idle);
+ assert.equal(beacon.state,'spent');assert.ok(ordinary.hp<500);const hp=ordinary.hp;
+ sim.update(.04,{...idle,interact:true});assert.equal(ordinary.hp,hp,'spent beacons cannot be farmed');
+});
 test('cheap colliders stop fast movement and allow sliding around rocks and rotated ruins',()=>{
  const circles=new ObstacleField([{kind:'circle',x:0,z:0,radius:1}]);
  const stopped=circles.move({x:-4,z:0},8,0);assert.ok(stopped.x<=-1-DESIGN.playerRadius);
@@ -180,7 +194,7 @@ test('projectiles hit actors crossed between frames, including their final parti
  sim.update(.03,idle);assert.equal(enemy.hp,988);assert.equal(s.projectiles.length,0);
  s.player.iframes=0;s.enemies=[];
  s.projectiles.push({uid:s.idCounter++,x:-10,z:0,prevX:-10,prevZ:0,vx:1000,vz:0,ttl:1,damage:12,size:.2,kind:'bolt',type:'normal',penetration:0,hit:new Set(),friendly:false,sourceId:enemy.uid,poisonChance:0});
- const hp=s.player.hp;sim.update(.03,idle);assert.equal(s.player.hp,hp-12);assert.equal(s.projectiles.length,0);
+ const hp=s.player.hp;sim.update(.03,idle);assert.equal(s.player.hp,hp-12+getBuildModifiers(s).armor);assert.equal(s.projectiles.length,0);
 });
 test('boss and level-up on the same frame resume correctly and endless stays in playing phase',()=>{
  const sim=new Simulation(1,91),s=sim.state;s.enemies=[];s.stats.elapsed=DESIGN.bossAtSeconds-.01;sim.debugLevel();
@@ -195,7 +209,7 @@ test('invalid or stale upgrade choices cannot bypass progression gates',()=>{
  applyChoice(s,recruit);assert.equal(s.party.length,1);
  const evolve={id:'evolve-1-3',kind:'evolve' as const,title:'Evolve',description:'',rarity:'epic' as const,speciesId:1,targetId:3};
  s.stats.elapsed=300;s.stats.level=10;s.party[0].level=PROGRESSION.evolution.firstLevel;applyChoice(s,evolve);assert.equal(s.party[0].speciesId,1);
- const item={id:'echo-bell',kind:'item' as const,title:'Echo Bell',description:'',rarity:'epic' as const};applyChoice(s,item);applyChoice(s,item);assert.deepEqual(s.items,['echo-bell']);
+ const item={id:'echo-bell',kind:'item' as const,title:'Echo Bell',description:'',rarity:'epic' as const};applyChoice(s,item);applyChoice(s,item);assert.deepEqual(s.items,['echo-bell']);assert.equal(s.itemStacks?.['echo-bell'],2);
  const before=structuredClone(s);sim.choose('made-up-choice');assert.deepEqual(s,before);
 });
 test('invalid frame durations do not corrupt clocks or positions',()=>{

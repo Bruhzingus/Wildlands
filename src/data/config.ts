@@ -6,7 +6,7 @@ export const DESIGN = {
  maxEnemies:190, maxProjectiles:220, mapRadius:115*1.25, pickupRadius:5.7, interactionRadius:4.5,
  playerSpeed:7.3, playerRadius:.62, acceleration:48, deceleration:62, jumpVelocity:8.2, gravity:22, dodgeSpeed:17, dodgeSeconds:.24,
  dodgeCooldown:2.8, specialCooldown:16,
- spawnStartInterval:2.8, spawnEndInterval:.7,
+ spawnStartInterval:2.8, spawnEndInterval:.62,
  maxActiveDrops:165,
 } as const;
 /** The opening damage ramp stays separate from the slower endurance increase
