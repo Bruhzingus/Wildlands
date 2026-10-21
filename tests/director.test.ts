@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
 import {updateDirector,movingRingIntersects} from '../src/game/systems/director.ts';
-import {createEnemy} from '../src/game/systems/spawning.ts';
+import {createEnemy,lateEnemyScale} from '../src/game/systems/spawning.ts';
 import {canRecruit} from '../src/game/systems/progression.ts';
 import {variantRewardXP,getVariant} from '../src/data/variants.ts';
 import {BOSS_RULES,DIRECTOR_PHASES} from '../src/data/director.ts';
@@ -77,7 +77,7 @@ test('legendary warning emits once, spawn is distant and simultaneous level-up r
  s.stats.elapsed=899.99;sim.debugLevel();sim.update(.02,idle);
  const boss=s.enemies.find(enemy=>enemy.isBoss)!;assert.equal(boss.speciesId,150);
  assert.ok(Math.hypot(boss.x-s.player.x,boss.z-s.player.z)>=30);assert.equal(s.phase,'choice');
- assert.equal(boss.hp,BOSS_RULES.baseHp+BOSS_RULES.hpPerLevel,'Boss endurance uses the party level at spawn, not aggregate reward counts');
+ assert.equal(boss.hp,(BOSS_RULES.baseHp+BOSS_RULES.hpPerLevel)*lateEnemyScale(s.stats.elapsed,150,5).health,'Boss endurance uses party level and the late enemy boost, not aggregate reward counts');
  sim.choose(s.upgradeChoices[0].id);assert.equal(s.phase,'boss');
 });
 

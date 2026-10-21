@@ -10,7 +10,7 @@ test('four biomes and optional discoveries have grounded landmarks and a readabl
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));await start(page);
  await game(page,'g=>{g.sim.state.enemies=[];g.sim.state.player.iframes=10000;g.sim.spawnAccum=-1000;g.sim.state.stats.xpToNext=1e12;}');
  for(const region of [{name:'OPEN MEADOW',x:0,z:0,file:'meadow'},{name:'PINEWOOD',x:-55,z:-44,file:'woodland'},{name:'OLD RUINS',x:61,z:-49,file:'ruins'},{name:'LAKE EDGE',x:-75,z:67,file:'lake'}]){
-  await page.evaluate(region=>{const g=(window as any).__WILDLANDS__,s=g.sim.state;s.player.x=region.x;s.player.z=region.z;s.party[0].x=region.x;s.party[0].z=region.z;g.camera.radius=30;g.camera.beta=1.02;},region);
+  await page.evaluate(async region=>{const {worldPoint,worldProfile}=await import('/src/data/maps.ts'),g=(window as any).__WILDLANDS__,s=g.sim.state,point=worldPoint(region,worldProfile(s.seed,s.mapId));s.player.x=point.x;s.player.z=point.z;s.party[0].x=point.x;s.party[0].z=point.z;g.camera.radius=30;g.camera.beta=1.02;},region);
   await expect(page.locator('#map-region')).toHaveText(region.name);await page.waitForTimeout(200);
   await page.screenshot({path:`artifacts/browser/phase-map-${region.file}.png`});
  }
@@ -61,7 +61,7 @@ test('psychic rings and summon tells freeze, resolve visibly and victory retains
  });
  await page.keyboard.press('q');await expect(page.locator('#endless-btn')).toBeVisible();await expect(page.locator('.end-screen')).toContainText('Victory');
  const before=await game(page,'g=>({hp:g.sim.state.player.hp,items:g.sim.state.items,party:g.sim.state.party.map(m=>({uid:m.uid,speciesId:m.speciesId,hp:m.hp,attackLevel:m.attackLevel}))})');
- await page.screenshot({path:'artifacts/browser/phase-mewtwo-victory.png'});await page.locator('#endless-btn').click();await captured(page);
+ await page.screenshot({path:'artifacts/browser/phase-mewtwo-victory.png'});await game(page,'g=>g.engine.stopRenderLoop()');await page.locator('#endless-btn').click();await captured(page);
  const after=await game(page,'g=>({hp:g.sim.state.player.hp,items:g.sim.state.items,party:g.sim.state.party.map(m=>({uid:m.uid,speciesId:m.speciesId,hp:m.hp,attackLevel:m.attackLevel}))})');
  expect(after.hp).toBe(before.hp);expect(after.items).toEqual(before.items);expect(after.party.map((m:any)=>({uid:m.uid,speciesId:m.speciesId,attackLevel:m.attackLevel}))).toEqual(before.party.map((m:any)=>({uid:m.uid,speciesId:m.speciesId,attackLevel:m.attackLevel})));
  expect(after.party[1].hp).toBeGreaterThanOrEqual(before.party[1].hp);expect(after.party[1].hp-before.party[1].hp).toBeLessThan(.2);

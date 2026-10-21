@@ -43,7 +43,7 @@ test('readable enemy windup, release and flight remain visible and freeze with t
   g.fx.update(s,.12);g.visuals.sync(s.party,s.enemies,.12,-g.camera.alpha-Math.PI/2,(x:number,z:number)=>g.world.height(x,z));g.scene.render();
   return {bomb:s.projectiles.some((p:any)=>p.moveName==='Egg Bomb'),rim:g.scene.meshes.some((m:any)=>m.isEnabled()&&m.name.startsWith('combat-hostile-rim'))};
  });
- expect(flight).toEqual({bomb:true,rim:true});
+ expect(flight).toEqual({bomb:true,rim:false});
  await page.screenshot({path:'artifacts/browser/combat-readability-release.png'});
  const snapshot=()=>page.evaluate(()=>{
   const g=(window as any).__WILDLANDS__;

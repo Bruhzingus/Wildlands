@@ -27,7 +27,7 @@ const families:readonly [readonly number[],SpecialTuning][]=[
  [[43,44,45],{kind:'sleep',name:'Sleep Powder',description:'Drop a distant sleep cloud that stuns a crowd, then restores squad health over time.',range:18,radius:5,duration:3,pulses:3,damageScale:.35}],
  [[52,53],{kind:'payday',name:'Pay Day',description:'Throw a fan of ricocheting coins that rebound between enemies.',range:19,radius:0,projectiles:5,damageScale:1.15}],
  [[58,59],{kind:'charge',name:'Flame Charge',description:'Rush toward a foe through a damaging fire trail that keeps burning behind you.',range:10,radius:2,duration:2.4,pulses:5,damageScale:.55,knockback:2}],
- [[63,64,65],{kind:'teleport',name:'Teleport Lance',description:'Blink away from the closest threat, then fire a piercing psychic lance back through it.',range:19,radius:1.3,damageScale:2.8}],
+ [[63,64,65],{kind:'teleport',name:'Teleport Lance',description:'Fire a piercing psychic lance toward your aim, then teleport to its endpoint.',range:19,radius:1.3,damageScale:2.8}],
  [[66,67,68],{kind:'flurry',name:'Close Combat',description:'Unleash three heavy forward strikes; the final blow launches enemies away.',range:7,radius:0,angle:1.7,duration:.65,pulses:3,damageScale:1.1,knockback:4}],
  [[92,93,94],{kind:'curse',name:'Haunting Hex',description:'Mark a distant cluster, then detonate the curse after a delay and leave them poisoned.',range:20,radius:4.5,duration:1,pulses:1,damageScale:2.6}],
  [[133],{kind:'quickstep',name:'Swift Step',description:'Dash through a target, striking your path, then release stars that seek separate enemies.',range:9,radius:1.5,projectiles:3,damageScale:1.1}],

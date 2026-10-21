@@ -3,7 +3,7 @@ import {getSpecies,type AttackKind,type Element} from './kanto.ts';
 import {PROGRESSION} from './progression.ts';
 
 export interface StatusProc {burn?:number;poison?:number;slow?:number;soak?:number;stun?:number}
-export type ProjectileShape='orb'|'needle'|'beam'|'lob';
+export type ProjectileShape='orb'|'needle'|'beam'|'lob'|'star';
 export type AttackPattern='vine'|'flame-fan'|'bubble-stream'|'thread'|'gust'|'sand-wave'|'foxfire'|'spores'|'ricochet'|'pounce'|'psychic-cross'|'combo'|'haunt'|'swift';
 export interface AttackMilestone {
  rank:number;description:string;projectiles?:number;pierce?:number;chains?:number;chainRange?:number;

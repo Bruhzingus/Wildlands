@@ -26,18 +26,18 @@ test('actual Rocket defeats unlock partners, real victory and20min endless accou
  await page.evaluate(async()=>{
   const g=(window as any).__WILDLANDS__,{createEnemy}=await import('/src/game/systems/spawning.ts');
   for(let i=0;i<100;i++){const enemy=createEnemy(g.sim.state,g.sim.rng,19,'rocket',10,10);g.sim.state.enemies.push(enemy);g.sim.damageEnemy(enemy,100000,'normal',1);}
-  g.sim.state.stats.xp=0;g.sim.state.stats.elapsed=180;
+  g.sim.state.party.forEach((m:any)=>m.xp=0);g.sim.state.stats.xp=0;g.sim.state.stats.elapsed=180;
  });await frame(page);expect(await game(page,'g=>g.save.achievements.includes("rocket-patrol")')).toBe(true);expect(await game(page,'g=>g.save.unlocked.includes(133)')).toBe(true);expect(await game(page,'g=>g.save.games')).toBe(0);
  await page.evaluate(async()=>{
   const g=(window as any).__WILDLANDS__,{createEnemy}=await import('/src/game/systems/spawning.ts');g.sim.state.stats.elapsed=927;g.sim.state.stats.xp=0;g.sim.state.bossSpawned=true;
-  const boss=createEnemy(g.sim.state,g.sim.rng,150,'legendary',10,10,true,true);boss.hp=1;g.sim.state.enemies.push(boss);g.sim.damageEnemy(boss,100000,'normal',1);
+  const boss=createEnemy(g.sim.state,g.sim.rng,150,'legendary',10,10,true,true);boss.hp=1;g.sim.state.enemies.push(boss);g.sim.damageEnemy(boss,100000,'normal',1);g.sim.state.party.forEach((m:any)=>m.xp=0);g.sim.state.pendingSquadRewards=0;
  });await frame(page);await expect(page.getByRole('heading',{name:'Victory',exact:true})).toBeVisible();await expect(page.locator('.earned-unlocks')).toContainText('Psychic break');expect(await game(page,'g=>[g.save.games,g.save.wins]')).toEqual([1,1]);
  await page.locator('#endless-btn').click();await capture(page);expect(await game(page,'g=>g.sim.state.endlessStartedAt')).toBe(927);
  await game(page,'g=>{g.sim.state.stats.elapsed=g.sim.state.endlessStartedAt+1199.5;}');await frame(page);expect(await game(page,'g=>g.save.achievements.includes("beyond-the-watch")')).toBe(false);
  await game(page,'g=>{g.sim.state.stats.elapsed=g.sim.state.endlessStartedAt+1200;}');await frame(page);expect(await game(page,'g=>g.save.achievements.includes("beyond-the-watch")')).toBe(true);
  await game(page,'g=>{g.sim.state.player.hp=0;}');await frame(page);await expect(page.getByRole('heading',{name:'Game over',exact:true})).toBeVisible();expect(await game(page,'g=>[g.save.games,g.save.wins,g.save.totals.rocketKills]')).toEqual([1,1,100]);
  await page.locator('#restart-btn').click();await expect(page.locator('[data-starter="133"]')).toBeVisible();await expect(page.locator('[data-starter="10"]')).toBeVisible();expect(await game(page,'g=>[g.save.games,g.save.wins]')).toEqual([1,1]);
- await expect(page.locator('[data-run-map] option')).toHaveCount(2);await expect(page.locator('[data-run-challenge] option')).toHaveCount(3);await page.screenshot({path:'artifacts/browser/phase14-collected-partners.png'});expect(errors).toEqual([]);
+ await expect(page.locator('[data-run-map] option')).toHaveCount(3);await expect(page.locator('[data-run-challenge] option')).toHaveCount(5);await page.screenshot({path:'artifacts/browser/phase14-collected-partners.png'});expect(errors).toEqual([]);
 });
 
 test('earned expedition route and optional challenge persist and configure an actual run',async({page})=>{

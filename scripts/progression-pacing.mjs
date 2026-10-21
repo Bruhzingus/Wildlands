@@ -18,15 +18,16 @@ export function runPacingExperiment({seeds=Array.from({length:24},(_,index)=>100
     if(chosen){const source=state.choiceSource??'level';if(sim.choose(chosen.id)){choices++;rewardCounts[source]++;}}else break;
    }
    if(maintainHealth){state.player.hp=state.player.maxHp;for(const member of state.party)member.hp=member.maxHp;}
-   // Keep ranged leaders on a clear orbit; close-range leaders approach targets when
-   // outside their actual attack area. A fixed fast orbit can outrun an aura forever.
+   // Stay within the actual attack area. The enlarged maps need this adaptive
+   // approach so the experiment still measures combat progression, not travel time.
    const angle=state.stats.elapsed*.6;
    let mx=Math.cos(angle),mz=Math.sin(angle);
    const profile=getAttackProfile(state.party[0].speciesId,state.party[0].attackLevel);
-   if(profile.kind==='aura'||profile.kind==='slash'){
+   {
     let target,distance=Infinity;
     for(const enemy of state.enemies){if(enemy.dead)continue;const d=Math.hypot(enemy.x-state.player.x,enemy.z-state.player.z);if(d<distance){target=enemy;distance=d;}}
-    if(target&&distance>profile.radius*.7){mx=(target.x-state.player.x)/distance;mz=(target.z-state.player.z)/distance;}
+    const reach=profile.kind==='aura'||profile.kind==='slash'?profile.radius:profile.range;
+    if(target&&distance>reach*.7){mx=(target.x-state.player.x)/distance;mz=(target.z-state.player.z)/distance;}
    }
    sim.update(.04,{...idle,mx,mz,special:Math.floor(state.stats.elapsed*25)%425===0});
   }

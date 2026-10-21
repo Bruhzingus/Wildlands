@@ -36,6 +36,29 @@ async function expectCardsToFit(page:Page){
  }
 }
 
+test('reroll button replaces all cards in their rarity slots and stops at zero charges',async({page})=>{
+ await page.goto('/');
+ await page.locator('[data-starter="1"]').click();
+ const before=await page.evaluate(()=>{
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;
+  s.upgradeChoices=[
+   {id:'power',kind:'stat',stat:'power',amount:.12,title:'Swords Dance',description:'+12% damage.',rarity:'common'},
+   {id:'haste-rare',kind:'stat',stat:'haste',amount:.2,title:'Tailwind',description:'+20% attack speed.',rarity:'rare'},
+   {id:'speed-epic',kind:'stat',stat:'speed',amount:.36,title:'Agility',description:'+36% movement speed.',rarity:'epic'},
+  ];s.stats.elapsed=0;s.choiceSource='squad';s.phase='choice';g.ui.update(s);
+  return s.upgradeChoices.map((c:any)=>c.id);
+ });
+ const reroll=page.locator('[data-reroll]');
+ await expect(reroll).toHaveText('Reroll (2)');await expect(reroll).toBeEnabled();
+ await reroll.click();await expect(reroll).toHaveText('Reroll (1)');
+ await expect(page.locator('.rarity-label')).toHaveText(['COMMON','RARE','EPIC']);
+ const after=await page.locator('[data-choice]').evaluateAll(cards=>cards.map(card=>(card as HTMLElement).dataset.choice));
+ expect(after.every(id=>!before.includes(id))).toBe(true);
+ await reroll.click();await expect(reroll).toHaveText('Reroll (0)');await expect(reroll).toBeDisabled();
+ await expect(page.locator('.choice-screen')).toContainText('Next in 05:00');
+ expect(await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.phase)).toBe('choice');
+});
+
 test('upgrade cards show each rarity, enter in sequence, lift on hover and fit small screens',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  const entryAnimations=await showUpgradeChoices(page);

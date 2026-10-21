@@ -52,7 +52,7 @@ test('selection accepts only earned routes/rules and survives reload',()=>{
  storage.clear();const save=fresh();selectRunOptions(save,{map:'ruins-route',challenge:'famine'});assert.deepEqual(save.selection,{map:'wildlands',challenge:'standard'});
  save.unlockedMaps.push('pinewood-route');save.unlockedChallenges.push('quickened');selectRunOptions(save,{map:'pinewood-route',challenge:'quickened'});
  assert.deepEqual(loadSave().selection,{map:'pinewood-route',challenge:'quickened'});assert.ok(storage.has(SAVE_KEY));
- assert.notEqual(MAP_OPTIONS[1].seed,MAP_OPTIONS[2].seed);assert.equal(CHALLENGE_OPTIONS.length,3);
+ assert.notEqual(MAP_OPTIONS[1].seed,MAP_OPTIONS[2].seed);assert.equal(CHALLENGE_OPTIONS.length,5);
 });
 
 test('actual snapshot boundaries award survival once and persist a midrun achievement without counting a completed game',()=>{

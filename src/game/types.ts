@@ -15,8 +15,8 @@ export interface Enemy{
  windup?:EnemyWindup;bossCycle?:number;shrineGuardian?:boolean;landmarkGuardian?:boolean;
  combatTier?:import('../data/enemyTiers.ts').EnemyTier;attackIndex?:number;hardShrine?:boolean;lastAttackRole?:import('../data/enemyAttacks.ts').EnemyAttackRole;
 }
-export interface PsychicRing{uid:number;sourceId:number;x:number;z:number;radius:number;previousRadius:number;maxRadius:number;speed:number;width:number;damage:number;hit:Set<number>;}
-export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:number;vx:number;vz:number;ttl:number;damage:number;size:number;kind:AttackKind;type:Element;penetration:number;hit:Set<number>;friendly:boolean;sourceId:number;targetId?:number;poisonChance:number;silhouette?:'orb'|'needle'|'beam'|'lob';radius?:number;crit?:boolean;status?:CombatStatus;allowProcs?:boolean;blastX?:number;blastZ?:number;moveName?:string;duration?:number;
+export interface PsychicRing{uid:number;sourceId:number;x:number;z:number;radius:number;previousRadius:number;maxRadius:number;speed:number;width:number;damage:number;hit:Set<number>;color?:string;}
+export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:number;vx:number;vz:number;ttl:number;damage:number;size:number;kind:AttackKind;type:Element;penetration:number;hit:Set<number>;friendly:boolean;sourceId:number;targetId?:number;poisonChance:number;silhouette?:import('../data/attacks.ts').ProjectileShape;radius?:number;crit?:boolean;status?:CombatStatus;allowProcs?:boolean;blastX?:number;blastZ?:number;moveName?:string;duration?:number;
  /** Total bomb preparation + flight time, so its landing clock never resets at release. */
  warningDuration?:number;
  behavior?:'straight'|'homing'|'ricochet'|'orbit';turnRate?:number;splashRadius?:number;knockback?:number;bounces?:number;bounceRange?:number;
@@ -24,7 +24,7 @@ export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:numb
 }
 export interface Drop{uid:number;x:number;z:number;value:number;age:number;kind:'xp'|'heal'|'coin'|'item';itemId?:string;}
 export type LootRarity='common'|'rare'|'epic';
-export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;rarity?:LootRarity;uses?:number;respawnAt?:number;rareTriggered?:boolean;challenge?:{guardianId:number;endsAt:number;tier:number};}
+export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;rarity?:LootRarity;uses?:number;respawnAt?:number;rareTriggered?:boolean;name?:string;availableAt?:number;announced?:boolean;changeLabel?:string;challenge?:{guardianId:number;endsAt:number;tier:number};}
 export type RewardSource='level'|'cache'|'squad'|'shop'|'recruit';
 export type ChoiceKind='recruit'|'evolve'|'attack'|'learn'|'stat'|'item';
 export interface UpgradeChoice{id:string;kind:ChoiceKind;title:string;description:string;rarity:'common'|'rare'|'epic';speciesId?:number; stat?:string; amount?:number;targetId?:number;category?:string;rank?:number;maxRank?:number;sourceSpeciesId?:number;moveId?:string;}
@@ -36,11 +36,12 @@ export interface RunState{
  /** Current milestone owner and queued milestone rewards. RunStats.level tracks total squad progress. */
  levelUpMemberId?:number;pendingLevelUps?:number[];trainingRanks?:Record<string,number>;
  choiceSource?:RewardSource;pendingSquadRewards?:number;lastSquadRewardAt?:number;coins?:number;chestPurchases?:number;
+ rerolls?:number;rerollGrants?:number;
  bossSpawned:boolean;endless:boolean;endlessStartedAt?:number;lastEnemySpawn:number;eventLog:string[];idCounter:number;lastSpecialAt:number;
  lastTier3Spawn?:number;lastTier4Spawn?:number;
  build?:import('./systems/builds.ts').BuildRuntimeState;
  director?:import('./systems/director.ts').DirectorSnapshot;psychicRings?:PsychicRing[];
  activeSpecials?:import('./combat/specials.ts').ActiveSpecial[];
  recruitUnlocks?:readonly number[];itemUnlocks?:readonly string[];
- challenge?:'standard'|'quickened'|'famine';mapId?:'wildlands'|'pinewood-route'|'ruins-route';
+ challenge?:import('../data/challenges.ts').ChallengeId;mapId?:import('../data/maps.ts').MapId;
 }

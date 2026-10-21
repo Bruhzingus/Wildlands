@@ -1,9 +1,11 @@
-import {getSpecies, type AttackKind,type Element} from '../data/kanto.ts';
+import {challengeRules} from '../data/challenges.ts';
+import {getSpecies,ELEMENT_COLORS, type AttackKind,type Element} from '../data/kanto.ts';
 import {ATTACK_ANIMATION,DESIGN} from '../data/config.ts';
 import {BOSS_RULES} from '../data/director.ts';
 import {PROGRESSION,isMilestone,nextMilestone,levelPowerMultiplier} from '../data/progression.ts';
 import {ECONOMY,CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
-import {ENCOUNTER_TABLES} from '../data/encounters.ts';
+import {mapEncounter} from '../data/encounters.ts';
+import {siteAvailable} from '../data/maps.ts';
 import {getVariant,variantRewardXP} from '../data/variants.ts';
 import {RNG,distance2} from '../utils/random.ts';
 import {getAttackProfile,type StatusProc} from '../data/attacks.ts';
@@ -18,13 +20,13 @@ import {getEliteAreaMove,resolveCommittedEnemyProfile} from '../data/enemyAttack
 import {canStartEnemyMove,enemyMovementIntent,chooseEnemyAttack,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
 import {getEnemyTier} from '../data/enemyTiers.ts';
 import {getBuildModifiers,dispatchBuildEvent,type BuildEvent,type BuildAction} from './systems/builds.ts';
-import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
-import {averagePartyLevel,enemyProgressionScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
+import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,rerollChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
+import {averagePartyLevel,enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
 import type {Drop,Enemy,LearnedMove,PartyMember,POI,RewardSource,RunState,UpgradeChoice,Variant} from './types.ts';
 export interface MoveInput {mx:number;mz:number;aimX?:number;aimZ?:number;jump:boolean;dodge:boolean;special:boolean;interact:boolean;}
-export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';variant?:Variant;speciesId?:number};
+export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;moveName?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';variant?:Variant;speciesId?:number};
 export type EventListener=(ev:GameEvent)=>void;
 export type RunConfiguration=Pick<RunState,'challenge'|'mapId'|'recruitUnlocks'|'itemUnlocks'>;
 export class Simulation {
@@ -37,18 +39,30 @@ export class Simulation {
   this.rng=new RNG(seed);
   this.lootRng=new RNG(seed^0x5f3759df);
   const starter:PartyMember={uid:1,speciesId:starterId,joinedAt:0,level:1,xp:0,xpToNext:xpThreshold(1),hp:165,maxHp:165,iframes:0,attackLevel:1,cooldown:.35,x:0,z:0,facing:0,animation:'idle',attackTimer:0};
-  const pois=createPOIs(seed);
-  this.obstacles=new ObstacleField(createEnvironment(seed,pois).obstacles);
+  const pois=createPOIs(seed,configuration.mapId);
+  this.obstacles=new ObstacleField(createEnvironment(seed,pois,configuration.mapId).obstacles);
   this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:120,maxHp:120,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
    party:[starter],enemies:[],projectiles:[],drops:[],pois,stats:{elapsed:0,kills:0,recruits:0,evolutions:0,level:1,xp:0,xpToNext:xpThreshold(1),damageDealt:0,damageTaken:0,faints:0,bossKilled:false,highestCombo:0},
-   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],...configuration};
+   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',rerolls:PROGRESSION.rerolls.starting,rerollGrants:0,pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],...configuration};
   for(let i=0;i<3;i++){
-   const pos=enemySpawnPosition(this.state.player,this.rng);const e=createEnemy(this.state,this.rng,this.rng.pick([10,13,16,19,21,29,43]),'normal',pos.x,pos.z);this.state.enemies.push(e);
+   const pos=enemySpawnPosition(this.state.player,this.rng),encounter=mapEncounter(configuration.mapId);
+   const pool=encounter.favoredSpecies.length?encounter.favoredSpecies.filter(id=>getSpecies(id).stage===1):[10,13,16,19,21,29,43];
+   const e=createEnemy(this.state,this.rng,this.rng.pick(pool),'normal',pos.x,pos.z);this.state.enemies.push(e);
   }
   updateDirector(this.state);
  }
  emit(event:GameEvent){this.onEvent(event);if((event.kind==='log'||event.kind==='faint')&&event.label){this.state.eventLog.unshift(event.label);this.state.eventLog.length=Math.min(5,this.state.eventLog.length);}}
  private activePhase(){return this.state.bossSpawned&&!this.state.stats.bossKilled?'boss':'playing';}
+ private grantRerolls(){
+  const s=this.state,earned=Math.floor(s.stats.elapsed/PROGRESSION.rerolls.intervalSeconds);
+  const added=Math.max(0,earned-(s.rerollGrants??0));
+  s.rerolls=(s.rerolls??PROGRESSION.rerolls.starting)+added;s.rerollGrants=Math.max(earned,s.rerollGrants??0);
+ }
+ reroll():boolean {
+  const s=this.state;if(s.phase!=='choice'||(s.rerolls??0)<=0)return false;
+  const choices=rerollChoices(s,this.rng);if(!choices)return false;
+  s.upgradeChoices=choices;s.rerolls=(s.rerolls??0)-1;return true;
+ }
  pause(){if(this.state.phase==='playing'||this.state.phase==='boss')this.state.phase='paused';else if(this.state.phase==='paused')this.state.phase=this.activePhase();}
  choose(choiceId:string):boolean{const s=this.state; if(s.phase!=='choice')return false;
   const c=s.upgradeChoices.find(c=>c.id===choiceId);if(!c)return false;
@@ -125,13 +139,14 @@ export class Simulation {
  private isActive(){return this.state.phase==='playing'||this.state.phase==='boss';}
  update(dt:number,input:MoveInput){const s=this.state;if(!this.isActive()||!Number.isFinite(dt)||dt<=0)return;
   dt=Math.min(dt,.04);s.stats.elapsed+=dt;
+  this.grantRerolls();
   const previousPositions=new Map(s.party.map(member=>[member.uid,{x:member.x,z:member.z}]));previousPositions.set(s.party[0].uid,{x:s.player.x,z:s.player.z});
   this.movePlayer(dt,input);
   if(this.finishDefeat()||!this.isActive()||s.result!==null)return;
   this.updateExploration();
   const previousDirector=s.director,director=updateDirector(s);
   if(previousDirector&&previousDirector.phaseId!==director.phaseId)this.emit({kind:'log',label:director.title});
-  if(director.bossWarning&&!previousDirector?.bossWarning)this.emit({kind:'boss',label:'A psychic presence approaches — Mewtwo awakens at 15:00'});
+  if(director.bossWarning&&!previousDirector?.bossWarning)this.emit({kind:'boss',label:mapEncounter(s.mapId).boss.warning});
   this.moveTeam(dt);this.updateEnemies(dt);
   if(s.result!==null)return;
   this.updatePsychicRings(dt,previousPositions);
@@ -152,10 +167,12 @@ export class Simulation {
    }
   }}
   if(!s.bossSpawned && s.stats.elapsed>=DESIGN.bossAtSeconds){
-   s.bossSpawned=true;s.phase='boss';const pos=enemySpawnPosition(s.player,this.rng,30,38);const e=createEnemy(s,this.rng,ENCOUNTER_TABLES.boss[0],'legendary',pos.x,pos.z,true,true);
+   const boss=mapEncounter(s.mapId).boss,rules=boss.rules;
+   s.bossSpawned=true;s.phase='boss';const pos=enemySpawnPosition(s.player,this.rng,30,38);const e=createEnemy(s,this.rng,boss.speciesId,'legendary',pos.x,pos.z,true,true);
    const partyScale=enemyProgressionScale(s);
-   e.hp=e.maxHp=(BOSS_RULES.baseHp+averagePartyLevel(s)*BOSS_RULES.hpPerLevel)*(1+partyScale.party);e.damage=BOSS_RULES.contactDamage*partyScale.damage;e.speed=BOSS_RULES.speed*(s.challenge==='quickened'?1.2:1);e.bossCycle=0;e.attackCooldown=1.6;s.enemies.push(e);
-   updateDirector(s);this.emit({kind:'boss',label:'MEWTWO HAS AWAKENED'});
+   const late=lateEnemyScale(s.stats.elapsed,boss.speciesId,5);
+   e.hp=e.maxHp=(rules.baseHp+averagePartyLevel(s)*rules.hpPerLevel)*(1+partyScale.party)*late.health;e.damage=rules.contactDamage*partyScale.damage*challengeRules(s.challenge).damageScale*late.damage;e.speed=rules.speed*challengeRules(s.challenge).speedScale;e.bossCycle=0;e.attackCooldown=1.6;s.enemies.push(e);
+   updateDirector(s);this.emit({kind:'boss',label:`${boss.name.toUpperCase()} HAS AWAKENED`});
   }
   if(this.finishDefeat())return;
   this.queueLevelUps();this.openNextLevelUp();
@@ -171,26 +188,35 @@ export class Simulation {
   if(p.hp<=0)return;
   const mx=Number.isFinite(input.mx)?input.mx:0,mz=Number.isFinite(input.mz)?input.mz:0;
   const len=Math.hypot(mx,mz),nx=len?mx/len:0,nz=len?mz/len:0;
+  let abraTeleported=false;
   if(tap.dodge&&p.dodgeCooldown===0){
    this.dodgeDirection={x:len?nx:Math.sin(p.facing),z:len?nz:Math.cos(p.facing)};
-   p.dodgeTime=DESIGN.dodgeSeconds;p.dodgeCooldown=DESIGN.dodgeCooldown/(1+getBuildModifiers(s).stamina);p.iframes=Math.max(p.iframes,.34);this.emit({kind:'dash',x:p.x,z:p.z,color:'#eef7c0',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});
+   p.dodgeTime=s.party[0].speciesId===63?0:DESIGN.dodgeSeconds;p.dodgeCooldown=DESIGN.dodgeCooldown/(1+getBuildModifiers(s).stamina);p.iframes=Math.max(p.iframes,.34);
+   const origin={x:p.x,z:p.z};
+   if(s.party[0].speciesId===63){
+    // Abra crosses the dash distance in one frame, while the normal world collision still limits its landing spot.
+    const distance=DESIGN.dodgeSpeed*DESIGN.dodgeSeconds*1.35;
+    const destination=this.obstacles.move(p,this.dodgeDirection.x*distance,this.dodgeDirection.z*distance);
+    p.x=destination.x;p.z=destination.z;abraTeleported=true;
+   }
+   this.emit({kind:'dash',x:origin.x,z:origin.z,toX:abraTeleported?p.x:undefined,toZ:abraTeleported?p.z:undefined,shape:abraTeleported?'teleport':undefined,color:'#eef7c0',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});
   }
   const dodge=p.dodgeTime>0;p.dodgeTime=Math.max(0,p.dodgeTime-dt);
   const speed=DESIGN.playerSpeed*(1+getBuildModifiers(s).speed);
   const targetX=nx*speed*Math.min(1,len),targetZ=nz*speed*Math.min(1,len),deltaX=targetX-this.velocity.x,deltaZ=targetZ-this.velocity.z;
   const delta=Math.hypot(deltaX,deltaZ),factor=delta?Math.min(1,(len?DESIGN.acceleration:DESIGN.deceleration)*dt/delta):1;
   this.velocity.x+=deltaX*factor;this.velocity.z+=deltaZ*factor;
-  const vx=dodge?this.dodgeDirection.x*DESIGN.dodgeSpeed:this.velocity.x,vz=dodge?this.dodgeDirection.z*DESIGN.dodgeSpeed:this.velocity.z;
+  const vx=dodge?this.dodgeDirection.x*DESIGN.dodgeSpeed:abraTeleported?0:this.velocity.x,vz=dodge?this.dodgeDirection.z*DESIGN.dodgeSpeed:abraTeleported?0:this.velocity.z;
   const next=this.obstacles.move(p,vx*dt,vz*dt);
   this.walking=Math.hypot(next.x-p.x,next.z-p.z)>.001;
   p.x=next.x;p.z=next.z;
-  if(dodge)p.facing=Math.atan2(this.dodgeDirection.x,this.dodgeDirection.z);
+  if(dodge||abraTeleported)p.facing=Math.atan2(this.dodgeDirection.x,this.dodgeDirection.z);
   else if(len>0)p.facing=Math.atan2(nx,nz);
   if(tap.jump&&p.y===0){p.vy=DESIGN.jumpVelocity;this.emit({kind:'jump',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});}
   p.vy-=DESIGN.gravity*dt;p.y=Math.max(0,p.y+p.vy*dt);if(p.y===0)p.vy=0;
   if(tap.special&&p.specialCooldown===0){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste);s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
   if(s.result!==null)return;
-  const interaction=s.pois.find(a=>!a.used&&distance2(p,a)<DESIGN.interactionRadius);
+  const interaction=s.pois.find(a=>siteAvailable(a,s.stats.elapsed)&&!a.used&&distance2(p,a)<DESIGN.interactionRadius);
   if(tap.interact&&interaction)this.activatePOI(interaction);
  }
  private moveTeam(dt:number){const s=this.state;const count=s.party.length;
@@ -237,15 +263,17 @@ export class Simulation {
        },committed);
        e.attackIndex=(e.attackIndex??0)+1;
       }
-      else if(windup.kind==='volley'){this.bossVolley(e,windup.facing);e.attackCooldown=BOSS_RULES.volleyCooldown;e.bossCycle=((e.bossCycle||0)+1)%4;}
+      else if(windup.kind==='volley'){const boss=mapEncounter(s.mapId).boss;this.bossVolley(e,windup.facing);e.attackCooldown=boss.rules.volleyCooldown;e.bossCycle=((e.bossCycle||0)+1)%(boss.speciesId===150?4:boss.patterns.length);}
       else if(windup.kind==='psychicRing'){
-       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=BOSS_RULES.ringCooldown;e.bossCycle=2;
+       const boss=mapEncounter(s.mapId).boss,rules=boss.rules;
+       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=rules.ringCooldown;e.bossCycle=((e.bossCycle||0)+1)%boss.patterns.length;
        const rings=s.psychicRings||(s.psychicRings=[]);
-       if(rings.length<BOSS_RULES.maxRings)rings.push({uid:s.idCounter++,sourceId:e.uid,x:windup.x,z:windup.z,radius:1,previousRadius:1,
-        maxRadius:BOSS_RULES.ringMaxRadius,speed:BOSS_RULES.ringSpeed,width:BOSS_RULES.ringWidth,damage:BOSS_RULES.ringDamage,hit:new Set()});
-       this.emit({kind:'boss',x:windup.x,z:windup.z,label:'Psychic — jump or dodge through',shape:'psychicRing'});
+       if(rings.length<rules.maxRings)rings.push({uid:s.idCounter++,sourceId:e.uid,x:windup.x,z:windup.z,radius:1,previousRadius:1,
+        maxRadius:rules.ringMaxRadius,speed:rules.ringSpeed,width:rules.ringWidth,damage:rules.ringDamage*challengeRules(s.challenge).damageScale*lateEnemyScale(s.stats.elapsed,e.speciesId,5).damage,hit:new Set(),color:boss.color});
+       this.emit({kind:'boss',x:windup.x,z:windup.z,label:`${boss.moves.psychicRing} — jump or dodge through`,shape:'psychicRing',color:boss.color});
       }else if(windup.kind==='summon'){
-       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=BOSS_RULES.summonCooldown;e.bossCycle=3;
+       const boss=mapEncounter(s.mapId).boss;
+       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=boss.rules.summonCooldown;e.bossCycle=((e.bossCycle||0)+1)%(boss.speciesId===150?4:boss.patterns.length);
        this.bossSummon(e);
       }else{
        this.animateAttack(e,windup.facing);e.attackCooldown=e.isBoss?BOSS_RULES.burstCooldown:3.8;e.bossCycle=e.isBoss?0:(e.bossCycle||0)+1;
@@ -259,19 +287,19 @@ export class Simulation {
      if(s.result!==null)return;continue;
     }
    }
-   // Higher-tier loadouts own all their moves; explicit low-tier elites retain
-   // their legacy area move without adding a third move to miniboss rotations.
    const combatTier=e.combatTier??getEnemyTier(e.speciesId,e.variant,e.isBoss);
    if(e.stunTime===0&&e.attackCooldown<=0&&(e.isBoss||(e.elite&&combatTier<=2&&d<11&&(e.bossCycle||0)%2===0))){
-    const kind=e.isBoss?(['volley','psychicRing','summon','slam'] as const)[(e.bossCycle||0)%4]:'slam';
-    const duration=kind==='volley'?BOSS_RULES.volleyWindup:kind==='psychicRing'?BOSS_RULES.ringWindup:kind==='summon'?BOSS_RULES.summonWindup:e.isBoss?BOSS_RULES.burstWindup:.65,facing=Math.atan2(dx,dz);
+    const boss=mapEncounter(s.mapId).boss,rules=boss.rules;
+    const cycle=e.bossCycle||0;
+    const kind=e.isBoss?(boss.speciesId===150&&cycle%4===3?'slam':boss.patterns[cycle%boss.patterns.length]):'slam';
+    const duration=kind==='volley'?rules.volleyWindup:kind==='psychicRing'?rules.ringWindup:kind==='summon'?rules.summonWindup:e.isBoss?BOSS_RULES.burstWindup:.65,facing=Math.atan2(dx,dz);
     const centered=kind==='psychicRing'||kind==='summon',radius=kind==='volley'?5:kind==='psychicRing'?4:kind==='summon'?6:e.isBoss?BOSS_RULES.burstRadius:3.3;
-    const moveName=kind==='volley'?'Psystrike':kind==='psychicRing'?'Psychic':kind==='summon'?'Teleport':e.isBoss?'Psyshock':getEliteAreaMove(e.speciesId).moveName;
+    const moveName=kind==='slam'?(e.isBoss?'Psyshock':getEliteAreaMove(e.speciesId).moveName):boss.moves[kind];
     e.windup={kind,remaining:duration,duration,x:centered?e.x:target.x,z:centered?e.z:target.z,facing,radius,moveName};
     e.lastAttackRole=kind==='summon'?'healer':kind==='slam'?'melee-slow':'ranged-projectile';
     this.animateAttack(e,facing,duration);
     this.emit({kind:'tell',x:kind==='volley'?e.x:e.windup.x,z:kind==='volley'?e.z:e.windup.z,toX:target.x,toZ:target.z,
-     radius,amount:radius,duration,color:e.isBoss?'#c6a2dc':'#e9a38c',sourceId:e.uid,shape:kind,label:moveName});
+     radius,amount:radius,duration,color:e.isBoss?boss.color:'#e9a38c',sourceId:e.uid,shape:kind,label:moveName});
     continue;
    }
    if(!e.isBoss){
@@ -384,7 +412,7 @@ export class Simulation {
    radiusScale:1+mod.radius,extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,
    projectileSpeedScale:1+mod.projectileSpeed,
    hit:(enemy,amount)=>this.damageEnemy(enemy,amount,type,m.uid,profile.status,crit,depth===0),
-   projectile:projectile=>{addProjectile(s,projectile);},visual:event=>this.emit(event),
+   projectile:projectile=>{addProjectile(s,{...projectile,moveName:getSpecies(m.speciesId).moveName});},visual:event=>this.emit(event),
    heal:(leader,squad)=>{if(s.challenge==='famine')return;s.player.hp=Math.min(s.player.maxHp,s.player.hp+leader*castingPower);for(const member of s.party)member.hp=Math.min(member.maxHp,member.hp+squad*castingPower);}});
   for(const action of actions)if(action.kind==='echo'&&s.result===null)this.applyBuildAction(action);
  }
@@ -394,7 +422,7 @@ export class Simulation {
     projectile.status||{poison:projectile.poisonChance},projectile.crit||false,projectile.allowProcs!==false),
    hurtPlayer:(damage,poison,projectile)=>this.hurtPlayer(damage,poison,false,false,projectile?.sourceId),
    hurtCompanion:(member,damage,poison,projectile)=>this.hurtCompanion(member,damage,poison,projectile.sourceId),
-   explode:projectile=>this.emit({kind:'attack',x:projectile.x,z:projectile.z,amount:projectile.radius,radius:projectile.radius,color:projectile.friendly?'#b6ce8b':'#f3a27a',shape:'burst',sourceId:projectile.sourceId,label:projectile.moveName}),
+   explode:projectile=>this.emit({kind:'attack',x:projectile.x,z:projectile.z,amount:projectile.radius,radius:projectile.radius,color:ELEMENT_COLORS[projectile.type],shape:'burst',sourceId:projectile.sourceId,moveName:projectile.moveName}),
   });
  }
  private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false){
@@ -451,7 +479,7 @@ export class Simulation {
     this.emit({kind:'interact',x:e.x,z:e.z,label:'Shrine conquered: relic, squad training, +4% luck and special ready!',color:'#d2b5ff'});
    }
   }
-  if(e.isBoss){s.stats.bossKilled=true;s.result='victory';s.phase='result';s.psychicRings=[];s.projectiles=s.projectiles.filter(projectile=>projectile.friendly);this.emit({kind:'win',label:'Mewtwo defeated!'});}
+  if(e.isBoss){s.stats.bossKilled=true;s.result='victory';s.phase='result';s.psychicRings=[];s.projectiles=s.projectiles.filter(projectile=>projectile.friendly);this.emit({kind:'win',label:`${getSpecies(e.speciesId).name} defeated!`});}
   if(s.result===null)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1});
  }
  private collectItem(itemId:string|undefined){
@@ -572,19 +600,21 @@ export class Simulation {
   for(const member of s.party)member.hp=Math.min(member.maxHp,member.hp+amount);
  }
  private bossVolley(e:Enemy,facing:number){const angle=Math.PI/2-facing;
+  const boss=mapEncounter(this.state.mapId).boss,rules=boss.rules;
   this.animateAttack(e,facing,ATTACK_ANIMATION.bossSeconds);
-  for(let i=-3;i<=3;i++){const a=angle+i*.18;addProjectile(this.state,{x:e.x,z:e.z,vx:Math.cos(a)*BOSS_RULES.volleySpeed,vz:Math.sin(a)*BOSS_RULES.volleySpeed,ttl:4,damage:BOSS_RULES.volleyDamage,size:.55,kind:'bolt',type:'psychic',penetration:0,friendly:false,sourceId:e.uid,poisonChance:0,silhouette:'needle',moveName:'Psystrike'});}
-  this.emit({kind:'boss',x:e.x,z:e.z,color:'#d29eff'});
+  for(let i=0;i<boss.shots;i++){const a=angle+(i-(boss.shots-1)/2)*boss.spread;addProjectile(this.state,{x:e.x,z:e.z,vx:Math.cos(a)*rules.volleySpeed,vz:Math.sin(a)*rules.volleySpeed,ttl:4,damage:rules.volleyDamage*challengeRules(this.state.challenge).damageScale*lateEnemyScale(this.state.stats.elapsed,e.speciesId,5).damage,size:.55,kind:'bolt',type:boss.element,penetration:0,friendly:false,sourceId:e.uid,poisonChance:0,silhouette:'needle',moveName:boss.moves.volley});}
+  this.emit({kind:'boss',x:e.x,z:e.z,color:boss.color});
  }
  private bossSummon(boss:Enemy){const s=this.state,budget=Math.min(DESIGN.maxEnemies,s.director?.enemyBudget||DESIGN.maxEnemies);
-  for(let i=0;i<BOSS_RULES.summonCount;i++){
+  const encounter=mapEncounter(s.mapId).boss;
+  for(let i=0;i<encounter.rules.summonCount;i++){
    if(s.enemies.filter(enemy=>!enemy.dead).length>=budget){recordDirectorSpawn(s,false);break;}
-   const pos=enemySpawnPosition(s.player,this.rng,BOSS_RULES.summonMinDistance,BOSS_RULES.summonMaxDistance);
-   const enemy=createEnemy(s,this.rng,this.rng.pick([64,67,93,97]),i%2?'dark':'rocket',pos.x,pos.z);
+   const pos=enemySpawnPosition(s.player,this.rng,encounter.rules.summonMinDistance,encounter.rules.summonMaxDistance);
+   const enemy=createEnemy(s,this.rng,this.rng.pick(encounter.summons),i%2?'dark':'rocket',pos.x,pos.z);
    // Adds are regular faction enemies; the charge does not introduce bespoke minion attacks.
    s.enemies.push(enemy);recordDirectorSpawn(s,true);
   }
-  this.emit({kind:'boss',x:boss.x,z:boss.z,label:'Mewtwo calls reinforcements',shape:'summon'});
+  this.emit({kind:'boss',x:boss.x,z:boss.z,label:`${encounter.name} calls reinforcements`,shape:'summon'});
  }
  private updatePsychicRings(dt:number,previous:Map<number,{x:number;z:number}>){const s=this.state;
   for(const ring of s.psychicRings||[]){
@@ -603,6 +633,8 @@ export class Simulation {
  }
  private updateExploration(){const s=this.state;
   for(const poi of s.pois){
+   if(!siteAvailable(poi,s.stats.elapsed))continue;
+   if(poi.availableAt!==undefined&&!poi.announced){poi.announced=true;this.emit({kind:'interact',x:poi.x,z:poi.z,label:poi.changeLabel??`${poi.name} discovered`});}
    const trial=poi.challenge;
    if(trial&&(s.stats.elapsed>=trial.endsAt||distance2(s.player,poi)>SHRINE.radius)){
     const guardian=s.enemies.find(enemy=>enemy.uid===trial.guardianId);
@@ -618,7 +650,7 @@ export class Simulation {
   }
  }
  private activatePOI(poi:POI){const s=this.state;
-  if(poi.used)return;
+  if(poi.used||!siteAvailable(poi,s.stats.elapsed))return;
   if(poi.kind==='cache'){
    const cost=chestCost(s,poi);
    if((s.coins??0)<cost){this.emit({kind:'log',label:`Supply chest costs ${cost} coins. You have ${s.coins??0}.`});return;}
@@ -640,13 +672,12 @@ export class Simulation {
    else {s.player.hp=Math.min(s.player.maxHp,s.player.hp+42);for(const member of s.party){member.hp=Math.min(member.maxHp,member.hp+35);}this.emit({kind:'interact',label:'Restored 42 HP!',x:poi.x,z:poi.z,color:'#90ff9c'});}
   }else if(poi.kind==='shrine'){
    if(s.pois.some(site=>site.challenge)){poi.used=false;this.emit({kind:'log',label:'Finish your active shrine trial first.'});return;}
-   const tier=shrineTier(s,poi);
-   const pool=tier>=4?[59,65,76,94,112,130,131,143,144,145,146,149]:tier>=2?[59,65,76,94,112,130,143]:[20,24,26,28,42,47,57,67,82];
-   const id=this.rng.pick(pool),guardian=createGuardian(s,this.rng,id,poi.x+7,poi.z,true,tier);
+   const id=this.rng.pick(mapEncounter(s.mapId).guardians);
+   const tier=shrineTier(s,poi),guardian=createGuardian(s,this.rng,id,poi.x+7,poi.z,true,tier);
    poi.challenge={guardianId:guardian.uid,endsAt:s.stats.elapsed+SHRINE.duration,tier};
    s.enemies.push(guardian);this.emit({kind:'interact',label:`Tier ${tier} shrine: defeat ${getSpecies(id).name} in ${SHRINE.duration}s. Stay within ${SHRINE.radius}m!`,x:poi.x,z:poi.z,color:'#d2b5ff'});
   }else{
-   const id=this.rng.pick([26,38,59,65,76,94,112,130,143]);const e=createGuardian(s,this.rng,id,poi.x+4,poi.z+4);s.enemies.push(e);this.emit({kind:'interact',label:`Elite ${getSpecies(id).name} appeared!`,x:poi.x,z:poi.z,color:'#ffc775'});
+   const id=this.rng.pick(mapEncounter(s.mapId).guardians);const e=createGuardian(s,this.rng,id,poi.x+4,poi.z+4);s.enemies.push(e);this.emit({kind:'interact',label:`Elite ${getSpecies(id).name} appeared!`,x:poi.x,z:poi.z,color:'#ffc775'});
   }
   const rare=poi.rareTriggered||poi.kind==='shrine'?null:rareEventFor(s.seed,poi);
   if(rare){
@@ -662,7 +693,7 @@ export class Simulation {
   }
  }
  /** QA hooks, enabled by ?dev=1 only. */
- debugAdvance(seconds:number){this.state.stats.elapsed=Math.max(0,this.state.stats.elapsed+seconds);}
+ debugAdvance(seconds:number){this.state.stats.elapsed=Math.max(0,this.state.stats.elapsed+seconds);this.grantRerolls();}
  debugLevel(){const leader=this.state.party[0],next=nextMilestone(leader.level);if(next===null)return;
   const needed=Array.from({length:next-leader.level},(_,index)=>xpThreshold(leader.level+index)).reduce((sum,xp)=>sum+xp,0);
   this.gainXP(Math.max(0,needed-(leader.xp??0)),leader.uid);

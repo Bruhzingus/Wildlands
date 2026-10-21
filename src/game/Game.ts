@@ -49,6 +49,7 @@ export class Game{
   this.motionPreference.addEventListener('change',event=>{this.feedback.setReducedMotion(event.matches);this.applyGraphics();if(event.matches)this.flashUntil=0;},{signal:this.listeners.signal});
   this.ui.onStart=id=>this.start(id);
   this.ui.onPick=id=>this.pick(id);
+  this.ui.onReroll=()=>{if(this.sim?.reroll()){this.audio.unlock();this.audio.cue('upgrade');this.ui.update(this.sim.state);}};
   this.ui.onResume=()=>this.captureForPlay();
   this.ui.onRestart=()=>this.restart();
   this.ui.onEndless=()=>{this.ended=false;this.clearInput();this.sim?.continueEndless();this.captureForPlay();};
@@ -162,7 +163,7 @@ export class Game{
   const map=MAP_OPTIONS.find(option=>option.id===this.save.selection.map)!;
   this.sim=new Simulation(starterId,map.seed,{mapId:map.id,challenge:this.save.selection.challenge,itemUnlocks:[...this.save.unlockedItems],recruitUnlocks:[...this.save.unlockedRecruits]});
   this.progression=new ProgressionTracker(this.save,this.sim.state);this.ui.setProgressionResult([]);
-  this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois);
+  this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois,this.sim.state.mapId);
   this.assets=new AssetLibrary(this.scene);this.visuals=new CharacterVisuals(this.assets);
   this.healthBars=new HealthBars(this.scene,this.motionPreference.matches,id=>this.assets?.headroom(id)??1);
   this.damageNumbers=new DamageNumbers(this.scene,(x,z)=>this.world!.height(x,z),id=>this.assets?.headroom(id)??1);

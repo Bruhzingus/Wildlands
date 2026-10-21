@@ -15,7 +15,7 @@ export interface SaveData {
 }
 export const DEFAULT_SAVE:SaveData={version:2,unlocked:[...STARTING_PARTNERS],wins:0,bestKills:0,longestRun:0,games:0,
  settings:{volume:.45,camera:28,quality:'high'},achievements:[],achievementProgress:{},unlockedItems:[...BASE_ITEMS],unlockedRecruits:[],
- unlockedMaps:['wildlands'],unlockedChallenges:['standard'],selection:{map:'wildlands',challenge:'standard'},totals:{kills:0,rocketKills:0},recentRuns:[]};
+ unlockedMaps:['wildlands','volcanic-ridge'],unlockedChallenges:['standard','onslaught','volatile'],selection:{map:'wildlands',challenge:'standard'},totals:{kills:0,rocketKills:0},recentRuns:[]};
 const object=(value:unknown):Record<string,unknown>|null=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
 export const safeCount=(value:unknown)=>typeof value==='number'&&Number.isFinite(value)&&value>=0?Math.min(Number.MAX_SAFE_INTEGER,Math.floor(value)):0;
 function finiteRange(value:unknown,min:number,max:number,fallback:number){return typeof value==='number'&&Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback;}
@@ -35,8 +35,8 @@ export function migrateSave(value:unknown):SaveData|null {
  // Previous players keep the full item/recruit pools they could already find.
  save.unlockedItems=allowedArray(read.unlockedItems,ITEM_DEFINITIONS.map(item=>item.id),legacy?ITEM_DEFINITIONS.map(item=>item.id):BASE_ITEMS);
  save.unlockedRecruits=allowedArray(read.unlockedRecruits,GATED_RECRUITS,legacy?GATED_RECRUITS:[]);
- save.unlockedMaps=allowedArray(read.unlockedMaps,MAP_OPTIONS.map(option=>option.id),['wildlands']);
- save.unlockedChallenges=allowedArray(read.unlockedChallenges,CHALLENGE_OPTIONS.map(option=>option.id),['standard']);
+ save.unlockedMaps=allowedArray(read.unlockedMaps,MAP_OPTIONS.map(option=>option.id),DEFAULT_SAVE.unlockedMaps);
+ save.unlockedChallenges=allowedArray(read.unlockedChallenges,CHALLENGE_OPTIONS.map(option=>option.id),DEFAULT_SAVE.unlockedChallenges);
  save.achievements=allowedArray(read.achievements,ACHIEVEMENTS.map(achievement=>achievement.id));
  const progress=object(read.achievementProgress);
  for(const achievement of ACHIEVEMENTS){

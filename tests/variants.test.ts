@@ -7,7 +7,7 @@ import {getEnemySpeciesProfile} from '../src/data/enemySpecies.ts';
 import {ENEMY_TIER_TUNING,getEnemyTier} from '../src/data/enemyTiers.ts';
 import {DESIGN,typeMultiplier} from '../src/data/config.ts';
 import {Simulation} from '../src/game/Simulation.ts';
-import {createEnemy,rollVariant,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
+import {createEnemy,lateEnemyScale,rollVariant,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
 import {VariantCues} from '../src/game/render/AssetLibrary.ts';
 import {RNG} from '../src/utils/random.ts';
 import type {Variant} from '../src/game/types.ts';
@@ -33,7 +33,8 @@ test('variants preserve species typing and apply exact modifiers within ordinary
     assert.ok(healthRatio>=Math.min(1,definition.hp)-1e-12&&healthRatio<=Math.max(1,definition.hp)+1e-12,`${sp.name} ${variant} HP respects its multiplier and shared durability floor`);
    }
    const damageMultiplier=tier===4&&normalTier===3?ENEMY_TIER_TUNING.tier4.damageMultiplier/ENEMY_TIER_TUNING.tier3.damageMultiplier:1;
-   assert.ok(Math.abs(enemy.damage/normal.damage-definition.damage*damageMultiplier)<1e-12,`${sp.name} ${variant} damage includes the tier multiplier once`);
+   const lateMultiplier=lateEnemyScale(elapsed,sp.id,tier).damage/lateEnemyScale(elapsed,sp.id,normalTier).damage;
+   assert.ok(Math.abs(enemy.damage/normal.damage-definition.damage*damageMultiplier*lateMultiplier)<1e-12,`${sp.name} ${variant} damage includes tier and late scaling once`);
    assert.ok(Math.abs(enemy.speed/normal.speed-definition.speed)<1e-12);
    assert.equal(enemy.windup,undefined);assert.equal(enemy.isBoss,false);
   }

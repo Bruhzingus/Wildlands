@@ -2,6 +2,8 @@ import {DESIGN} from '../../data/config.ts';
 import {DIRECTOR_PHASES,DIRECTOR_VARIANTS,BOSS_RULES} from '../../data/director.ts';
 import type {RunState,Variant} from '../types.ts';
 import {clamp} from '../../utils/random.ts';
+import {mapEncounter} from '../../data/encounters.ts';
+import {challengeRules} from '../../data/challenges.ts';
 
 export interface DirectorSnapshot {
  phaseId:string;title:string;elapsed:number;spawnInterval:number;batchSize:number;enemyBudget:number;
@@ -30,7 +32,7 @@ export function updateDirector(state:RunState):DirectorSnapshot {
  const variantWeights:Partial<Record<Variant,number>>={};
  DIRECTOR_VARIANTS.forEach((variant,i)=>{variantWeights[variant]=phase.variants[i]+(next?(next.variants[i]-phase.variants[i])*progress:0);});
  if(state.endless){variantWeights.normal=Math.max(.18,.43-.07*(endlessScale-1));variantWeights.rocket=.20;variantWeights.dark=.20;variantWeights.rabid=.17;variantWeights.poisoned=.14;}
- const snapshot:DirectorSnapshot={phaseId,title:state.endless?'Endless wilds':phase.title,elapsed,spawnInterval:interval,
+ const snapshot:DirectorSnapshot={phaseId,title:state.endless?'Endless wilds':phase.id==='legendary'?`${mapEncounter(state.mapId).boss.name} awakened`:phase.title,elapsed,spawnInterval:interval*challengeRules(state.challenge).spawnIntervalScale,
   batchSize:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,
   bossWarning:!state.bossSpawned&&elapsed>=DESIGN.bossAtSeconds-BOSS_RULES.warningSeconds,
   bossCountdown:Math.max(0,DESIGN.bossAtSeconds-elapsed),spawned:previous?.spawned||0,denied:previous?.denied||0,

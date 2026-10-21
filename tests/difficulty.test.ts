@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation} from '../src/game/Simulation.ts';
-import {getSpecies} from '../src/data/kanto.ts';
+import {getSpecies,KANTO} from '../src/data/kanto.ts';
 import {DIFFICULTY,ordinaryThreatScale} from '../src/data/config.ts';
 import {BOSS_RULES} from '../src/data/director.ts';
 import {ENEMY_TIER_TUNING,getEnemyTier} from '../src/data/enemyTiers.ts';
-import {createEnemy,createGuardian} from '../src/game/systems/spawning.ts';
+import {createEnemy,createGuardian,lateEnemyScale} from '../src/game/systems/spawning.ts';
 import {RNG} from '../src/utils/random.ts';
 
 test('the opening stays unchanged and ordinary threat ramps smoothly to twenty percent after two minutes',()=>{
@@ -31,9 +31,40 @@ test('ordinary tier-one and tier-two stats grow gradually within bounds while bo
    assert.equal(enemy.size,opening.size,'Elapsed time does not inflate a species silhouette');
    previous=enemy;
   }
-  assert.ok(previous.maxHp/opening.maxHp<3.2,'Endurance growth remains bounded over a complete run');
-  assert.ok(previous.damage/opening.damage<2,'Time alone does not double ordinary damage');
+  assert.ok(previous.maxHp/opening.maxHp<6,'Endurance growth remains bounded over a complete run');
+  assert.ok(previous.damage/opening.damage<2.6,'Ordinary damage growth remains below the heavy encounter budget');
   assert.ok(previous.speed/opening.speed<1.25,'Movement gains preserve readable attack tells');
+ }
+});
+
+test('all species and variants gain health and damage at three minutes, with greater boosts for stronger tiers',()=>{
+ const s=new Simulation(7,99).state,rng=new RNG(4);
+ for(const species of KANTO)for(const variant of ['normal','rocket','dark','rabid','poisoned'] as const){
+  s.stats.elapsed=179.999;const before=createEnemy(s,rng,species.id,variant,0,0);
+  s.stats.elapsed=180;const after=createEnemy(s,rng,species.id,variant,0,0);
+  assert.ok(after.maxHp/before.maxHp>=1.15,`${species.name} ${variant} health`);
+  assert.ok(after.damage/before.damage>=1.08,`${species.name} ${variant} damage`);
+  assert.equal(after.size,before.size);assert.ok(after.speed/before.speed<1.00001);
+ }
+ for(const seconds of [0,120,179.999])assert.deepEqual(lateEnemyScale(seconds,149,4),{health:1,damage:1});
+ for(const seconds of [180,420,900]){
+  const ordinary=lateEnemyScale(seconds,19,1),evolved=lateEnemyScale(seconds,148,2);
+  const smallMiniboss=lateEnemyScale(seconds,12,3),largeMiniboss=lateEnemyScale(seconds,143,3);
+  const elite=lateEnemyScale(seconds,143,4),boss=lateEnemyScale(seconds,150,5);
+  for(const stat of ['health','damage'] as const){
+   assert.ok(evolved[stat]>ordinary[stat]);assert.ok(largeMiniboss[stat]>smallMiniboss[stat]);
+   assert.ok(elite[stat]>largeMiniboss[stat]);assert.ok(boss[stat]>elite[stat]);
+  }
+ }
+ assert.deepEqual(lateEnemyScale(900,19,1),{health:1.6,damage:1.25});
+ assert.deepEqual(lateEnemyScale(900,150,5),{health:2.44,damage:1.6});
+ for(const id of [19,148,143,150]){
+  let previous=lateEnemyScale(180,id,getEnemyTier(id));
+  for(const seconds of [240,360,600,900]){
+   const current=lateEnemyScale(seconds,id,getEnemyTier(id));
+   assert.ok(current.health>previous.health&&current.damage>previous.damage);previous=current;
+  }
+  assert.deepEqual(lateEnemyScale(1800,id,getEnemyTier(id)),previous,'Endless adds its own scaling after the full run bonus');
  }
 });
 
@@ -59,7 +90,8 @@ test('species strength and size distinguish minibosses within the same evolution
  assert.equal(charizard.combatTier,3);assert.equal(butterfree.combatTier,3);
  assert.ok(charizard.maxHp>butterfree.maxHp*1.25&&charizard.damage>butterfree.damage*1.8&&charizard.size>butterfree.size*1.4,'Tier-three durability floors retain Charizard\'s greater strength and size');
  s.stats.elapsed=900;const lateWeak=createEnemy(s,rng,19,'normal',0,0);
- for(const enemy of bulky){
+ for(const earlyEnemy of bulky){
+  const enemy=createEnemy(s,rng,earlyEnemy.speciesId,'normal',0,0);
   assert.ok(enemy.maxHp>lateWeak.maxHp*1.5&&enemy.damage>lateWeak.damage*1.5,'A full run of time scaling does not make Rattata stronger than naturally imposing species');
  }
 });

@@ -142,6 +142,6 @@ test('ten simulated minutes of movement remain finite with collision, jump and d
   return {elapsed:s.stats.elapsed,choices,phase:s.phase,x:s.player.x,z:s.player.z};
  }`);
  expect(result.elapsed).toBeGreaterThan(599);expect(result.choices).toBeGreaterThan(0);
- expect(Math.abs(result.x)).toBeLessThanOrEqual(113);expect(Math.abs(result.z)).toBeLessThanOrEqual(113);
+ expect(Math.abs(result.x)).toBeLessThanOrEqual(113*1.25);expect(Math.abs(result.z)).toBeLessThanOrEqual(113*1.25);
  await page.waitForTimeout(100);expect(errors).toEqual([]);
 });

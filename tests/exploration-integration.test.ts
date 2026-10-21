@@ -8,7 +8,7 @@ import {variantThreat} from '../src/data/variants.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function eventFixture(kind:ExplorationEvent['kind']){
- for(let seed=1;seed<2000;seed++)for(const poi of createPOIs(seed))if(rareEventFor(seed,poi)?.kind===kind){
+ for(let seed=1;seed<2000;seed++)for(const poi of createPOIs(seed))if(!poi.availableAt&&poi.price===undefined&&rareEventFor(seed,poi)?.kind===kind){
   const sim=new Simulation(7,seed),s=sim.state,site=s.pois.find(p=>p.uid===poi.uid)!;
   s.enemies=[];s.player.x=site.x;s.player.z=site.z;s.player.hp=20;s.player.specialCooldown=9;s.player.iframes=100;
   s.party.push({...s.party[0],uid:s.idCounter++,hp:20,x:site.x+1,z:site.z});

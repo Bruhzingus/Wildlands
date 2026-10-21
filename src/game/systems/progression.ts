@@ -257,6 +257,36 @@ export function makeChoices(state:RunState,rng:RNG,source:RewardSource='level'):
  return rng.shuffle([...chosen,...weightedUpgradeChoices(remaining,3-chosen.length,rng,luck)]);
 }
 
+/** Keep each rarity slot and exclude every currently displayed option. */
+export function rerollChoices(state:RunState,rng?:RNG):UpgradeChoice[]|null {
+ if(state.phase!=='choice'||!state.upgradeChoices.length)return null;
+ const source=state.choiceSource??'level';
+ const stats=trainingChoices(state),items=availableItemChoices(state);
+ let pool:UpgradeChoice[];
+ if(source==='recruit'){
+  pool=recruitPool(state).map(species=>({id:`recruit-${species.id}`,kind:'recruit',speciesId:species.id,
+   title:`Recruit ${species.name}`,description:`${species.types.join(' / ').toUpperCase()} · ${species.moveName}. Starts at level 1 with its own XP and four move slots. ${growthDescription(species)}`,
+   rarity:'rare',category:'recruitment',rank:state.recruitCount+1,maxRank:DESIGN.recruitUnlockSeconds.length}));
+ }else if(source==='cache')pool=items.length?items:stats;
+ else if(source==='shop')pool=[...items,...stats];
+ else if(source==='squad')pool=stats;
+ else pool=[...moveChoices(state),...learnedMoveChoices(state),...evolutionChoices(state),...stats];
+ const sameOption=(a:UpgradeChoice,b:UpgradeChoice)=>a.id===b.id||
+  (a.kind==='stat'&&b.kind==='stat'&&a.stat===b.stat);
+ pool=pool.filter(choice=>!state.upgradeChoices.some(old=>sameOption(choice,old)));
+ if(rng)pool=rng.shuffle(pool);
+ const selected:UpgradeChoice[]=[];
+ const fill=(slot:number):boolean=>{
+  if(slot===state.upgradeChoices.length)return true;
+  for(const choice of pool){
+   if(choice.rarity!==state.upgradeChoices[slot].rarity||selected.some(other=>sameOption(choice,other)))continue;
+   selected.push(choice);if(fill(slot+1))return true;selected.pop();
+  }
+  return false;
+ };
+ return fill(0)?selected.map(choice=>({...choice})):null;
+}
+
 export function toRoman(n:number):string {
  n=Math.max(1,Math.floor(n));
  if(n>=40)return String(n);

@@ -1,8 +1,9 @@
 import {getEnemySpeciesProfile} from '../../data/enemySpecies.ts';
 import {ENEMY_TIER_TUNING,getEnemyTier,type EnemyTier} from '../../data/enemyTiers.ts';
 import {ELITE_THREAT,maximumEncounterThreat,selectEncounter,type SpeciesTier} from '../../data/encounters.ts';
+import {challengeRules} from '../../data/challenges.ts';
 import {RNG,clamp} from '../../utils/random.ts';
-import {DESIGN,DIFFICULTY,ordinaryThreatScale} from '../../data/config.ts';
+import {DESIGN,DIFFICULTY,LATE_ENEMY_SCALING,ordinaryThreatScale} from '../../data/config.ts';
 import {getVariant,SPAWN_VARIANTS,variantThreat,variantWeights} from '../../data/variants.ts';
 import type {Enemy,Player,RunState,Variant,Vec2} from '../types.ts';
 import {getBuildModifiers} from './builds.ts';
@@ -10,6 +11,16 @@ import {getBuildModifiers} from './builds.ts';
 export function averagePartyLevel(state:RunState):number {
  const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0);
  return living.length?living.reduce((sum,member)=>sum+member.level,0)/living.length:1;
+}
+/** Apply after durability floors so even the largest encounters receive the boost. */
+export function lateEnemyScale(elapsed:number,speciesId:number,tier:EnemyTier):{health:number;damage:number} {
+ const tuning=LATE_ENEMY_SCALING;
+ if(elapsed<tuning.startsAt)return {health:1,damage:1};
+ const progress=clamp((elapsed-tuning.startsAt)/(DESIGN.runSeconds-tuning.startsAt),0,1);
+ const strength=clamp((getEnemySpeciesProfile(speciesId).strength-1)/9,0,1);
+ const emphasis=1+strength*tuning.strengthWeight+(tier-1)/4*tuning.tierWeight;
+ return {health:1+(tuning.healthAtStart+(tuning.healthAtEnd-tuning.healthAtStart)*progress)*emphasis,
+  damage:1+(tuning.damageAtStart+(tuning.damageAtEnd-tuning.damageAtStart)*progress)*emphasis};
 }
 /** Time drives endurance. Party investment adds at most 20% HP and 8% damage,
  * only to newly spawned enemies; movement and attack timing remain readable. */
@@ -36,9 +47,10 @@ export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Vari
  const combatTier=tierOverride??getEnemyTier(speciesId,variant,boss),tuning=combatTier===3?ENEMY_TIER_TUNING.tier3:combatTier===4?ENEMY_TIER_TUNING.tier4:undefined;
  const baseHp=(22+profile.strength*5+t*.75)*(1+t*.035)*profile.health*mod.hp*(elite&&combatTier<=2?DIFFICULTY.eliteHp:1)*(boss?4.6:1)*progression.health;
  const floor=tuning?(tuning.minimumHealth+state.stats.elapsed*tuning.healthPerSecond)*(.65+profile.strength*.055)*(1+progression.party):0;
- const hp=Math.max(baseHp*(tuning?.healthMultiplier??1),floor);
- const damageScale=(boss?1.35:ordinaryThreatScale(state.stats.elapsed)*(elite?DIFFICULTY.eliteDamage:1))*progression.damage;
- return {uid:state.idCounter++,speciesId,variant,combatTier,attackIndex:0,x,z,hp,maxHp:hp,speed:(2.8+t*.035)*profile.speed*mod.speed*(state.challenge==='quickened'?1.20:1),damage:(6+profile.strength*1.2+t*.3)*profile.damage*mod.damage*damageScale*(tuning?.damageMultiplier??1),size:boss?4.4:profile.size*(elite?1.22:1)*(tuning?.sizeMultiplier??1),hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
+ const late=lateEnemyScale(state.stats.elapsed,speciesId,combatTier);
+ const hp=Math.max(baseHp*(tuning?.healthMultiplier??1),floor)*late.health;
+ const damageScale=(boss?1.35:ordinaryThreatScale(state.stats.elapsed)*(elite?DIFFICULTY.eliteDamage:1))*progression.damage*challengeRules(state.challenge).damageScale*late.damage;
+ return {uid:state.idCounter++,speciesId,variant,combatTier,attackIndex:0,x,z,hp,maxHp:hp,speed:(2.8+t*.035)*profile.speed*mod.speed*challengeRules(state.challenge).speedScale,damage:(6+profile.strength*1.2+t*.3)*profile.damage*mod.damage*damageScale*(tuning?.damageMultiplier??1),size:boss?4.4:profile.size*(elite?1.22:1)*(tuning?.sizeMultiplier??1),hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
 }
 /** Optional landmark fights scale with the run's growing party and move budget. */
 export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false,tier=1):Enemy {
@@ -46,14 +58,15 @@ export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,
  const variant=hardShrine&&getEnemyTier(speciesId)===3?'rocket':'normal';
  const guardianTier=hardShrine?4:Math.max(3,getEnemyTier(speciesId)) as EnemyTier;
  const guardian=createEnemy(state,rng,speciesId,variant,x,z,true,false,guardianTier);
+ const late=lateEnemyScale(state.stats.elapsed,speciesId,guardianTier);
  guardian.hardShrine=hardShrine;
- guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,DIFFICULTY.guardianBaseHp+averagePartyLevel(state)*DIFFICULTY.guardianHpPerLevel+state.stats.elapsed*DIFFICULTY.guardianHpPerSecond);
+ guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,(DIFFICULTY.guardianBaseHp+averagePartyLevel(state)*DIFFICULTY.guardianHpPerLevel+state.stats.elapsed*DIFFICULTY.guardianHpPerSecond)*late.health);
  guardian.damage*=DIFFICULTY.guardianDamage;guardian.attackCooldown=.7;
  if(shrine){
   const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0).length;
-  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,1800+averagePartyLevel(state)*240+state.stats.elapsed*2)*(1+.22*(living-1))*(1+.22*(tier-1));
+  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,(1800+averagePartyLevel(state)*240+state.stats.elapsed*2)*late.health)*(1+.22*(living-1))*(1+.22*(tier-1));
   // A real threat even before the ordinary enemy damage ramp begins.
-  guardian.damage=Math.max(guardian.damage,24+averagePartyLevel(state)*.55)*(1+.14*(tier-1));
+  guardian.damage=Math.max(guardian.damage,(24+averagePartyLevel(state)*.55)*challengeRules(state.challenge).damageScale*late.damage)*(1+.14*(tier-1));
  }
  guardian.shrineGuardian=shrine;guardian.landmarkGuardian=true;return guardian;
 }
@@ -81,7 +94,7 @@ export function spawnRandomEnemy(state:RunState,rng:RNG,tuning:SpawnTuning={}):E
   allowTier3:!bossActive&&t-(state.lastTier3Spawn??-Infinity)>=ENEMY_TIER_TUNING.tier3.minimumSpacingSeconds&&living.filter(enemy=>(enemy.combatTier??getEnemyTier(enemy.speciesId,enemy.variant,enemy.isBoss))===3).length<ENEMY_TIER_TUNING.tier3.maxAlive,
   allowTier4:!bossActive&&t-(state.lastTier4Spawn??-Infinity)>=ENEMY_TIER_TUNING.tier4.minimumSpacingSeconds&&living.filter(enemy=>(enemy.combatTier??getEnemyTier(enemy.speciesId,enemy.variant,enemy.isBoss))===4).length<ENEMY_TIER_TUNING.tier4.maxAlive,
  };
- const {speciesId:id,rare}=selectEncounter(rng,t,tuning.speciesTier,tuning.allowRare!==false,rolledVariant,limits);
+ const {speciesId:id,rare}=selectEncounter(rng,t,tuning.speciesTier,tuning.allowRare!==false,rolledVariant,limits,state.mapId);
  const {x,z}=enemySpawnPosition(state.player,rng);
  const variant=rare?'normal':rolledVariant;
  const canBeElite=t>=180&&getEnemySpeciesProfile(id).strength+variantThreat(variant)+ELITE_THREAT<=maximumEncounterThreat(t);

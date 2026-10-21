@@ -64,7 +64,7 @@ test('warning edges conform to slopes and their clock advances only with authori
  }finally{effects.dispose();scene.dispose();engine.dispose();}
 });
 
-test('hostile shots retain elemental silhouettes and danger rims while launch cues never draw a full-length beam',()=>{
+test('hostile shots retain elemental silhouettes without decorative rings while launch cues stay compact',()=>{
  const t=setup();try{
   t.state.projectiles=[
    {...shot(501),friendly:false,type:'poison'},
@@ -76,13 +76,13 @@ test('hostile shots retain elemental silhouettes and danger rims while launch cu
   for(const [i,shape] of ['dart','leaf','spark','egg'].entries()){
    const mesh=t.scene.getMeshByName(`combat-projectile-${501+i}`)! as InstancedMesh;
    assert.ok(mesh.sourceMesh.name.includes(`${shape}/`));
-   assert.ok(t.scene.getMeshByName(`combat-hostile-rim-${501+i}`)?.isEnabled());
+   assert.equal(t.scene.getMeshByName(`combat-hostile-rim-${501+i}`),null);
   }
   t.effects.onEvent({kind:'attack',shape:'psychic-cross',x:0,z:0,toX:20,toZ:0,radius:.15});
   assert.equal(t.scene.getMeshByName('combat-attack-psychic-cross'),null);
   assert.ok(t.scene.getMeshByName('combat-attack-release'));
   t.state.projectiles=[];t.effects.update(t.state,1);
-  assert.ok(t.scene.meshes.filter(m=>m.name.startsWith('combat-hostile-rim-')).every(m=>!m.isEnabled()));
+  assert.equal(t.effects.inspect().projectiles,0);
  }finally{t.dispose();}
 });
 
@@ -113,7 +113,7 @@ test('crowded successive enemy waves keep warning geometry, charge colors and di
    t.state.projectiles=Array.from({length:16},(_,i)=>({...shot(1000+wave*16+i,'lob'),friendly:false,kind:'lob',duration:2,ttl:1,blastX:i,blastZ:0,radius:3.4}));
    t.effects.update(t.state,0);
    assert.equal(t.effects.inspect().windups,32);assert.ok(t.effects.inspect().allocated<=COMBAT_VISUALS.maxPoolInstances);
-   if(wave>1)assert.equal(t.effects.inspect().allocated,80,'48 warning parts + 16 shots + 16 danger rims, reused');
+   if(wave>1)assert.equal(t.effects.inspect().allocated,64,'48 warning parts + 16 shots, reused');
    const a=t.scene.getMeshByName(`combat-charge-${t.state.enemies[0].uid}`)! as InstancedMesh;
    const b=t.scene.getMeshByName(`combat-charge-${t.state.enemies[1].uid}`)! as InstancedMesh;
    assert.notDeepEqual(a.instancedBuffers.instanceColor,b.instancedBuffers.instanceColor,'different types keep independent colors');
@@ -233,5 +233,47 @@ test('area rings lie horizontally and keep a thin height as their range increase
   const positions=ring.getVerticesData(VertexBuffer.PositionKind)!;
   const height=positions.filter((_,index)=>index%3===1);
   assert.ok(Math.max(...height)-Math.min(...height)<.05);
+ }finally{t.dispose();}
+});
+
+test('named shots use recognizable geometry, pause their decorative motion and recycle all accents',()=>{
+ const t=setup();try{
+  const moves=[['Swift','normal','star'],['Surf','water','wave'],['Ember','fire','flame'],['Razor Leaf','grass','leaf'],['Bubble','water','bubble'],['Ice Beam','ice','crystal'],['Gust','flying','gust'],['Pay Day','normal','coin']] as const;
+  for(let volley=0;volley<30;volley++){
+   t.state.projectiles=moves.map(([moveName,type],i)=>({...shot(100+volley*10+i),moveName,type}));
+   t.effects.update(t.state,.04);
+   for(const [i,[,,shape]] of moves.entries()){
+    const mesh=t.scene.getMeshByName(`combat-projectile-${100+volley*10+i}`) as InstancedMesh;
+    assert.ok(mesh.sourceMesh.name.includes(`${shape}/`));
+    assert.ok(t.scene.getMeshByName(`combat-projectile-accent-${100+volley*10+i}`)?.isEnabled());
+    assert.ok(mesh.getVerticesData(VertexBuffer.PositionKind)!.every(Number.isFinite));
+   }
+   const pose=()=>t.scene.meshes.filter(m=>m.isEnabled()).map(m=>[m.position.asArray(),m.rotation.asArray(),m.scaling.asArray()]);
+   const before=pose();t.effects.update(t.state,0);assert.deepEqual(pose(),before);
+   t.state.projectiles=[];t.effects.update(t.state,.04);
+  }
+  assert.equal(t.effects.inspect().allocated,moves.length*2);assert.equal(t.effects.inspect().pooled,moves.length*2);
+ }finally{t.dispose();}
+});
+
+test('Surf crest and foam travel together for the full damaging lifetime, including reduced motion',()=>{
+ const t=setup(true);try{
+  t.effects.onEvent({kind:'special',shape:'wave',label:'Surf',x:0,z:0,toX:0,toZ:12,radius:3.5,duration:1.2,color:'#72b8eb'});
+  const wave=t.scene.getMeshByName('combat-special-wave')!,foam=t.scene.getMeshByName('combat-special-foam')!;
+  const positions=wave.getVerticesData(VertexBuffer.PositionKind)!;
+  assert.ok(Math.max(...positions.filter((_,i)=>i%3===1))>1,'raised crest');
+  assert.ok(Math.min(...positions.filter((_,i)=>i%3===2))<-.8,'wake behind crest');
+  t.effects.update(t.state,.6);assert.equal(wave.position.z,6);assert.deepEqual(foam.position.asArray(),wave.position.asArray());
+  assert.equal(wave.scaling.x,3.5);t.effects.update(t.state,0);assert.equal(wave.position.z,6);
+  t.effects.update(t.state,.61);assert.equal(wave.isEnabled(),false);assert.equal(foam.isEnabled(),false);
+ }finally{t.dispose();}
+});
+
+test('reduced motion keeps star orientation fixed while real projectile positions still update',()=>{
+ const t=setup(true);try{
+  t.state.projectiles=[{...shot(900),moveName:'Swift',type:'normal'}];t.effects.update(t.state,0);
+  const star=t.scene.getMeshByName('combat-projectile-900')!,rotation=star.rotation.asArray();
+  t.state.projectiles[0].x+=3;t.effects.update(t.state,.2);
+  assert.deepEqual(star.rotation.asArray(),rotation);assert.equal(star.position.x,5);
  }finally{t.dispose();}
 });

@@ -211,7 +211,7 @@ const starterFamilies:readonly [readonly number[],AttackTuning][]=[
  [[92,93,94],{pattern:'haunt',kind:'aura',range:8,radius:0,projectiles:2,speed:12,lifetime:2.2,orbitRadius:3,orbitSpeed:3,pierce:4,cooldown:2,damageScale:.7,silhouette:'orb',status:{poison:.35,slow:.3},
   description:'Ghost wisps orbit their owner, haunting enemies that cross the ring. Training adds wisps and widens the ring.',
   growth:{damage:3.4,range:.22,radius:0},milestones:[{rank:2,description:'Wider haunting orbit',orbitRadius:4},{rank:5,description:'Three ghost wisps',projectiles:3},{rank:7,description:'Four wisps reach more enemies',projectiles:4,pierce:7}]}],
- [[133],{pattern:'swift',kind:'bolt',range:16,speed:19,projectiles:2,pierce:0,turnRate:10,cooldown:1.05,damageScale:.7,silhouette:'needle',
+ [[133],{pattern:'swift',kind:'bolt',range:16,speed:19,projectiles:2,pierce:0,turnRate:10,cooldown:1.05,damageScale:.7,silhouette:'star',
   description:'Swift stars seek separate enemies, spreading damage across the crowd. Training adds independent seeking stars.',
   growth:{damage:3.3,range:.35,radius:0},milestones:[{rank:3,description:'Three independently seeking stars',projectiles:3},{rank:6,description:'Four stars pierce once',projectiles:4,pierce:1},{rank:8,description:'Six seeking stars',projectiles:6}]}],
 ];

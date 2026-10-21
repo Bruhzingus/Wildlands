@@ -37,7 +37,7 @@ function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
    behavior:orbit?'orbit':profile.kind==='payday'?'ricochet':homing?'homing':'straight',
    bounces:profile.kind==='payday'?2+Math.floor((member.attackLevel-1)/3):0,bounceRange:7,
    orbitCenterX:origin.x,orbitCenterZ:origin.z,orbitAngle:angle,orbitRadius:profile.radius,orbitSpeed:2.8,
-   status:profile.kind==='web'?{slow:1,stun:1}:orbit?{burn:1}:{},allowProcs:true});
+   status:profile.kind==='web'?{slow:1,stun:1}:orbit?{burn:1}:{},allowProcs:true,moveName:profile.name});
  }
 }
 function lineHit(context:SpecialContext,from:Vec2,to:Vec2,radius:number,scale:number,status:StatusProc={},forward?:Vec2):void {
@@ -79,14 +79,17 @@ export function castSpecial(context:SpecialContext):void {
   return;
  }
  if(profile.kind==='teleport'){
-  // Blink away from the nearest threat using the same world collision as walking.
-  const destination=context.move(-dx*6,-dz*6);state.player.x=member.x=destination.x;state.player.z=member.z=destination.z;
-  const focus=target??aim,lanceX=manualFacing===undefined?focus.x-destination.x:dx,lanceZ=manualFacing===undefined?focus.z-destination.z:dz,lanceDistance=Math.hypot(lanceX,lanceZ)||1;
-  const reach=profile.range+Math.hypot(destination.x-origin.x,destination.z-origin.z);
-  const lance={x:destination.x+lanceX/lanceDistance*reach,z:destination.z+lanceZ/lanceDistance*reach};
-  member.facing=Math.atan2(lanceX,lanceZ);
-  visual('teleport',origin,{toX:destination.x,toZ:destination.z});lineHit(context,destination,lance,profile.radius,profile.damageScale,{stun:1});
-  context.visual({kind:'attack',x:destination.x,z:destination.z,toX:lance.x,toZ:lance.z,color,sourceId:member.uid,shape:'beam',radius:profile.radius,duration:.35});return;
+  // Resolve the lance path against scenery before blinking so its tip and landing spot agree.
+  for(let distance=0;distance<profile.range;distance+=.4){
+   const step=Math.min(.4,profile.range-distance),before={x:state.player.x,z:state.player.z},next=context.move(dx*step,dz*step);
+   state.player.x=next.x;state.player.z=next.z;
+   if((next.x-before.x)*dx+(next.z-before.z)*dz<step*.1)break;
+  }
+  const lance={x:state.player.x,z:state.player.z};
+  member.x=lance.x;member.z=lance.z;member.facing=facing;
+  lineHit(context,origin,lance,profile.radius,profile.damageScale,{stun:1},{x:dx,z:dz});
+  context.visual({kind:'attack',x:origin.x,z:origin.z,toX:lance.x,toZ:lance.z,color,sourceId:member.uid,shape:'beam',radius:profile.radius,duration:.35});
+  visual('teleport',origin,{toX:lance.x,toZ:lance.z});return;
  }
  if(profile.kind==='lance'){
   visual('beam',origin,{toX:aim.x,toZ:aim.z});lineHit(context,origin,aim,profile.radius,profile.damageScale);return;

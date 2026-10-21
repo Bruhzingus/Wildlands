@@ -20,8 +20,8 @@ function arena(kind:POI['kind']='shrine'){
 test('seeded treasure offers one chest of each tier and two permanent discovery caches',()=>{
  for(const seed of [1,194,999]){
   const treasure=createPOIs(seed).filter(p=>p.kind==='cache');
-  assert.deepEqual(treasure.filter(p=>p.price!==undefined).map(p=>p.rarity),['common','rare','epic']);
-  assert.equal(treasure.filter(p=>p.price===undefined).length,2);
+  assert.deepEqual(treasure.filter(p=>p.price!==undefined).slice(0,3).map(p=>p.rarity),['common','rare','epic']);
+  assert.equal(treasure.filter(p=>p.price===undefined&&!p.availableAt).length,2);
  }
 });
 

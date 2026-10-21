@@ -114,11 +114,42 @@ test('Flame Charge trail pulses hit forward newcomers while excluding the rear o
  assert.equal(rear.hp,rear.maxHp,'A later trail pulse must preserve the original forward boundary');
 });
 
-test('Teleport Lance retains enough reach to hit the selected distant target after blinking away',()=>{
+test('Teleport Lance pierces a distant target and lands Abra at the beam endpoint',()=>{
  const {sim,s,events}=arena(63),target=foe(sim,0,18);
  sim.update(.02,{...idle,special:true});
- assert.ok(s.player.z<-5);assert.ok(target.hp<target.maxHp);
- assert.ok(events.some(event=>event.shape==='beam'&&(event.toZ??0)>=18));
+ const beam=events.find(event=>event.shape==='beam');
+ assert.ok(target.hp<target.maxHp);assert.ok(beam&&(beam.toZ??0)>=18);
+ assert.ok(Math.hypot(s.player.x-beam.toX!,s.player.z-beam.toZ!)<1e-8);
+ assert.ok(events.some(event=>event.shape==='teleport'&&event.toZ===beam.toZ));
+});
+
+test('Abra dodges with an instant, longer teleport while other starters keep their moving dash',()=>{
+ const abra=arena(63),ordinary=arena(19);
+ for(const {sim} of [abra,ordinary])sim.update(.02,{...idle,mz:1,dodge:true});
+ const abraDistance=abra.s.player.z,ordinaryDistance=ordinary.s.player.z;
+ assert.ok(abraDistance>DESIGN.dodgeSpeed*DESIGN.dodgeSeconds,'Abra lands beyond the normal full dash range in one frame');
+ assert.ok(ordinaryDistance<DESIGN.dodgeSpeed*.03,'The regular dash has only begun after one frame');
+ assert.equal(abra.s.player.dodgeTime,0);assert.ok(ordinary.s.player.dodgeTime>0);
+ assert.ok(abra.events.some(event=>event.kind==='dash'&&event.shape==='teleport'&&event.toZ===abra.s.player.z));
+ assert.ok(ordinary.events.some(event=>event.kind==='dash'&&event.shape===undefined));
+});
+
+test('Abra teleport endpoints stop at solid scenery',()=>{
+ const setup=()=>{
+  const battle=arena(63),rock=createEnvironment(battle.s.seed,battle.s.pois).obstacles.find(obstacle=>obstacle.kind==='circle'&&obstacle.radius>.8)!;
+  assert.equal(rock.kind,'circle');if(rock.kind!=='circle')throw new Error('Expected a rock');
+  battle.s.player.x=rock.x-rock.radius-DESIGN.playerRadius-1;
+  battle.s.player.z=rock.z;
+  battle.s.party[0].x=battle.s.player.x;battle.s.party[0].z=battle.s.player.z;
+  return {...battle,rock};
+ };
+ const dash=setup();dash.sim.update(.02,{...idle,mx:1,dodge:true});
+ assert.ok(dash.s.player.x<dash.rock.x);
+ assert.ok(Math.hypot(dash.s.player.x-dash.rock.x,dash.s.player.z-dash.rock.z)>=dash.rock.radius+DESIGN.playerRadius-1e-6);
+ const lance=setup();lance.sim.update(.02,{...idle,aimX:1,aimZ:0,special:true});
+ const beam=lance.events.find(event=>event.shape==='beam');
+ assert.ok(beam);assert.ok(lance.s.player.x<lance.rock.x);
+ assert.ok(Math.hypot(lance.s.player.x-beam.toX!,lance.s.player.z-beam.toZ!)<1e-8);
 });
 
 test('adding a projectile to silk and coin fans preserves a direct shot at the selected distant enemy',()=>{

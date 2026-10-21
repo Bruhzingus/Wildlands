@@ -412,6 +412,8 @@ Expand the versioned local save schema without disrupting existing saves. Perman
 
 ## Phase 15 — New maps, bosses and replay hooks
 
+Implemented 2026-10-20, including the requested 25% expansion of every map. See [the phase 15 handoff](docs/PHASE_15_REPORT.md) for scope, exact verification and limitations.
+
 ```text
 Create a clean MapDefinition and EncounterDefinition registry so new maps reuse the same movement/combat/progression engine. Add one fresh map (e.g. volcanic ridge or coastal marsh), not a massive open world, with a new environment palette, geography, spawn weighting, unique optional landmarks and legendary encounter. Ensure quality/pacing remains consistent. Add 2 challenge mutations (enemy speed +20%, no healing, etc.) and one alternate boss. Keep art cheap, mostly primitives and reusable materials. Success: maps can be added without changing core Simulation combat logic.
 ```

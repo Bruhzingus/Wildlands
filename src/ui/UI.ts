@@ -11,7 +11,8 @@ import './pokemonProgression.css';
 import {loadSettings,saveSettings,type GameSettings} from '../game/settings.ts';
 import {getBuildSummary} from '../game/systems/builds.ts';
 import {distance2} from '../utils/random.ts';
-import {BIOMES,LANDMARKS,WORLD} from '../data/world.ts';
+import {worldProfile,siteAvailable,type WorldProfile} from '../data/maps.ts';
+import {mapEncounter} from '../data/encounters.ts';
 import {biomeAt} from '../game/systems/environment.ts';
 import {layoutMapMarkers,projectMapPoint,MAP_SIZE,type MapMarker} from './minimap.ts';
 import {VARIANTS,SPAWN_VARIANTS} from '../data/variants.ts';
@@ -21,7 +22,7 @@ import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
 import {PROGRESSION,nextMilestone} from '../data/progression.ts';
 import {CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
-import {xpThreshold} from '../game/systems/progression.ts';
+import {rerollChoices,xpThreshold} from '../game/systems/progression.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const fmt=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(Math.floor(n%60)).padStart(2,'0')}`;
@@ -34,11 +35,12 @@ export class UI {
  private lastPhase='';private lastChoices='';private toastTimer=0;private focusFrame=0;private listeners=new AbortController();
  private imageLoads=new Map<HTMLImageElement,HTMLImageElement>();
  private captureHint='Resume locks the mouse for continuous camera control. Esc pauses and releases it.';
- private mapBase:HTMLCanvasElement|null=null;private mapSeed:number|null=null;
+ private mapBase:HTMLCanvasElement|null=null;private mapSeed:string|null=null;private mapProfile:WorldProfile|null=null;
  private previousParty=new Map<number,string>();private previousFaints=0;private previousElapsed=0;
  private faintNotice='';private faintUntil=0;private readyUntil=0;private readyNotice='';private cooldowns:Record<string,boolean>={};
  onStart:(id:number)=>void=()=>{};onPick:(id:string)=>void=()=>{};onResume:()=>void=()=>{};onRestart:()=>void=()=>{};onEndless:()=>void=()=>{};
  onSettingsChange:(settings:GameSettings)=>void=()=>{};
+ onReroll:()=>void=()=>{};
  settings=loadSettings();
  private save:SaveData;
  private progressionResult='';
@@ -124,7 +126,7 @@ export class UI {
 
  private focusFirst(){cancelAnimationFrame(this.focusFrame);this.focusFrame=requestAnimationFrame(()=>{if(!this.overlay.classList.contains('hidden'))this.content.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});});}
 
- update(s:RunState){const choices=s.phase==='choice'?JSON.stringify([s.upgradeChoices,s.levelUpMemberId,s.party.find(member=>member.uid===s.levelUpMemberId)?.level,s.pendingLevelUps?.length,s.choiceTitle]):'';
+ update(s:RunState){const choices=s.phase==='choice'?JSON.stringify([s.upgradeChoices,s.rerolls,s.levelUpMemberId,s.party.find(member=>member.uid===s.levelUpMemberId)?.level,s.pendingLevelUps?.length,s.choiceTitle]):'';
   if(s.phase!==this.lastPhase||choices!==this.lastChoices){this.lastPhase=s.phase;this.lastChoices=choices;this.displayPhase(s);}
   if(s.phase==='playing'||s.phase==='boss'||s.phase==='choice')this.refresh(s);
  }
@@ -142,6 +144,9 @@ export class UI {
   const context=owner?`<div class="choice-pokemon" data-level-owner="${owner.uid}">${this.portrait(owner.speciesId)}<div><strong>${esc(getSpecies(owner.speciesId).name)} <span>LV ${owner.level}</span></strong><span>${1+(owner.learnedMoves?.length??0)} / 4 moves${queued?` · ${queued} more milestone ${queued===1?'reward':'rewards'}`:''}</span></div></div>`:'';
   this.content.innerHTML=`<div class="choice-screen"><div class="eyebrow">${owner?'POKÉMON MILESTONE':'SQUAD UPGRADE'} / GAME PAUSED</div>${context}<h2>${esc(s.choiceTitle)}</h2><div class="choices">${s.upgradeChoices.map((c,i)=>this.upgradeCard(c,i,s)).join('')}</div><p class="subtle">Click a card or press ${s.upgradeChoices.map((_,i)=>i+1).join(', ')} to choose</p></div>`;
   this.content.querySelectorAll<HTMLElement>('[data-choice]').forEach(el=>el.addEventListener('click',()=>this.onPick(el.dataset.choice!)));
+  const canReroll=(s.rerolls??0)>0&&rerollChoices(s)!==null;
+  this.content.querySelector('.choice-screen')!.insertAdjacentHTML('beforeend',`<div class="choice-reroll"><button type="button" data-reroll ${canReroll?'':'disabled'}>Reroll (${s.rerolls??0})</button><p class="subtle">+1 reroll every 5 minutes of play · Next in ${fmt(PROGRESSION.rerolls.intervalSeconds-s.stats.elapsed%PROGRESSION.rerolls.intervalSeconds)}<br>All options change. Rarities stay in the same slots.${(s.rerolls??0)>0&&!canReroll?'<br>No complete set of new options is available.':''}</p></div>`);
+  this.content.querySelector('[data-reroll]')!.addEventListener('click',()=>this.onReroll());
   this.imageFallbacks(this.content);this.focusFirst();
  }
 
@@ -164,7 +169,7 @@ export class UI {
  }
 
  private showResult(s:RunState){const victory=s.result==='victory';
-  this.content.innerHTML=`<div class="end-screen"><div class="eyebrow">RUN COMPLETE</div><h2>${victory?'Victory':'Game over'}</h2><p>${victory?'Mewtwo defeated. Keep going?':'Choose a partner and try again.'}</p><div class="result-stats"><div><strong>${fmt(s.stats.elapsed)}</strong><span>TIME</span></div><div><strong>${s.stats.kills}</strong><span>DEFEATED</span></div><div><strong>${s.party.length}</strong><span>PARTY</span></div><div><strong>${s.stats.faints}</strong><span>FAINTED</span></div></div><div class="pause-buttons">${victory?'<button id="endless-btn" class="btn btn-primary">Continue endless</button>':''}<button id="restart-btn" class="btn ${victory?'btn-ghost':'btn-primary'}">New run</button></div>${this.buildSummary(s)}${this.progressionResult}</div>`;
+  this.content.innerHTML=`<div class="end-screen"><div class="eyebrow">RUN COMPLETE</div><h2>${victory?'Victory':'Game over'}</h2><p>${victory?`${mapEncounter(s.mapId).boss.name} defeated. Keep going?`:'Choose a partner and try again.'}</p><div class="result-stats"><div><strong>${fmt(s.stats.elapsed)}</strong><span>TIME</span></div><div><strong>${s.stats.kills}</strong><span>DEFEATED</span></div><div><strong>${s.party.length}</strong><span>PARTY</span></div><div><strong>${s.stats.faints}</strong><span>FAINTED</span></div></div><div class="pause-buttons">${victory?'<button id="endless-btn" class="btn btn-primary">Continue endless</button>':''}<button id="restart-btn" class="btn ${victory?'btn-ghost':'btn-primary'}">New run</button></div>${this.buildSummary(s)}${this.progressionResult}</div>`;
   q('#restart-btn').addEventListener('click',()=>this.onRestart());if(victory)q('#endless-btn').addEventListener('click',()=>this.onEndless());this.imageFallbacks(this.content);this.focusFirst();
  }
 
@@ -199,8 +204,8 @@ export class UI {
   q('#clock').textContent=fmt(stats.elapsed);q('#kills').textContent=String(stats.kills);
   q('#coins').textContent=String(s.coins??0);
   q('#progress-fill').style.width=`${Math.min(100,stats.elapsed/900*100)}%`;
-  q('#danger').textContent=boss?'LEGENDARY ENCOUNTER':s.director?.bossWarning?`MEWTWO APPROACHES / ${Math.ceil(s.director.bossCountdown)}s`:(s.director?.title??'QUIET MEADOW').toUpperCase();
-  const biome=BIOMES[biomeAt(p.x,p.z)];q('#map-region').textContent=biome.name.toUpperCase();
+  q('#danger').textContent=boss?'LEGENDARY ENCOUNTER':s.director?.bossWarning?`${mapEncounter(s.mapId).boss.name.toUpperCase()} APPROACHES / ${Math.ceil(s.director.bossCountdown)}s`:(s.director?.title??'QUIET MEADOW').toUpperCase();
+  const profile=this.profile(s),biome=profile.definition.palette[biomeAt(p.x,p.z,profile)];q('#map-region').textContent=biome.name.toUpperCase();
   q('#leader-name').textContent=getSpecies(s.party[0].speciesId).name.toUpperCase();
   q('#health-text').textContent=`${Math.ceil(p.hp)} / ${Math.ceil(p.maxHp)}${p.poisonTime>0?' / POISON':''}`;q('#hp-fill').style.width=`${percent(p.hp,p.maxHp)}%`;
   const critical=p.hp/p.maxHp<.25;
@@ -237,7 +242,7 @@ export class UI {
    unit.setAttribute('aria-label',`${summary.replace(/\n/g,', ')}, ${Math.ceil(hp)} of ${Math.ceil(maxHp)} HP${low?', critical health':''}`);
   });
   this.refreshPartyAlert(s);
-  const near=s.pois.find(poi=>(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge);
+  const near=s.pois.find(poi=>siteAvailable(poi,stats.elapsed)&&(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge);
   const interaction=q('#interaction');interaction.classList.toggle('hidden',!near);
   if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,seconds=Math.ceil((near.challenge?.endsAt??near.respawnAt??0)-s.stats.elapsed),signature=`${near.uid}/${cost}/${affordable}/${seconds}/${near.used}/${shrineTier(s,near)}`;
    if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;
@@ -245,15 +250,16 @@ export class UI {
      :near.used?`${near.kind==='shrine'?'Shrine recharges':'Chest restocks'} in ${seconds}s`
      :near.kind==='cache'&&near.price!==undefined?`${chestRarity(s,near).toUpperCase()} chest · ${affordable?'Choose relic':'Need'} ${cost} coins`
      :({cache:'Open discovery cache · One use',shrine:`Tier ${shrineTier(s,near)} shrine · DANGER: Lv ${SHRINE.recommendedLevel}+ squad recommended · ${SHRINE.duration}s trial, ${SHRINE.radius}m boundary · Relic + training`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
-    interaction.innerHTML=`${near.used?'':'<span class="kbd">E</span> '}${label}`;interaction.classList.toggle('unaffordable',!affordable&&!near.used);
+    interaction.innerHTML=`${near.used?'':'<span class="kbd">E</span> '}${near.name?`${esc(near.name)} · `:''}${label}`;interaction.classList.toggle('unaffordable',!affordable&&!near.used);
    }
   }
   this.drawMap(s);
   q('#boss-bar').classList.toggle('hidden',!boss);
   if(boss){
    q('#boss-hp-fill').style.width=`${percent(boss.hp,boss.maxHp)}%`;
-   const hints={volley:'PSYSTRIKE · Move off the aim line',psychicRing:'PSYCHIC · Jump or dodge through the wave',summon:'TELEPORT · Reinforcements incoming',slam:`${(boss.windup?.moveName??'Psyshock').toUpperCase()} · Leave the marked area`,enemyMove:`${boss.windup?.moveName??'ATTACK'} · Leave the marked area`};
-   q('#boss-action').textContent=boss.windup?hints[boss.windup.kind]:(s.psychicRings?.length?'PSYCHIC RING · Jump or dodge through the wave':'MEWTWO / LEGENDARY');
+   const encounter=mapEncounter(s.mapId).boss;
+   const hints={volley:`${encounter.moves.volley.toUpperCase()} · Move off the aim line`,psychicRing:`${encounter.moves.psychicRing.toUpperCase()} · Jump or dodge through the wave`,summon:`${encounter.moves.summon.toUpperCase()} · Reinforcements incoming`,slam:`${(boss.windup?.moveName??'Psyshock').toUpperCase()} · Leave the marked area`,enemyMove:`${boss.windup?.moveName??'ATTACK'} · Leave the marked area`};
+   q('#boss-action').textContent=boss.windup?hints[boss.windup.kind]:(s.psychicRings?.length?`${encounter.moves.psychicRing.toUpperCase()} RING · Jump or dodge through the wave`:`${encounter.name.toUpperCase()} / LEGENDARY`);
   }
  }
 
@@ -280,22 +286,28 @@ export class UI {
   this.previousParty=new Map(s.party.map(member=>[member.uid,getSpecies(member.speciesId).name]));this.previousFaints=s.stats.faints;this.previousElapsed=elapsed;
  }
 
+ private profile(s:RunState){
+  const key=`${s.seed}:${s.mapId??'wildlands'}`;
+  if(!this.mapProfile||this.mapSeed!==key){this.mapProfile=worldProfile(s.seed,s.mapId);this.mapSeed=key;this.mapBase=null;}
+  return this.mapProfile;
+ }
  private drawMap(s:RunState){
   const canvas=q<HTMLCanvasElement>('#minimap');if(!canvas)return;
   const context=canvas.getContext('2d');if(!context)return;
-  if(!this.mapBase||this.mapSeed!==s.seed){
-   this.mapSeed=s.seed;this.mapBase=document.createElement('canvas');this.mapBase.width=MAP_SIZE;this.mapBase.height=MAP_SIZE;
+  const profile=this.profile(s);
+  if(!this.mapBase){
+   this.mapBase=document.createElement('canvas');this.mapBase.width=MAP_SIZE;this.mapBase.height=MAP_SIZE;
    const base=this.mapBase.getContext('2d')!;base.fillStyle='#1c261f';base.fillRect(0,0,MAP_SIZE,MAP_SIZE);
    const scale=146/(DESIGN.mapRadius*2);
-   for(let x=10;x<156;x+=4)for(let y=10;y<156;y+=4){base.fillStyle=BIOMES[biomeAt((x-83)/scale,(83-y)/scale)].mapColor;base.fillRect(x,y,4,4);}
-   const pond=projectMapPoint(WORLD.lake);base.fillStyle='#96bdc0';base.beginPath();base.arc(pond.x,pond.y,WORLD.lake.waterRadius*scale,0,Math.PI*2);base.fill();
+   for(let x=10;x<156;x+=4)for(let y=10;y<156;y+=4){base.fillStyle=profile.definition.palette[biomeAt((x-83)/scale,(83-y)/scale,profile)].mapColor;base.fillRect(x,y,4,4);}
+   const pond=projectMapPoint(profile.lake);base.fillStyle=profile.definition.waterColor;base.beginPath();base.arc(pond.x,pond.y,profile.lake.waterRadius*scale,0,Math.PI*2);base.fill();
    base.strokeStyle='#bcc4a5';base.lineWidth=1;base.strokeRect(9.5,9.5,147,147);
    base.fillStyle='#e8ebda';base.font='bold 8px monospace';base.textAlign='center';base.fillText('N',83,8);
   }
   context.clearRect(0,0,MAP_SIZE,MAP_SIZE);context.drawImage(this.mapBase,0,0);
   const boss=s.enemies.find(e=>e.isBoss&&!e.dead),markers:MapMarker[]=[{...s.player,id:'player',kind:'player',priority:3,radius:6},
-   ...s.pois.filter(p=>!p.used||p.respawnAt!==undefined||p.challenge).map(p=>({...p,rarity:chestRarity(s,p),id:`poi-${p.uid}`,priority:p.challenge?2:1,kind:p.kind,radius:3.5})),
-   ...LANDMARKS.map(p=>({...p,id:p.id,kind:'landmark' as const,priority:0,radius:4,label:p.initial}))];
+   ...s.pois.filter(p=>siteAvailable(p,s.stats.elapsed)&&(!p.used||p.respawnAt!==undefined||p.challenge)).map(p=>({...p,rarity:chestRarity(s,p),id:`poi-${p.uid}`,priority:p.challenge?2:1,kind:p.kind,radius:3.5})),
+   ...profile.landmarks.map(p=>({...p,id:p.id,kind:'landmark' as const,priority:0,radius:4,label:p.initial}))];
   if(boss)markers.push({...boss,id:'boss',kind:'boss',priority:2,radius:5});
   const placed=layoutMapMarkers(markers);canvas.dataset.markers=String(placed.length);
   for(const marker of [...placed].reverse()){

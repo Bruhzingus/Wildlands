@@ -1,6 +1,6 @@
 # Pokémon Wildlands — Browser Roguelite Prototype
 
-Third-person low-poly Pokémon squad roguelite with automatic attacks, manual jump/dodge/special, paused upgrade selections, delayed first-stage recruitment, evolution, follower permanent fainting, enemy variants, a 15-minute Mewtwo boss and endless continuation. Includes Kanto 151 registry.
+Third-person low-poly Pokémon squad roguelite with automatic attacks, manual jump/dodge/special, paused upgrade selections, delayed first-stage recruitment, evolution, follower permanent fainting, enemy variants, a 15-minute map legendary boss and endless continuation. Includes Kanto 151 registry.
 
 ## Run
 
@@ -37,7 +37,7 @@ The source ZIP does not contain downloaded Pokémon images. All 151 Pokémon hav
 
 ## Current verification status
 
-Roadmap phases 00–02 and 04–14 are implemented. The game includes 151 curated species, protected progression, 36 passive relics, 12 synergies, identifiable enemy factions, four biomes, a three-pattern Mewtwo fight and scaling endless play. New polish includes clearer HP/party/cooldown feedback, original quiet synth audio, saved comfort controls, automatic/manual graphics, collectible partners, ten achievements, finite side unlocks and reviewed save import/export. See [the phases 10–14 handoff](docs/PHASES_10_14_REPORT.md), with detailed reports for [roster quality](docs/PHASE_11_REPORT.md), [run telemetry](docs/PHASE_12_REPORT.md), [performance](docs/PHASE_13_REPORT.md) and [collection/saves](docs/PHASE_14_REPORT.md). [Asset coverage](docs/ASSET_COVERAGE.md) records all 151 species. Human comfort/balance sessions and target-hardware GPU measurements remain outstanding; automated scripts are labeled separately.
+Roadmap phases 00–02 and 04–15 are implemented. The game includes 151 curated species, protected progression, 36 passive relics, 12 synergies, identifiable enemy factions, four biomes per map, Mewtwo and Moltres fights and scaling endless play. New polish includes clearer HP/party/cooldown feedback, original quiet synth audio, saved comfort controls, automatic/manual graphics, collectible partners, ten achievements, finite side unlocks and reviewed save import/export. See [the phases 10–14 handoff](docs/PHASES_10_14_REPORT.md), with detailed reports for [roster quality](docs/PHASE_11_REPORT.md), [run telemetry](docs/PHASE_12_REPORT.md), [performance](docs/PHASE_13_REPORT.md) and [collection/saves](docs/PHASE_14_REPORT.md). Phase 15 adds [expanded maps and replay hooks](docs/PHASE_15_REPORT.md). [Asset coverage](docs/ASSET_COVERAGE.md) records all 151 species. Human comfort/balance sessions and target-hardware GPU measurements remain outstanding; automated scripts are labeled separately.
 
 Title and pause settings include separate Sound/Music volumes (quiet defaults: 18%/7%), camera shake, hit pause and reduced flashes. System reduced motion disables impact shake/hit pause and damage flashes. Audio unlocks after a user gesture; pause/blur stop combat and ambient audio. All sounds are generated locally without audio downloads.
 
@@ -58,3 +58,5 @@ npm run profile:reliability
 ```
 
 The progression experiment maintains party health and approaches targets for close-range attacks to isolate recruitment pacing. Combat stress uses stationary, non-retaliating targets without maintaining party health. Boss pacing uses isolated seeded fights with scripted movement, jumps and dodges, with no forced healing. These do not establish human balance or target-hardware rendering performance.
+
+Every map is now **287.5 × 287.5 m**, 25% wider and deeper (+56.25% area). Runs have eighteen initial discoveries instead of twelve, plus a spring at 3:00, a free salvage cache at 7:00 and an optional champion at 11:00. Seeded orientation, lake placement, rolling terrain, outer discovery types and scenery vary between runs; earned fixed routes remain repeatable. **Volcanic Ridge** is available immediately, with ash groves, taller basalt formations, a crater lake, Fire/Rock spawn weighting and **Moltres at 15:00**. Its Ember Fan, Solar Flare and Ashen Flock reuse the shared telegraph/dodge/combat engine. The new **Onslaught** (+25% enemy arrival frequency) and **Volatile** (+25% enemy damage) rules are optional and available to new and existing saves. Quickened and No healing retain their achievement gates. No new permanent combat bonuses are added.

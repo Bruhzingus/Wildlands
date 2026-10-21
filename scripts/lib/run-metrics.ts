@@ -146,6 +146,11 @@ export function scriptedInput(state:RunState,behavior:Behavior,tick:number):Move
  const t=state.stats.elapsed,angle=t*.6+state.seed*.0001;
  let mx=Math.cos(angle),mz=Math.sin(angle);
  const profile=getAttackProfile(state.party[0].speciesId,state.party[0].attackLevel);
+ const cache=state.pois.find(poi=>poi.kind==='cache'&&!poi.used&&(poi.availableAt??0)<=t);
+ if(cache&&t<90){
+  const dx=cache.x-state.player.x,dz=cache.z-state.player.z,distance=Math.hypot(dx,dz);
+  return {mx:distance?dx/distance:0,mz:distance?dz/distance:0,jump:false,dodge:false,special:tick%425===0,interact:distance<DESIGN.interactionRadius};
+ }
  let nearest:RunState['enemies'][number]|undefined,distance=Infinity;
  for(const enemy of state.enemies){if(enemy.dead)continue;const d=Math.hypot(enemy.x-state.player.x,enemy.z-state.player.z);if(d<distance){nearest=enemy;distance=d;}}
  const close=profile.kind==='aura'||profile.kind==='slash';

@@ -1,4 +1,8 @@
 /* Rarity stays visible in the frame, artwork and badge, including on small screens. */
+.choice-reroll {text-align:center;margin:18px auto 0}
+.choice-reroll button {min-width:150px}
+.choice-reroll button:disabled {opacity:.5;cursor:not-allowed}
+.choice-reroll .subtle {line-height:1.6}
 .choices {
  display:grid;
  grid-template-columns:repeat(3,minmax(0,1fr));
