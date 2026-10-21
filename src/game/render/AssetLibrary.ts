@@ -3,7 +3,7 @@ import type {PartyMember,Enemy,Variant} from '../types.ts';
 import {getSpecies,type AttackKind} from '../../data/kanto.ts';
 import {getAttackProfile} from '../../data/attacks.ts';
 import type {SpecialKind} from '../../data/specials.ts';
-import {getEnemyAttackProfile,getEliteAreaMove,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
+import {ENEMY_MOVE_PROFILES,getEnemyAttackProfile,getEliteAreaMove,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
 import {ATTACK_ANIMATION,ATTACK_POSES} from '../../data/config.ts';
 import {getVariant,VARIANT_VISUALS,type VariantCue} from '../../data/variants.ts';
 import {animationFrame,oneShotFrame,attackPose,attackStyle,specialAttackStyle,enemyAttackStyle,parseAnimationMetadata,spriteDirection,validateAtlas,measureAtlas,PMD_SOURCE,ART_SOURCE,type AnimationMetadata,type AnimationMeta,type AnimationName,type AtlasBounds,type AttackStyle,type AttackPose} from './animation.ts';
@@ -289,7 +289,7 @@ export class VariantCues {
  inspect(){return {active:[...this.active].map(([uid,actor])=>({uid,variant:actor.variant,cue:getVariant(actor.variant).cue,visible:actor.mesh.isEnabled(),x:actor.mesh.position.x,y:actor.mesh.position.y,z:actor.mesh.position.z})),allocated:this.allocated,pooled:[...this.free.values()].reduce((sum,pool)=>sum+pool.length,0),sources:this.sources.size};}
  dispose(){for(const actor of this.active.values())actor.mesh.dispose();this.active.clear();for(const pool of this.free.values())for(const mesh of pool)mesh.dispose();this.free.clear();for(const source of this.sources.values())source.dispose();this.sources.clear();this.material.dispose();this.allocated=0;}
 }
-const BOSS_MOVE_NAMES={volley:'Psystrike',psychicRing:'Psychic',summon:'Teleport',slam:'Earthquake'} as const;
+const BOSS_MOVE_NAMES={volley:'Psystrike',psychicRing:'Psychic',summon:'Teleport',slam:'Psyshock'} as const;
 /** One shared text atlas and at most sixteen sprites identify the move being
  * charged. No canvas, texture or mesh is allocated per enemy or per attack. */
 class EnemyMoveLabels {
@@ -301,7 +301,8 @@ class EnemyMoveLabels {
  private atlas():SpriteManager {
   if(this.manager)return this.manager;
   const moves=new Map<string,string>();
-  for(let id=1;id<=151;id++){const profile=getEnemyAttackProfile(id),elite=getEliteAreaMove(id);moves.set(profile.moveName,profile.color);moves.set(elite.moveName,elite.color);}
+  for(const profile of ENEMY_MOVE_PROFILES)moves.set(profile.moveName,profile.color);
+  for(let id=1;id<=151;id++){const elite=getEliteAreaMove(id);moves.set(elite.moveName,elite.color);}
   for(const name of Object.values(BOSS_MOVE_NAMES))moves.set(name,'#e2c7ff');
   const rows=2**Math.ceil(Math.log2(Math.max(1,Math.ceil(moves.size/4)))),width=1024,height=rows*64;
   const texture=new DynamicTexture('enemy-move-name-atlas',{width,height},this.scene,false,Texture.BILINEAR_SAMPLINGMODE);
@@ -336,7 +337,7 @@ class EnemyMoveLabels {
    entry.sprite.position.set(enemy.x+this.up.x*above,ground(enemy.x,enemy.z)+this.up.y*above,enemy.z+this.up.z*above);
   }
  }
- inspect(){return {active:[...this.active].map(([uid,entry])=>({uid,moveName:entry.moveName,visible:entry.sprite.isVisible})),allocated:this.active.size+this.free.length,atlases:this.manager?1:0};}
+ inspect(){return {active:[...this.active].map(([uid,entry])=>({uid,moveName:entry.moveName,cellIndex:entry.sprite.cellIndex,expectedCell:this.cells.get(entry.moveName),visible:entry.sprite.isVisible})),allocated:this.active.size+this.free.length,atlases:this.manager?1:0};}
  dispose(){for(const entry of this.active.values())entry.sprite.dispose();for(const sprite of this.free)sprite.dispose();this.active.clear();this.free=[];this.manager?.dispose();this.manager=undefined;this.cells.clear();}
 }
 export class CharacterVisuals {
@@ -358,8 +359,8 @@ export class CharacterVisuals {
    if(v&&(v.speciesId!==enemy.speciesId||v.variant!==enemy.variant)){v.avatar.dispose();v.shadow.dispose();this.actors.delete(enemy.uid);v=undefined;}
    if(!v){v={avatar:this.assets.create(enemy.speciesId,enemy.variant),speciesId:enemy.speciesId,variant:enemy.variant,shadow:this.assets.createShadow(`shadow-${enemy.uid}`,this.shadowMaterial)};this.actors.set(enemy.uid,v);}
    const size=1.65*enemy.size,y=ground(enemy.x,enemy.z);
-   const role=getEnemyAttackProfile(enemy.speciesId).role;
-   v.avatar.update({...enemy,size,enemyRole:role,attackStyle:enemy.isBoss?'ranged':enemyAttackStyle(role)},dt,cameraAngle,y);
+   const role=enemy.windup?.role??enemy.lastAttackRole??getEnemyAttackProfile(enemy.speciesId).role;
+   v.avatar.update({...enemy,size,enemyRole:role,attackStyle:enemy.isBoss&&!enemy.lastAttackRole?'ranged':enemyAttackStyle(role)},dt,cameraAngle,y);
    v.shadow.position.set(enemy.x,y+.045,enemy.z);v.shadow.scaling.set(size*.27,size*.18,1);
   }
   for(const [uid,v] of this.actors)if(!found.has(uid)){v.avatar.dispose();v.shadow.dispose();this.actors.delete(uid);}

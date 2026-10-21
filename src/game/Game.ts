@@ -4,6 +4,7 @@ import {World} from './render/World.ts';
 import {AssetLibrary,CharacterVisuals} from './render/AssetLibrary.ts';
 import {Effects} from './render/Effects.ts';
 import {HealthBars} from './render/HealthBars.ts';
+import {DamageNumbers} from './render/DamageNumbers.ts';
 import {UI} from '../ui/UI.ts';
 import {loadSave,type SaveData} from './save.ts';
 import {ProgressionTracker} from './achievements.ts';
@@ -19,6 +20,7 @@ const isActive=(sim:Simulation|null)=>sim?.state.phase==='playing'||sim?.state.p
 const withoutActions=(input:MoveInput):MoveInput=>({...input,jump:false,dodge:false,special:false,interact:false});
 
 export class Game{
+ private damageNumbers:DamageNumbers|null=null;
  private canvas=document.querySelector<HTMLCanvasElement>('#renderCanvas')!;
  private engine:Engine;private scene:Scene;private camera:ArcRotateCamera;
  private ui:UI;private sim:Simulation|null=null;private world:World|null=null;private assets:AssetLibrary|null=null;private visuals:CharacterVisuals|null=null;private fx:Effects|null=null;private healthBars:HealthBars|null=null;
@@ -163,6 +165,7 @@ export class Game{
   this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois);
   this.assets=new AssetLibrary(this.scene);this.visuals=new CharacterVisuals(this.assets);
   this.healthBars=new HealthBars(this.scene,this.motionPreference.matches,id=>this.assets?.headroom(id)??1);
+  this.damageNumbers=new DamageNumbers(this.scene,(x,z)=>this.world!.height(x,z),id=>this.assets?.headroom(id)??1);
   this.fx=new Effects(this.scene,this.world);this.sim.onEvent=e=>this.event(e);
   this.applyGraphics();this.automatic.resetWindow();this.metrics?.reset();
   this.camera.setTarget(new Vector3(0,this.world.height(0,0)+2,0));this.camera.alpha=-Math.PI/2;this.camera.beta=1.05;this.camera.radius=this.save.settings.camera;
@@ -172,10 +175,12 @@ export class Game{
  }
  private restart(){if(this.sim)this.progression?.finish(this.sim.state);this.cleanupRun();this.ui.showTitle();}
  private cleanupRun(){this.releasePointer();this.healthBars?.dispose();this.fx?.dispose();this.visuals?.dispose();this.assets?.dispose();this.world?.dispose();
+  this.damageNumbers?.dispose();this.damageNumbers=null;
   this.healthBars=null;this.fx=null;this.visuals=null;this.assets=null;this.world=null;this.sim=null;this.progression=null;this.clearInput();this.ended=false;this.lastPhase='title';this.flashUntil=0;
   this.audio.reset();this.feedback.reset();this.previousSpecialCooldown=null;
  }
  private event(event:GameEvent){if(event.label)this.ui.toast(event.label,['boss','faint','win','death'].includes(event.kind)?2:1);this.fx?.onEvent(event);
+  if(this.sim)this.damageNumbers?.onEvent(event,this.sim.state);
   if(event.kind==='kill'&&event.variant)this.progression?.onKill(event.variant,event.targetId);
   if(event.kind==='level'||event.kind==='win'||event.kind==='death'){
    this.audio.setActive(false);this.feedback.reset();this.flashUntil=0;
@@ -251,6 +256,7 @@ export class Game{
   this.camera.target.addInPlaceFromFloats(shake.offsetX,shake.offsetY,shake.offsetZ);
   const renderStart=this.metrics?performance.now():0;
   try{this.scene.render();}finally{this.camera.target.set(baseX,baseY,baseZ);if(shake.offsetX||shake.offsetY||shake.offsetZ)this.camera.getViewMatrix(true);}
+  this.damageNumbers?.update(presentationDt,this.motionPreference.matches);
   this.metrics?.record(frameInterval*1000,simulationEnd-simulationStart,renderStart-simulationEnd,performance.now()-renderStart);
  }
  dispose(){this.listeners.abort();this.cleanupRun();this.audio.dispose();this.ui.dispose();this.scene.dispose();this.engine.dispose();}

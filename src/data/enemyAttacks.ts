@@ -1,4 +1,7 @@
-import type {Element} from './kanto.ts';
+import {getSpecies,type Element} from './kanto.ts';
+import {getEnemySpeciesProfile} from './enemySpecies.ts';
+import {enemyAttackLimit,getEnemyTier} from './enemyTiers.ts';
+import type {Variant} from '../game/types.ts';
 
 export type EnemyAttackRole='melee-fast'|'melee-slow'|'ranged-burst'|'ranged-projectile'|'explosive-suicide'|'explosive-bomb'|'healer';
 export interface EnemyAttackProfile {
@@ -99,7 +102,7 @@ const rows=`
 73|burst|Acid Spray|poison
 74|bomb|Rock Throw|rock
 75|suicide|Self-Destruct|normal
-76|suicide|Explosion|normal
+76|bomb|Rock Slide|rock
 77|fast|Flame Charge|fire
 78|fast|Flame Charge|fire
 79|shot|Water Gun|water
@@ -183,6 +186,130 @@ export const ENEMY_ATTACK_PROFILES:readonly EnemyAttackProfile[]=rows.map(row=>{
 const bySpecies=new Map(ENEMY_ATTACK_PROFILES.map(profile=>[profile.speciesId,profile]));
 export function getEnemyAttackProfile(speciesId:number):EnemyAttackProfile {
  const profile=bySpecies.get(speciesId);if(!profile)throw Error(`Missing enemy attack profile ${speciesId}`);return profile;
+}
+
+/** Strong species have authored coverage moves with different battlefield shapes.
+ * These are cycled one at a time, each with its own tell and recovery. Variants
+ * unlock more of this species repertoire without changing their elemental type. */
+const extraRows=`
+3|fast|Vine Whip|grass;shot|Sludge Bomb|poison;burst|Razor Leaf|grass
+6|heavy|Dragon Claw|dragon;bomb|Fire Blast|fire;burst|Air Slash|flying
+9|heavy|Skull Bash|normal;burst|Bubble Beam|water;bomb|Surf|water
+12|shot|Psybeam|psychic;burst|Gust|flying;fast|Tackle|normal
+15|burst|Poison Sting|poison;shot|Pin Missile|bug;heavy|Poison Jab|poison
+18|burst|Gust|flying;shot|Air Slash|flying;bomb|Hurricane|flying
+31|heavy|Body Slam|normal;bomb|Sludge Bomb|poison;burst|Poison Sting|poison
+34|shot|Earth Power|ground;bomb|Sludge Bomb|poison;fast|Double Kick|fighting
+36|shot|Psychic|psychic;heavy|Body Slam|normal;burst|Swift|normal
+38|fast|Quick Attack|normal;bomb|Fire Blast|fire;shot|Extrasensory|psychic
+40|heavy|Body Slam|normal;burst|Hyper Voice|normal;shot|Ice Beam|ice
+45|burst|Petal Dance|grass;shot|Acid|poison;bomb|Seed Bomb|grass
+59|shot|Flamethrower|fire;bomb|Fire Blast|fire;fast|Extreme Speed|normal
+62|burst|Bubble Beam|water;shot|Hydro Pump|water;bomb|Surf|water
+65|fast|Psycho Cut|psychic;bomb|Shadow Ball|ghost;burst|Psybeam|psychic
+68|shot|Focus Blast|fighting;bomb|Rock Slide|rock;fast|Bullet Punch|normal
+71|fast|Vine Whip|grass;shot|Acid|poison;burst|Razor Leaf|grass
+73|heavy|Poison Jab|poison;bomb|Sludge Bomb|poison;shot|Hydro Pump|water
+76|heavy|Rock Smash|fighting;shot|Rock Blast|rock;burst|Rock Throw|rock
+78|shot|Flamethrower|fire;bomb|Fire Blast|fire;heavy|Stomp|normal
+80|heavy|Headbutt|normal;bomb|Psychic|psychic;burst|Water Pulse|water
+82|shot|Tri Attack|normal;bomb|Zap Cannon|electric;fast|Tackle|normal
+85|burst|Tri Attack|normal;shot|Air Slash|flying;heavy|Drill Peck|flying
+87|heavy|Aqua Tail|water;burst|Ice Shard|ice;bomb|Surf|water
+89|heavy|Poison Jab|poison;shot|Sludge Wave|poison;burst|Acid Spray|poison
+91|heavy|Clamp|water;bomb|Hydro Pump|water;shot|Aurora Beam|ice
+94|fast|Shadow Punch|ghost;shot|Psychic|psychic;burst|Sludge Wave|poison
+95|shot|Rock Throw|rock;bomb|Rock Slide|rock;fast|Iron Tail|normal
+99|burst|Bubble Beam|water;shot|Mud Shot|ground;bomb|Surf|water
+103|shot|Psychic|psychic;heavy|Stomp|normal;burst|Bullet Seed|grass
+106|shot|Focus Blast|fighting;bomb|Rock Slide|rock;fast|Double Kick|fighting
+107|shot|Focus Blast|fighting;heavy|Fire Punch|fire;burst|Vacuum Wave|fighting
+110|bomb|Sludge Bomb|poison;shot|Smog|poison;burst|Sludge Wave|poison
+112|bomb|Rock Slide|rock;shot|Rock Blast|rock;fast|Horn Attack|normal
+113|heavy|Double Slap|normal;shot|Ice Beam|ice;burst|Swift|normal
+115|shot|Focus Blast|fighting;bomb|Rock Slide|rock;fast|Fake Out|normal
+121|shot|Psychic|psychic;bomb|Surf|water;heavy|Rapid Spin|normal
+123|shot|Air Slash|flying;burst|Vacuum Wave|fighting;heavy|Slash|normal
+124|heavy|Ice Punch|ice;burst|Powder Snow|ice;bomb|Psychic|psychic
+125|heavy|Thunder Punch|electric;shot|Thunderbolt|electric;bomb|Thunder|electric
+126|heavy|Fire Punch|fire;shot|Flamethrower|fire;burst|Ember|fire
+127|shot|Focus Blast|fighting;bomb|Rock Slide|rock;fast|Fury Cutter|bug
+128|shot|Hyper Beam|normal;bomb|Rock Slide|rock;fast|Horn Attack|normal
+130|heavy|Aqua Tail|water;bomb|Hurricane|flying;burst|Dragon Breath|dragon
+131|heavy|Body Slam|normal;bomb|Surf|water;burst|Ice Shard|ice
+134|fast|Quick Attack|normal;bomb|Surf|water;burst|Bubble Beam|water
+135|heavy|Thunder Fang|electric;bomb|Thunder|electric;shot|Thunderbolt|electric
+136|heavy|Fire Fang|fire;bomb|Fire Blast|fire;burst|Ember|fire
+139|heavy|Ancient Power|rock;shot|Hydro Pump|water;burst|Water Gun|water
+141|shot|Aqua Jet|water;bomb|Rock Slide|rock;heavy|X-Scissor|bug
+142|shot|Air Slash|flying;bomb|Rock Slide|rock;burst|Ancient Power|rock
+143|shot|Hyper Beam|normal;bomb|Rock Slide|rock;fast|Lick|ghost
+144|heavy|Wing Attack|flying;bomb|Hurricane|flying;burst|Ice Shard|ice
+145|heavy|Drill Peck|flying;bomb|Thunder|electric;shot|Thunderbolt|electric
+146|heavy|Wing Attack|flying;shot|Flamethrower|fire;burst|Air Slash|flying
+149|shot|Dragon Pulse|dragon;bomb|Hurricane|flying;shot|Hyper Beam|normal
+150|heavy|Psycho Cut|psychic;bomb|Shadow Ball|ghost;burst|Aura Sphere|fighting
+151|shot|Psychic|psychic;bomb|Ancient Power|rock;burst|Swift|normal`.trim().split('\n');
+const authoredExtras=new Map(extraRows.map(row=>{
+ const [id,...parts]=row.split('|'),moves=parts.join('|').split(';');
+ return [Number(id),moves.map(move=>{
+  const [code,moveName,elementName]=move.split('|');
+  return {role:roleCodes[code],moveName,element:elementName as Element};
+ })] as const;
+}));
+const coverageMoves:Record<Element,readonly [EnemyAttackRole,string][]>= {
+ normal:[['melee-slow','Body Slam'],['ranged-projectile','Swift'],['ranged-burst','Hyper Voice'],['explosive-bomb','Egg Bomb']],
+ fire:[['melee-slow','Fire Fang'],['ranged-projectile','Flamethrower'],['explosive-bomb','Fire Blast'],['ranged-burst','Ember']],
+ water:[['melee-slow','Aqua Tail'],['ranged-projectile','Water Pulse'],['explosive-bomb','Surf'],['ranged-burst','Bubble Beam']],
+ grass:[['melee-fast','Vine Whip'],['ranged-projectile','Energy Ball'],['explosive-bomb','Seed Bomb'],['ranged-burst','Razor Leaf']],
+ electric:[['melee-slow','Thunder Fang'],['ranged-projectile','Thunderbolt'],['explosive-bomb','Thunder'],['ranged-burst','Discharge']],
+ ice:[['melee-slow','Ice Fang'],['ranged-projectile','Ice Beam'],['explosive-bomb','Blizzard'],['ranged-burst','Ice Shard']],
+ fighting:[['melee-fast','Mach Punch'],['ranged-projectile','Focus Blast'],['explosive-bomb','Focus Blast'],['ranged-burst','Vacuum Wave']],
+ poison:[['melee-slow','Poison Jab'],['ranged-projectile','Sludge'],['explosive-bomb','Sludge Bomb'],['ranged-burst','Poison Sting']],
+ ground:[['melee-slow','Dig'],['ranged-projectile','Mud Shot'],['explosive-bomb','Mud Bomb'],['ranged-burst','Mud Slap']],
+ flying:[['melee-fast','Wing Attack'],['ranged-projectile','Air Slash'],['explosive-bomb','Hurricane'],['ranged-burst','Gust']],
+ psychic:[['melee-fast','Psycho Cut'],['ranged-projectile','Psychic'],['explosive-bomb','Psyshock'],['ranged-burst','Psybeam']],
+ bug:[['melee-fast','Fury Cutter'],['ranged-projectile','Signal Beam'],['explosive-bomb','Bug Buzz'],['ranged-burst','Pin Missile']],
+ rock:[['melee-slow','Rock Smash'],['ranged-projectile','Rock Blast'],['explosive-bomb','Rock Slide'],['ranged-burst','Rock Throw']],
+ ghost:[['melee-fast','Shadow Punch'],['ranged-projectile','Shadow Ball'],['explosive-bomb','Night Shade'],['ranged-burst','Hex']],
+ dragon:[['melee-slow','Dragon Rush'],['ranged-projectile','Dragon Pulse'],['explosive-bomb','Draco Meteor'],['ranged-burst','Dragon Breath']],
+};
+function extraProfile(speciesId:number,role:EnemyAttackRole,moveName:string,element:Element):EnemyAttackProfile {
+ const profile={speciesId,role,moveName,element,color:elementColors[element],...tuning[role]};
+ // The strongest fourth-slot finisher is deliberately slower and easier to read.
+ return moveName==='Hyper Beam'?{...profile,windup:1.15,cooldown:2.8,damageScale:2.7,radius:.8,projectileSpeed:12}:profile;
+}
+const fullLoadouts=new Map(ENEMY_ATTACK_PROFILES.map(base=>{
+ const moves=[base],used=new Set([base.moveName]);
+ for(const authored of authoredExtras.get(base.speciesId)??[]){
+  if(!used.has(authored.moveName)){moves.push(extraProfile(base.speciesId,authored.role,authored.moveName,authored.element));used.add(authored.moveName);}
+ }
+ // Weak species only use these if an encounter explicitly promotes their tier.
+ // Coverage never grants another self-destruct or replaces a healing primary.
+ const elements=[...getSpecies(base.speciesId).types,base.element];
+ for(const element of elements)for(const [role,moveName] of coverageMoves[element]){
+  if(moves.length>=4)break;
+  if(!used.has(moveName)){moves.push(extraProfile(base.speciesId,role,moveName,element));used.add(moveName);}
+ }
+ return [base.speciesId,Object.freeze(moves.slice(0,4))] as const;
+}));
+/** Every actual repertoire move is available to the renderer's label atlas. */
+export const ENEMY_MOVE_PROFILES:readonly EnemyAttackProfile[]=Object.freeze([...fullLoadouts.values()].flat());
+export interface EnemyAttackIdentity {
+ speciesId:number;variant:Variant;isBoss:boolean;combatTier?:ReturnType<typeof getEnemyTier>;hardShrine?:boolean;attackIndex?:number;
+}
+export function getEnemyAttackLoadout(enemy:EnemyAttackIdentity,elapsed:number):readonly EnemyAttackProfile[]{
+ const tier=enemy.combatTier??getEnemyTier(enemy.speciesId,enemy.variant,enemy.isBoss);
+ const limit=enemyAttackLimit(tier,elapsed,getEnemySpeciesProfile(enemy.speciesId).strength,enemy.hardShrine??false);
+ return fullLoadouts.get(enemy.speciesId)!.slice(0,limit);
+}
+/** Resolve from the whole repertoire so an already committed tell survives a
+ * clock/tier change while paused, or a restored save with a different move slot. */
+export function resolveCommittedEnemyProfile(enemy:EnemyAttackIdentity,windup:{moveName?:string;role?:EnemyAttackRole;moveIndex?:number},elapsed:number):EnemyAttackProfile {
+ const full=fullLoadouts.get(enemy.speciesId)!;
+ const loadout=getEnemyAttackLoadout(enemy,elapsed),index=(windup.moveIndex??enemy.attackIndex??0)%loadout.length;
+ const profile=full.find(move=>move.moveName===windup.moveName)??loadout[index]??full[0];
+ return withEnemyAttackRole(profile,windup.role??profile.role);
 }
 /** Support enemies retain their named healing move, but use this lightweight
  * fallback profile when there is nobody nearby to support. */

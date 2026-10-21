@@ -4,7 +4,7 @@ import {KANTO} from '../src/data/kanto.ts';
 import {ENEMY_ATTACK_PROFILES,getEnemyAttackProfile} from '../src/data/enemyAttacks.ts';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
-import {enemyMovementIntent} from '../src/game/combat/enemies.ts';
+import {canStartEnemyMove,enemyMovementIntent} from '../src/game/combat/enemies.ts';
 import {addProjectile,stepProjectiles} from '../src/game/combat/projectiles.ts';
 import type {Enemy} from '../src/game/types.ts';
 
@@ -78,6 +78,28 @@ test('ranged enemies hold distance while melee closes and healers seek wounded a
  enemy.speciesId=113;enemy.x=15;
  const wounded=createEnemy(s,new Simulation(7,1).rng,19,'normal',25,0);wounded.hp=1;s.enemies.push(wounded);
  assert.ok(enemyMovementIntent(enemy,target,s).x>0,'Healer approaches the wounded ally');
+});
+
+test('large fast and heavy melee keep approaching until they can attack a stationary target',()=>{
+ for(const [species,size,start] of [[19,2.8,3.535],[20,4.5,5.1]]){
+  const {sim,s,enemy}=arena(species,start);sim.spawnAccum=-1000;enemy.size=size;enemy.speed=4;enemy.damage=10;
+  assert.equal(canStartEnemyMove(enemy,s.player,s),false);
+  assert.ok(enemyMovementIntent(enemy,s.player,s).x<0,'Body spacing cannot stop an enemy outside its attack range');
+  for(let i=0;i<150&&s.player.hp===s.player.maxHp;i++)sim.update(.02,idle);
+  assert.ok(s.player.hp<s.player.maxHp,`Size ${size} melee must approach, wind up and land its strike`);
+ }
+});
+
+test('giant melee only begin winding up within their actual strike radius',()=>{
+ for(const [species,size] of [[19,6],[20,7]]){
+  const profile=getEnemyAttackProfile(species),strikeRadius=profile.radius+size*.3;
+  const {sim,s,enemy,events}=arena(species,strikeRadius+.05);sim.spawnAccum=-1000;enemy.size=size;enemy.speed=4;enemy.damage=10;
+  assert.equal(canStartEnemyMove(enemy,s.player,s),false,'A stationary target beyond the strike cannot trigger a guaranteed miss');
+  assert.ok(enemyMovementIntent(enemy,s.player,s).x<0);
+  for(let i=0;i<150&&s.player.hp===s.player.maxHp;i++)sim.update(.02,idle);
+  assert.ok(s.player.hp<s.player.maxHp);
+  assert.equal(events.filter(event=>event.kind==='tell').length,1,'The first committed strike reaches the stationary target');
+ }
 });
 
 test('self-destruct waits for its fuse, removes the bomber and awards no kill or XP',()=>{

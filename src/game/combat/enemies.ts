@@ -1,4 +1,4 @@
-import {getEnemyAttackProfile,withEnemyAttackRole,type EnemyAttackProfile,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
+import {getEnemyAttackLoadout,getEnemyAttackProfile,resolveCommittedEnemyProfile,withEnemyAttackRole,type EnemyAttackProfile,type EnemyAttackRole} from '../../data/enemyAttacks.ts';
 import {getVariant} from '../../data/variants.ts';
 import type {Enemy,EnemyWindup,PartyMember,RunState,Vec2} from '../types.ts';
 import type {ProjectileSpawn} from './projectiles.ts';
@@ -24,16 +24,36 @@ function woundedOtherAllies(enemy:Enemy,state:RunState,radius:number){
 }
 /** Healers only cast support moves for nearby allies; otherwise they join the
  * fight with the same quick, close-range strike as a fast melee enemy. */
-export function enemyMoveRole(enemy:Enemy,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):EnemyAttackRole {
+export function enemyMoveRole(enemy:Enemy,state:RunState,profile=currentEnemyAttack(enemy,state)):EnemyAttackRole {
  return profile.role==='healer'&&woundedOtherAllies(enemy,state,profile.radius).length===0?'melee-fast':profile.role;
 }
-export function canStartEnemyMove(enemy:Enemy,target:Vec2,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):boolean {
+function currentEnemyAttack(enemy:Enemy,state:RunState):EnemyAttackProfile {
+ const loadout=getEnemyAttackLoadout(enemy,state.stats.elapsed);
+ return loadout[(enemy.attackIndex??0)%loadout.length];
+}
+/** The simulation advances the slot only after a successful release. A cancelled
+ * windup therefore retries the same move, without skipping or firing in parallel. */
+export function chooseEnemyAttack(enemy:Enemy,state:RunState):EnemyAttackProfile {
+ const profile=currentEnemyAttack(enemy,state);
+ return withEnemyAttackRole(profile,enemyMoveRole(enemy,state,profile));
+}
+function enemyMoveActivationRange(enemy:Enemy,profile:EnemyAttackProfile):number {
+ const range=profile.range+enemy.size*.4;
+ // A large body must still approach within the distance its committed strike hits.
+ return profile.role==='melee-fast'||profile.role==='melee-slow'?Math.min(range,profile.radius+enemy.size*.3):range;
+}
+export function canStartEnemyMove(enemy:Enemy,target:Vec2,state:RunState,profile=chooseEnemyAttack(enemy,state)):boolean {
  if(enemy.dead||enemy.stunTime>0||enemy.attackCooldown>0||enemy.windup)return false;
- return profile.role==='healer'?woundedOtherAllies(enemy,state,profile.radius).length>0:distance(enemy,target)<=profile.range+enemy.size*.4;
+ return profile.role==='healer'?woundedOtherAllies(enemy,state,profile.radius).length>0:distance(enemy,target)<=enemyMoveActivationRange(enemy,profile);
 }
 /** A normalized movement intent. Ranged foes hold firing distance; healers seek
  * wounded allies and stay behind them. The simulation applies speed and status. */
-export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profile=getEnemyAttackProfile(enemy.speciesId)):{x:number;z:number;speedScale:number} {
+export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profile=chooseEnemyAttack(enemy,state)):{x:number;z:number;speedScale:number} {
+ // An out-of-range wounded ally still draws a support enemy toward it. Its
+ // temporary Quick Attack fallback only decides what it can cast right now.
+ if(profile.moveName==='Quick Attack'){
+  const selected=currentEnemyAttack(enemy,state);if(selected.role==='healer')profile=selected;
+ }
  let destination=target,sign=1,scale=1;
  if(profile.role==='healer'){
   const allies=woundedOtherAllies(enemy,state,20).sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp);
@@ -42,7 +62,7 @@ export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profi
   const d=distance(enemy,target),preferred=profile.role==='explosive-bomb'?11:profile.role==='ranged-projectile'?10:8;
   if(d<preferred-2){sign=-1;scale=.65;}
   else if(d<=preferred)return {x:0,z:0,speedScale:0};
- }else if(distance(enemy,target)<enemy.size+.75)return {x:0,z:0,speedScale:0};
+ }else if(distance(enemy,target)<Math.min(enemy.size+.75,enemyMoveActivationRange(enemy,profile)-.1))return {x:0,z:0,speedScale:0};
  const dx=destination.x-enemy.x,dz=destination.z-enemy.z,d=Math.hypot(dx,dz)||1;
  return {x:dx/d*sign,z:dz/d*sign,speedScale:scale};
 }
@@ -51,7 +71,7 @@ export function prepareEnemyMove(enemy:Enemy,target:Vec2,profile=getEnemyAttackP
  return {kind:'enemyMove',role:profile.role,moveName:profile.moveName,remaining:profile.windup,duration:profile.windup,
   x:centered?enemy.x:target.x,z:centered?enemy.z:target.z,facing,radius:profile.radius};
 }
-export function enemyMoveTell(enemy:Enemy,windup:EnemyWindup,profile=getEnemyAttackProfile(enemy.speciesId)):EnemyMoveVisual {
+export function enemyMoveTell(enemy:Enemy,windup:EnemyWindup,profile=resolveCommittedEnemyProfile(enemy,windup,0)):EnemyMoveVisual {
  const activeProfile=withEnemyAttackRole(profile,windup.role??profile.role);
  return {kind:'tell',x:enemy.x,z:enemy.z,toX:windup.x,toZ:windup.z,sourceId:enemy.uid,label:activeProfile.moveName,
   color:activeProfile.color,shape:activeProfile.role,radius:activeProfile.radius,duration:windup.duration,facing:windup.facing};
@@ -61,7 +81,7 @@ function inCommittedStrike(enemy:Enemy,windup:EnemyWindup,target:Vec2,radius:num
  // A committed forward cone leaves a clear escape behind or beside the attacker.
  return d<=radius+enemy.size*.3&&(d<.65||(dx*Math.sin(windup.facing)+dz*Math.cos(windup.facing))/d>.24);
 }
-export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,hooks:EnemyMoveHooks,profile:EnemyAttackProfile=getEnemyAttackProfile(enemy.speciesId)):void {
+export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,hooks:EnemyMoveHooks,profile:EnemyAttackProfile=resolveCommittedEnemyProfile(enemy,windup,state.stats.elapsed)):void {
  profile=withEnemyAttackRole(profile,windup.role??profile.role);
  const role=profile.role,poison=profile.element==='poison'||enemy.variant==='poisoned',damage=enemy.damage*profile.damageScale;
  enemy.attackCooldown=profile.cooldown/getVariant(enemy.variant).aggression;hooks.animate(enemy,windup.facing,role==='melee-slow'?.48:.3);

@@ -71,8 +71,8 @@ Multiplayer, real-time Pokémon move PP / turns, overworld NPC quest trees, catc
 | Follower health | Followers can take damage and **faint for the remainder of the run** |
 | Stats/type chart | Simplified arcade balancing; intuitive Pokémon type advantages |
 | Enemy variants | Normal, Dark (vintage TCG style), Rocket-controlled, Rabid, Poisoned, Legendary |
-| Variant special moves | Only poisoned variants/status and legendary bosses need unique behaviours; other variants mainly change numbers, aggression and appearance |
-| Difficulty | Scale by enemy density, more variants and harder species over time |
+| Variant special moves | Variants retain species types and shared move patterns; a variant of a tier-3 species becomes a tier-4 elite with a larger attack budget. Poisoned contact and the final boss retain their special behaviours. |
+| Difficulty | Primarily advance species strength and variant threat over time, with gradual, bounded density growth |
 | Build sources | Recruits, evolutions, upgraded moves, global items, synergies equally important |
 | Late-game spectacle | Wild builds possible but readability and FPS protected |
 | Maps | Forest/grassland, lake, rocky ruins and other compact themed areas on one interconnected map |
@@ -91,13 +91,13 @@ If a future agent interprets any default in contradiction with this section, **t
 
 ### First 2:45 — Find your footing
 
-Player selects starter from an unlockable roster, appears in the forest, can freely orbit the camera, move, jump, dodge, trigger a Q special ability, and automatically attack nearby targets without aiming. Weak wild Pokémon spawn at the fringes; XP crystals and coins fall. Low density, gentle audio and VFX. Ordinary levels add 2% HP and damage without pausing; the first Pokémon choice arrives at level 3, followed by levels 5, 10, 15 and so on. Exploration items may be found, but nothing is mandatory.
+Player selects starter from an unlockable roster, appears in the forest, can freely orbit the camera, move, jump, dodge, trigger a Q special ability, and automatically attack nearby targets without aiming. Begin with three weak normal wild Pokémon at the fringes. Arrivals start roughly 2.8 seconds apart with an initial director budget of 18; one actor slot stays reserved for the scheduled boss. Arrival intervals and budgets change smoothly as the run progresses, without doubled batches. XP crystals and coins fall. Low density, gentle audio and VFX. Ordinary levels add 2% HP and damage without pausing; the first Pokémon choice arrives at level 3, followed by levels 5, 10, 15 and so on. Exploration items may be found, but nothing is mandatory.
 
 Personal levels continue to **100**, with the leader targeting **25–35 at 15 minutes**. Evolution and significant new moves belong to the progression below level 45; from level 45 onward, milestones prioritize existing move upgrades and stat training. Level 100 is an extended-run goal, not the standard-run expectation. Aggregate squad progress remains separate from the leader's level.
 
 ### 2:45–7:00 — First partnership
 
-First new Pokémon becomes available once **both** elapsed time and player level thresholds are met. Recruitment is chosen from three first-stage species. A follower occupies a formation slot, attacks automatically, and has its own HP. Its position and attacks are visible in the party HUD. Starter may become eligible to evolve after sufficient run experience/time.
+First new Pokémon becomes available once **both** elapsed time and player level thresholds are met. Recruitment is chosen from three first-stage species. A follower occupies a formation slot, attacks automatically, and has its own HP. Its position and attacks are visible in the party HUD. Starter may become eligible to evolve after sufficient run experience/time. From 6:00, an occasional tier-3 miniboss can appear among the ordinary enemies; these are individual encounters with more durability and two attacks.
 
 ### 7:00–11:30 — Defining the build
 
@@ -105,7 +105,7 @@ Second teammate becomes available. Variants are more frequent. A player may choo
 
 ### 11:30–15:00 — High-intensity phase
 
-Third teammate can be recruited if the player has reached the associated level. A **four-member party** is a reasonable target for successful standard runs. Upgrades get dramatic, crowds thicken, Rocket / Dark / Rabid / Poisoned variants appear, and an arena-wide legendary warning precedes the Mewtwo boss at 15:00.
+Third teammate can be recruited if the player has reached the associated level. A **four-member party** is a reasonable target for successful standard runs. Upgrades get dramatic, while tier-2 enemies remain the ordinary population and occasional tier-3 minibosses supply tougher encounters. Tier-4 enemies, including variants of tier-3 species and legendary birds, only enter the ordinary arrival lottery from 13:00 and remain very rare. An arena-wide legendary warning precedes the much tougher Mewtwo boss at 15:00, when ordinary arrivals ease and new tier-4 arrivals stop to make room for the boss.
 
 ### Beyond 15:00 — Endless
 
@@ -152,9 +152,29 @@ The October 20, 2026 targeting correction and verification are recorded in [the 
 | Rocket | Muted red tint and outlined R | 1.7× durability/power, 1.03× speed, increased aggression | Modified Pokémon; no trainer or novel attack |
 | Rabid | Warm tint and double chevron | 0.82× durability, 1.75× movement speed, increased aggression | No novel attack |
 | Poisoned | Green tint and droplet glyph | 1.3× durability/power | Contact applies 4.5s poison to leader or follower; persists after separation |
-| Legendary | Crown glyph and boss HP bar | Explicit boss HP/damage/speed tuning | Aimed volley, expanding psychic ring and summon charge, each telegraphed |
+| Legendary | Crown glyph and boss HP bar | Explicit boss HP/damage/speed tuning | Four-attack boss cycle with readable, pausable windups |
 
-The exact multipliers are provisional and are intended to be tuned with real-run metrics. Avoid bloated variant subclasses or bespoke moves for Dark/Rocket/Rabid.
+The exact multipliers are provisional and are intended to be tuned with real-run metrics. Avoid bloated variant subclasses or bespoke moves for Dark/Rocket/Rabid. Their additional attack slots come from encounter tier and reuse the authored shared patterns.
+
+**Enemy strength and encounter progression:** Every species has an authored arcade profile for encounter strength, visible size, health, damage, speed and relative rarity. Evolution stage and natural strength determine its encounter tier; the species profile still distinguishes combat power and size within a tier. Bulky single-stage Pokémon can be tougher and visibly larger than small evolved species. Size uses a compressed visual scale to keep very large or long Pokémon readable. Species identity combines with tier durability, variant combat modifiers and time/party scaling when an enemy is created.
+
+Ordinary encounters use overlapping strength pools and a moving weighted threat window. Weak species dominate the opening, then taper out as slightly stronger species become eligible. Normal Rattata, Caterpie, Weedle and Magikarp stop arriving at 3:00; enhanced versions remain eligible longer because their added threat counts toward progression. Tier-2 enemies remain the majority later in the run, rather than every arrival becoming a final evolution. Existing living enemies remain in the world when their arrival window closes.
+
+| Encounter tier | Species and variants | Attack budget | Ordinary arrival budget |
+|---|---|---|---|
+| 1 | Weak unevolved species | 1 | Sparse opening; weakest normal species retire by 3:00 |
+| 2 | Middle evolutions and other ordinary species | 1 | Main population after the opening and throughout the late game |
+| 3 | All third-stage evolutions; fully evolved two-stage or single-stage species with authored strength at least 6 | Up to 2 distinct attacks | Starts at 6:00 with a 1% tier roll, growing smoothly to 5% at 14:00; at most 3 alive, with at least 18 seconds between arrivals |
+| 4 | Every non-normal variant of a tier-3 species, legendary birds and Mew | Starts with 2; strong encounters can gain a third at 14:00 and a fourth in endless or very hard shrines | From 13:00; tier roll grows to 0.3% at 15:00, plus the separately bounded legendary lottery; at most 1 alive, with at least 60 seconds between arrivals; no new arrivals during Mewtwo |
+| 5 | Mewtwo and explicitly scheduled bosses | 4 | Scheduled encounter outside the ordinary lottery |
+
+Tier-3 enemies are minibosses with substantial added durability and two alternating attacks. Tier-4 encounters receive a larger durability increase, and require a deliberate fight even for a developed party. Time-based health floors and bounded party scaling support this distinction; displayed HP depends on the species, variant, elapsed time and party investment rather than one fixed promised value. Mewtwo has a further major health and damage increase beyond tier-4 enemies.
+
+Tier-4 attack progression also depends on strength: an enemy with authored strength at least 8 may carry three attacks from 14:00. A strength of at least 9.5 unlocks four attacks from 18:00 in endless. Very hard repeat shrines can grant four attacks to strength-8 or stronger tier-4 guardians before that clock gate. Earlier shrine encounters use normal tier-3 guardians; shrine difficulty tier 4 and above can deliberately select tier-4 guardians before ordinary spawns allow them. Attacks cycle through readable windups rather than firing all unlocked moves simultaneously.
+
+Naturally stronger ordinary species award more XP to preserve personal progression with fewer arrivals. Tier-3 minibosses and tier-4 elites receive a further shared XP multiplier to compensate for their durability; explicitly promoted shrine guardians use their actual combat tier. Weak opening rewards and scheduled boss rewards retain their established values; species, tier, faction and elite bonuses apply once to the shared instant/drop reward total.
+
+Ordinary species strength plus variant threat must fit the elapsed threat ceiling, currently `2.4 + elapsedSeconds / 85`. Eligible encounters ease into the pool and retain species rarity weights, alongside the tier gates and arrival budgets above. For example, Dragonite has strength 10 and a relative rarity weight of 0.12; Rocket adds 2.2 threat, so a Rocket Dragonite only begins to become eligible after about 13:53, then must pass the rare tier-4 lottery, alive limit and spacing checks. Random ordinary wild elites require another 2.5 threat and cannot appear before 3:00. Rare legendary elites, optional landmark guardians and the scheduled boss follow their own authored gates outside the ordinary threat window. These are tuning values, not official Pokémon stats or guaranteed encounter times.
 
 ---
 
@@ -163,21 +183,23 @@ The exact multipliers are provisional and are intended to be tuned with real-run
 ### Data ownership
 
 - `src/data/kanto.ts`: source-of-truth for ID, Generation 1 name, primary/secondary type, stage, parents/children, game attack archetype and move label. All 151 IDs must resolve without fetching PokéAPI.
+- `src/data/enemySpecies.ts`: per-species encounter strength, visible size, health, damage, speed and rarity profiles, independent of evolution stage.
+- `src/data/enemyTiers.ts`: evolution/strength tier classification, variant promotion, miniboss and elite arrival budgets, durability tuning and time/strength attack limits.
 - `src/data/config.ts`: run timer, recruitment time/level thresholds, movement, entity budgets, type multipliers and tuning constants.
 - `src/data/attacks.ts`: eight attack archetypes, species overrides, elemental procs and rank growth.
-- `src/data/rosterContent.ts`, `encounters.ts`, `evolutions.ts`, `validateRoster.ts`: 151 authored loadouts, actual encounter coverage, named adaptations and independent roster validation.
+- `src/data/rosterContent.ts`, `encounters.ts`, `evolutions.ts`, `validateRoster.ts`: 151 authored loadouts, overlapping strength pools and weighted threat windows, named adaptations and independent roster validation.
 - `src/data/progression.ts`: evolution maturity, rarity weights, gradual move-slot unlocks and training definitions; recruitment gates remain in `config.ts`.
 - `src/data/items.ts` and `src/data/synergies.ts`: passive item rules, ownership, tradeoffs and team composition requirements.
-- `src/data/variants.ts`: faction multipliers, reward XP, rarity, poison, animation and identifying glyph tuning.
+- `src/data/variants.ts`: faction multipliers, added encounter threat, reward XP, rarity, poison, animation and identifying glyph tuning.
 - `src/data/world.ts`: four biome palettes, landmark anchors, site spacing and soft boundaries.
-- `src/data/director.ts`: timed difficulty phases and Mewtwo tuning.
+- `src/data/director.ts`: timed arrival interval/budget landmarks, faction weights and Mewtwo tuning.
 - `src/game/types.ts`: all run-state models, entity types, choice schema and normalized fields.
 - `src/game/Simulation.ts`: authoritative single-player game simulation: inputs, enemy/party behaviour, damage, pickups, level-ups, win/loss.
 - `src/game/combat/`: targeting, swept projectile collisions, shared attack patterns, damage and statuses.
 - `src/game/systems/progression.ts`: generates upgrade offers, evaluates recruitment/evolution and applies choices.
 - `src/game/systems/builds.ts`: generic event-driven build rules, modifiers, proc budgets and readable build summaries.
-- `src/game/systems/spawning.ts`: spawn pools by run stage; enemy variant selection and base stats.
-- `src/game/systems/director.ts`: authoritative arrival budgets, spawn weights, pressure/density adaptation and telemetry; swept radial-wave collision.
+- `src/game/systems/spawning.ts`: variant-aware encounter selection, elite threat eligibility, per-species enemy stats and distant spawn placement.
+- `src/game/systems/director.ts`: smoothly interpolated arrival intervals/budgets, faction weights, pressure/density adaptation and telemetry; swept radial-wave collision.
 - `src/game/systems/environment.ts`: shared seeded POIs, clear routes, biome/terrain queries, rare optional hooks and static collision.
 - `src/game/render/World.ts`: low-poly terrain, vegetation instances, POI geometry and region colors; game logic must not live here.
 - `src/game/render/AssetLibrary.ts`: sprites/animations from SpriteCollab/official artwork, resilient fallbacks and caching.
@@ -253,9 +275,10 @@ JSON values shown are example design data, not canon stats. Version schemas, wri
 - SpriteCollab idle/walk/attack animation metadata loader, artwork fallback and generated canvas fallback.
 - Party follower formations, auto-attacks, per-teammate HP and permanent fainting.
 - Data-driven bolt, burst, slash, aura, chain, beam, lob and heal attacks with species parameters and rank growth; boss volley and elite slam windups; capped, reused projectile/effect visuals.
-- Difficulty phases at 3/7/11/13/15 minutes, adaptive future-arrival budgets, runtime faction weights, spawn telemetry and stronger endless scaling after victory.
+- A three-enemy opening, smoothly increasing arrival pressure through 3/7/11/13-minute landmarks, lower ordinary arrivals during the 15-minute boss, adaptive future-arrival budgets, runtime faction weights, spawn telemetry and bounded endless scaling after victory.
+- Species-specific enemy strength, size, bulk, damage, speed and rarity; weak normal arrivals retire by 3:00, tier-2 enemies remain the main population, tier-3 minibosses begin sparsely at 6:00, and tier-4 encounters stay rare until the final two minutes or very hard shrines.
 - Data-driven Dark/Rocket/Rabid/Poisoned factions with non-color glyphs, correct XP and persistent contact poison; normal factions retain shared attacks and species types.
-- Mewtwo warning before 15:00, three pausable/stunnable tells, aimed volley, jump/dodgeable expanding psychic ring and bounded distant reinforcements.
+- Mewtwo warning before 15:00, a four-attack cycle with pausable/stunnable tells, substantially increased boss durability/damage and no new ordinary tier-4 arrivals during the fight.
 - Time- and level-gated first-stage recruitment; non-pausing personal levels and choices at levels 3, 5, 10, 15…; reliable optional milestone evolution (including branches).
 - 36 unique passive items, 12 composition synergies and seven build event hooks; item tradeoffs, stat/proc caps and pause/result build summaries.
 - Nine global training upgrades that stack indefinitely; signature and learned moves also have no rank ceiling. Each stat has Common, Rare and Epic versions worth 1×, 2× and 3×, with base rarity odds of 55%, 35% and 10%. Extra move slots unlock at levels 10, 20 and 30, with new-move offers appearing on 30% of eligible milestones that have room alongside training and evolution. Team-only relics require a living teammate. Evolution grants +25% maximum HP, +25% permanent attack damage and +1 rank to every known move. Non-evolving species gain +2 ranks per move training choice from their own level 5.
@@ -285,7 +308,7 @@ This transparency is intentional. A future coding agent should never mistake a r
 5. Recruitment cannot happen before 2:45; an ordinary 15-minute run can plausibly end with four team members; five/six are late or endless.
 6. Recruit list never contains a second/third-stage Pokémon, and no team member evolves without the corresponding chosen evolution card.
 7. Teammates visibly lose health, can permanently faint and leave the formation; player defeat ends run.
-8. Dark/Rocket/Rabid/Poisoned are visually identifiable and functionally stronger; legendary has one telegraphed special.
+8. Dark/Rocket/Rabid/Poisoned are visually identifiable and functionally distinct; tier-3 minibosses can carry two attacks, tier-4 elites can carry up to four under the time/strength/shrine gates, and Mewtwo cycles four telegraphed attacks.
 9. At 15:00 spawn legendary Mewtwo; defeating it opens victory or endless. Endless preserves the squad and upgrades.
 10. Full 10–15-minute playthrough retains at least a target 50+ FPS at 1080p on a mid-range desktop GPU, configurable based on actual performance testing.
 

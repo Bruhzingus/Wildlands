@@ -160,7 +160,7 @@ test('opening and regular enemies appear outside the immediate fight, with a cal
   }return samples;
  }`);
  for(const sample of distances){
-  expect(sample.opening).toHaveLength(8);
+  expect(sample.opening).toHaveLength(3);
   expect(sample.opening.every((d:number)=>d>=24&&d<=34)).toBe(true);
   expect(sample.regular).toBeGreaterThanOrEqual(24);expect(sample.regular).toBeLessThanOrEqual(34);
   expect(Math.abs(sample.x)).toBeLessThanOrEqual(111);expect(Math.abs(sample.z)).toBeLessThanOrEqual(111);
@@ -180,5 +180,61 @@ test('opening and regular enemies appear outside the immediate fight, with a cal
  await mkdir('artifacts/browser',{recursive:true});
  await page.screenshot({path:'artifacts/browser/combat.png'});
  expect(await game(page,'g=>g.healthBars.inspect().filter(b=>b.visible).length')).toBe(5);
+ expect(errors).toEqual([]);
+});
+
+test('opening encounters are weak and large species retain their authored size in sprites and health bars',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await start(page);await pause(page);
+ const opening=await page.evaluate(async()=>{
+  const g=(window as any).__WILDLANDS__,{getEnemySpeciesProfile}=await import('/src/data/enemySpecies.ts');
+  return Array.from({length:16},(_,index)=>{
+   const s=new g.sim.constructor(25,347+index).state;
+   return s.enemies.map((enemy:any)=>({variant:enemy.variant,elite:enemy.elite,strength:getEnemySpeciesProfile(enemy.speciesId).strength}));
+  });
+ });
+ for(const enemies of opening){
+  expect(enemies).toHaveLength(3);
+  expect(enemies.every((enemy:any)=>enemy.variant==='normal'&&!enemy.elite&&enemy.strength<=2.4)).toBe(true);
+ }
+ await page.evaluate(async()=>{
+  const g=(window as any).__WILDLANDS__,s=g.sim.state,p=s.player,{createEnemy}=await import('/src/game/systems/spawning.ts');
+  p.x=0;p.z=0;p.y=0;s.party[0].x=0;s.party[0].z=0;g.sim.spawnAccum=-1000;
+  s.enemies=[19,95,143,149].map((id,index)=>createEnemy(s,g.sim.rng,id,'normal',(index-1.5)*6,7));
+  g.camera.alpha=-Math.PI/2;g.camera.beta=1.05;g.camera.radius=27;g.camera.getViewMatrix(true);
+  g.visuals.sync(s.party,s.enemies,0,-g.camera.alpha-Math.PI/2,(x:number,z:number)=>g.world.height(x,z));
+ });
+ await expect.poll(()=>game(page,`g=>g.visuals.inspect().length===5&&g.visuals.inspect().every(a=>a.resolved!=='artwork'&&a.visible)`)).toBe(true);
+ const rendered=await page.evaluate(async()=>{
+  const g=(window as any).__WILDLANDS__,s=g.sim.state,{getEnemySpeciesProfile}=await import('/src/data/enemySpecies.ts');
+  const {ENEMY_TIER_TUNING}=await import('/src/data/enemyTiers.ts');
+  g.visuals.sync(s.party,s.enemies,0,-g.camera.alpha-Math.PI/2,(x:number,z:number)=>g.world.height(x,z));
+  g.healthBars.sync(s,1,(x:number,z:number)=>g.world.height(x,z));g.scene.render();
+  return s.enemies.map((enemy:any)=>{
+   const profile=getEnemySpeciesProfile(enemy.speciesId),actor=g.visuals.actors.get(enemy.uid),avatar=actor.avatar,asset=avatar.asset;
+   const bar=g.healthBars.inspect().find((bar:any)=>bar.uid===enemy.uid),track=g.scene.getMeshByName('health-track-'+enemy.uid);
+   const tierScale=enemy.combatTier===3?ENEMY_TIER_TUNING.tier3.sizeMultiplier:enemy.combatTier===4?ENEMY_TIER_TUNING.tier4.sizeMultiplier:1;
+   return {speciesId:enemy.speciesId,size:enemy.size,expectedSize:profile.size*tierScale,
+    bodyHeight:avatar.sprite.height*asset.bounds.visibleHeight/asset.meta.height,shadowWidth:actor.shadow.scaling.x,
+    barOffset:Math.hypot(bar.x-enemy.x,bar.y-g.world.height(enemy.x,enemy.z),bar.z-enemy.z),
+    expectedBarOffset:1.65*enemy.size*g.assets.headroom(enemy.speciesId)+.3,
+    visible:avatar.sprite.isVisible&&avatar.sprite.manager.texture.isReady()&&track.isEnabled()&&track.isVisible&&track.material.isReady(track)};
+  });
+ });
+ expect(rendered.map((enemy:any)=>enemy.speciesId)).toEqual([19,95,143,149]);
+ for(const enemy of rendered){
+  expect(enemy.size).toBe(enemy.expectedSize);
+  expect(enemy.bodyHeight).toBeCloseTo(1.65*enemy.size,5);
+  expect(enemy.barOffset).toBeCloseTo(enemy.expectedBarOffset,5);
+  expect(enemy.visible).toBe(true);
+ }
+ for(const enemy of rendered.slice(1)){
+  expect(enemy.bodyHeight).toBeGreaterThan(rendered[0].bodyHeight*2.5);
+  expect(enemy.shadowWidth).toBeGreaterThan(rendered[0].shadowWidth*2.5);
+ }
+ await mkdir('artifacts/browser',{recursive:true});
+ await page.locator('#overlay').evaluate(element=>(element as HTMLElement).style.visibility='hidden');
+ await page.screenshot({path:'artifacts/browser/enemy-species-sizes.png'});
+ await page.locator('#overlay').evaluate(element=>(element as HTMLElement).style.visibility='');
  expect(errors).toEqual([]);
 });

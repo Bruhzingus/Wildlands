@@ -14,21 +14,24 @@ export function updateDirector(state:RunState):DirectorSnapshot {
  let index=0;for(let i=1;i<DIRECTOR_PHASES.length;i++)if(elapsed>=DIRECTOR_PHASES[i].at)index=i;
  const phase=DIRECTOR_PHASES[index],next=DIRECTOR_PHASES[index+1];
  const progress=next?clamp((elapsed-phase.at)/(next.at-phase.at),0,1):0;
+ // Interpolate the quiet opening into later pressure without a boundary burst.
+ // The boss keeps its own lower arrival rate instead of easing the final approach.
+ const nextPressure=next&&next.at<DESIGN.bossAtSeconds?next:undefined;
+ const pacingProgress=progress*progress*(3-2*progress);
  const endlessScale=state.endless?1+Math.max(0,elapsed-DESIGN.bossAtSeconds)/600:1;
- const bossActive=state.bossSpawned&&!state.stats.bossKilled;
  const phaseId=state.endless?'endless':phase.id;
  const pressure=clamp(1-state.player.hp/state.player.maxHp,0,1);
  const accessibility=pressure>.7?.85:1;
- const baseBudget=state.endless?175:phase.budget;
- const enemyBudget=Math.min(DESIGN.maxEnemies,Math.round((baseBudget+(next&&!bossActive?Math.max(0,next.budget-baseBudget)*progress*.65:0))*accessibility));
+ const baseBudget=state.endless?140:phase.budget+(nextPressure?(nextPressure.budget-phase.budget)*pacingProgress:0);
+ const enemyBudget=Math.min(DESIGN.maxEnemies,Math.round(baseBudget*accessibility));
  const living=state.enemies.reduce((count,enemy)=>count+(enemy.dead?0:1),0),density=living/Math.max(1,enemyBudget);
- const baseInterval=state.endless?Math.max(.15,.30/Math.sqrt(endlessScale)):phase.interval;
- const interval=baseInterval*(1-progress*.15)*(density>.78?1+(density-.78)*1.6:1)*(pressure>.7?1.18:1);
+ const baseInterval=state.endless?Math.max(.32,.62/Math.sqrt(endlessScale)):phase.interval+(nextPressure?(nextPressure.interval-phase.interval)*pacingProgress:0);
+ const interval=baseInterval*(density>.78?1+(density-.78)*1.6:1)*(pressure>.7?1.18:1);
  const variantWeights:Partial<Record<Variant,number>>={};
  DIRECTOR_VARIANTS.forEach((variant,i)=>{variantWeights[variant]=phase.variants[i]+(next?(next.variants[i]-phase.variants[i])*progress:0);});
  if(state.endless){variantWeights.normal=Math.max(.18,.43-.07*(endlessScale-1));variantWeights.rocket=.20;variantWeights.dark=.20;variantWeights.rabid=.17;variantWeights.poisoned=.14;}
  const snapshot:DirectorSnapshot={phaseId,title:state.endless?'Endless wilds':phase.title,elapsed,spawnInterval:interval,
-  batchSize:!bossActive&&elapsed>=660&&density<.55?2:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,
+  batchSize:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,
   bossWarning:!state.bossSpawned&&elapsed>=DESIGN.bossAtSeconds-BOSS_RULES.warningSeconds,
   bossCountdown:Math.max(0,DESIGN.bossAtSeconds-elapsed),spawned:previous?.spawned||0,denied:previous?.denied||0,
   transitions:(previous?.transitions||0)+(previous&&previous.phaseId!==phaseId?1:0)};

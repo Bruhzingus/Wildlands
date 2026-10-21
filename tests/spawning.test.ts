@@ -40,9 +40,24 @@ test('repeated outward samples fall back inward after a bounded number of draws'
 test('opening enemies use the same distant ring as later waves',()=>{
  for(let seed=1;seed<=24;seed++){
   const s=new Simulation(1,seed).state;
-  assert.equal(s.enemies.length,8);
+  assert.equal(s.enemies.length,3);
   for(const enemy of s.enemies)assertSpawn(enemy,s.player,24,34);
  }
+});
+
+test('actual arrivals stay sparse in the first minute and build gradually through the run',()=>{
+ const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
+ function arrivals(elapsed:number){
+  const sim=new Simulation(1,414),s=sim.state;s.enemies=[];s.stats.elapsed=elapsed;s.player.iframes=10000;s.party[0].cooldown=1e6;
+  // Clear arrivals before they engage so combat, despawns and the active cap do not mask pacing.
+  for(let frame=0;frame<1500;frame++){sim.update(.04,idle);s.enemies=[];}
+  assert.equal(s.director!.denied,0);return s.director!.spawned;
+ }
+ const samples=[0,180,420,780].map(arrivals);
+ assert.ok(samples[0]>=20&&samples[0]<=24,`Opening should have roughly one arrival per 2.8s, got ${samples[0]}`);
+ assert.ok(samples[1]>=32&&samples[1]<=37);assert.ok(samples[2]>=49&&samples[2]<=54);assert.ok(samples[3]>=84&&samples[3]<=86);
+ assert.ok(samples.every((count,index)=>index===0||count>samples[index-1]));
+ assert.equal(arrivals(0),samples[0],'Seeded pacing is repeatable');
 });
 
 test('scheduled bosses keep their spawn distance when the player reaches a corner',()=>{

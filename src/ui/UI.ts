@@ -1,5 +1,6 @@
 import {getSpecies,ELEMENT_COLORS,starterChoices} from '../data/kanto.ts';
 import {DESIGN} from '../data/config.ts';
+import {PARTY_DAMAGE_COLORS} from '../data/damageNumbers.ts';
 import type {UpgradeChoice,RunState,PartyMember} from '../game/types.ts';
 import {persist,type SaveData} from '../game/save.ts';
 import {bindProgressionUI,renderProgressionResult,renderRunOptions,renderUnlockLibrary} from './UnlockLibrary.ts';
@@ -219,7 +220,7 @@ export class UI {
   const strip=q('#party-strip');const signature=s.party.map(v=>`${v.uid}/${v.speciesId}/${v.attackLevel}/${v.learnedMoves?.map(m=>`${m.moveId}:${m.rank}`).join(';')??''}`).join(',');
   if(strip.dataset.signature!==signature){strip.dataset.signature=signature;strip.innerHTML=Array.from({length:6},(_,i)=>{
    const member=s.party[i];if(!member)return `<div class="party-empty"><span>—</span><small>${i+1}</small></div>`;
-   const spec=getSpecies(member.speciesId);return `<div class="party-unit ${i===0?'leader':''}" data-member="${member.uid}">${this.portrait(spec.id)}<span class="party-level" title="Pokémon level">L${member.level}</span><span class="party-rank" title="Base move rank">R${member.attackLevel}</span><span class="party-critical" aria-hidden="true">!</span><span class="party-poison" aria-label="Poisoned">P</span><span class="party-hp"></span><span class="party-health"></span><span class="party-xp-track"><span class="party-xp"></span></span></div>`;
+   const spec=getSpecies(member.speciesId);return `<div class="party-unit ${i===0?'leader':''}" data-member="${member.uid}">${this.portrait(spec.id)}<span class="party-damage-color" style="--damage-color:${PARTY_DAMAGE_COLORS[i]}" title="Damage color; ! marks critical hits"></span><span class="party-level" title="Pokémon level">L${member.level}</span><span class="party-rank" title="Base move rank">R${member.attackLevel}</span><span class="party-critical" aria-hidden="true">!</span><span class="party-poison" aria-label="Poisoned">P</span><span class="party-hp"></span><span class="party-health"></span><span class="party-xp-track"><span class="party-xp"></span></span></div>`;
   }).join('');this.imageFallbacks(strip);}
   s.party.forEach((member,index)=>{const unit=strip.querySelector<HTMLElement>(`[data-member="${member.uid}"]`);if(!unit)return;
    const hp=index===0?p.hp:member.hp,maxHp=index===0?p.maxHp:member.maxHp,low=hp/maxHp<.25;
@@ -251,7 +252,7 @@ export class UI {
   q('#boss-bar').classList.toggle('hidden',!boss);
   if(boss){
    q('#boss-hp-fill').style.width=`${percent(boss.hp,boss.maxHp)}%`;
-   const hints={volley:'PSYSTRIKE · Move off the aim line',psychicRing:'PSYCHIC · Jump or dodge through the wave',summon:'TELEPORT · Reinforcements incoming',slam:'EARTHQUAKE · Leave the marked area',enemyMove:`${boss.windup?.moveName??'ATTACK'} · Leave the marked area`};
+   const hints={volley:'PSYSTRIKE · Move off the aim line',psychicRing:'PSYCHIC · Jump or dodge through the wave',summon:'TELEPORT · Reinforcements incoming',slam:`${(boss.windup?.moveName??'Psyshock').toUpperCase()} · Leave the marked area`,enemyMove:`${boss.windup?.moveName??'ATTACK'} · Leave the marked area`};
    q('#boss-action').textContent=boss.windup?hints[boss.windup.kind]:(s.psychicRings?.length?'PSYCHIC RING · Jump or dodge through the wave':'MEWTWO / LEGENDARY');
   }
  }

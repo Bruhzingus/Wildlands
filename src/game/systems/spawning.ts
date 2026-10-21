@@ -1,8 +1,9 @@
-import {getSpecies} from '../../data/kanto.ts';
-import {selectEncounter,type SpeciesTier} from '../../data/encounters.ts';
+import {getEnemySpeciesProfile} from '../../data/enemySpecies.ts';
+import {ENEMY_TIER_TUNING,getEnemyTier,type EnemyTier} from '../../data/enemyTiers.ts';
+import {ELITE_THREAT,maximumEncounterThreat,selectEncounter,type SpeciesTier} from '../../data/encounters.ts';
 import {RNG,clamp} from '../../utils/random.ts';
 import {DESIGN,DIFFICULTY,ordinaryThreatScale} from '../../data/config.ts';
-import {getVariant,SPAWN_VARIANTS,variantWeights} from '../../data/variants.ts';
+import {getVariant,SPAWN_VARIANTS,variantThreat,variantWeights} from '../../data/variants.ts';
 import type {Enemy,Player,RunState,Variant,Vec2} from '../types.ts';
 import {getBuildModifiers} from './builds.ts';
 
@@ -23,22 +24,29 @@ export function enemyProgressionScale(state:RunState):{health:number;damage:numb
 }
 export function rollVariant(rng:RNG,elapsed:number,weights?:Partial<Record<Variant,number>>):Variant{
  const table=weights??variantWeights(elapsed);
- const valid=SPAWN_VARIANTS.map(variant=>({variant,weight:Number.isFinite(table[variant])?Math.max(0,table[variant]??0):0}));
+ const valid=SPAWN_VARIANTS.map(variant=>({variant,weight:1+variantThreat(variant)<maximumEncounterThreat(elapsed)&&Number.isFinite(table[variant])?Math.max(0,table[variant]??0):0}));
  const total=valid.reduce((sum,entry)=>sum+entry.weight,0);let roll=rng.next()*total;
  for(const entry of valid){roll-=entry.weight;if(roll<0)return entry.variant;}
  return 'normal';
 }
-export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Variant,x:number,z:number,elite=false,boss=false):Enemy{
- const t=state.stats.elapsed/60;const sp=getSpecies(speciesId);
+export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Variant,x:number,z:number,elite=false,boss=false,tierOverride?:EnemyTier):Enemy{
+ const t=state.stats.elapsed/60,profile=getEnemySpeciesProfile(speciesId);
  const mod=getVariant(variant);
  const progression=enemyProgressionScale(state);
- const hp=(18+sp.stage*10+t*1.25)*(1+t*.07)*mod.hp*(elite?DIFFICULTY.eliteHp:1)*(boss?4.6:1)*progression.health;
+ const combatTier=tierOverride??getEnemyTier(speciesId,variant,boss),tuning=combatTier===3?ENEMY_TIER_TUNING.tier3:combatTier===4?ENEMY_TIER_TUNING.tier4:undefined;
+ const baseHp=(22+profile.strength*5+t*.75)*(1+t*.035)*profile.health*mod.hp*(elite&&combatTier<=2?DIFFICULTY.eliteHp:1)*(boss?4.6:1)*progression.health;
+ const floor=tuning?(tuning.minimumHealth+state.stats.elapsed*tuning.healthPerSecond)*(.65+profile.strength*.055)*(1+progression.party):0;
+ const hp=Math.max(baseHp*(tuning?.healthMultiplier??1),floor);
  const damageScale=(boss?1.35:ordinaryThreatScale(state.stats.elapsed)*(elite?DIFFICULTY.eliteDamage:1))*progression.damage;
- return {uid:state.idCounter++,speciesId,variant,x,z,hp,maxHp:hp,speed:(2.7+sp.stage*.20+t*.055)*mod.speed*(state.challenge==='quickened'?1.20:1),damage:(6+sp.stage*2.7+t*.46)*mod.damage*damageScale,size:boss?4.4:elite?2.1:1+sp.stage*.18,hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
+ return {uid:state.idCounter++,speciesId,variant,combatTier,attackIndex:0,x,z,hp,maxHp:hp,speed:(2.8+t*.035)*profile.speed*mod.speed*(state.challenge==='quickened'?1.20:1),damage:(6+profile.strength*1.2+t*.3)*profile.damage*mod.damage*damageScale*(tuning?.damageMultiplier??1),size:boss?4.4:profile.size*(elite?1.22:1)*(tuning?.sizeMultiplier??1),hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
 }
 /** Optional landmark fights scale with the run's growing party and move budget. */
 export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false,tier=1):Enemy {
- const guardian=createEnemy(state,rng,speciesId,'rocket',x,z,true);
+ const hardShrine=shrine&&tier>=4;
+ const variant=hardShrine&&getEnemyTier(speciesId)===3?'rocket':'normal';
+ const guardianTier=hardShrine?4:Math.max(3,getEnemyTier(speciesId)) as EnemyTier;
+ const guardian=createEnemy(state,rng,speciesId,variant,x,z,true,false,guardianTier);
+ guardian.hardShrine=hardShrine;
  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,DIFFICULTY.guardianBaseHp+averagePartyLevel(state)*DIFFICULTY.guardianHpPerLevel+state.stats.elapsed*DIFFICULTY.guardianHpPerSecond);
  guardian.damage*=DIFFICULTY.guardianDamage;guardian.attackCooldown=.7;
  if(shrine){
@@ -67,10 +75,19 @@ export function spawnRandomEnemy(state:RunState,rng:RNG,tuning:SpawnTuning={}):E
  // Reserve one actor for the scheduled boss instead of exceeding the entity budget.
  const capacity=Number.isFinite(tuning.capacity)?clamp(Math.floor(tuning.capacity!),0,DESIGN.maxEnemies):DESIGN.maxEnemies;
  if(state.enemies.filter(enemy=>!enemy.dead).length>=Math.max(0,capacity-(state.bossSpawned?0:1)))return null;
- const t=state.stats.elapsed,{speciesId:id,rare}=selectEncounter(rng,t,tuning.speciesTier,tuning.allowRare!==false);
+ const t=state.stats.elapsed,rolledVariant=rollVariant(rng,t,tuning.variantWeights);
+ const living=state.enemies.filter(enemy=>!enemy.dead),bossActive=state.bossSpawned&&!state.stats.bossKilled&&!state.endless;
+ const limits={
+  allowTier3:!bossActive&&t-(state.lastTier3Spawn??-Infinity)>=ENEMY_TIER_TUNING.tier3.minimumSpacingSeconds&&living.filter(enemy=>(enemy.combatTier??getEnemyTier(enemy.speciesId,enemy.variant,enemy.isBoss))===3).length<ENEMY_TIER_TUNING.tier3.maxAlive,
+  allowTier4:!bossActive&&t-(state.lastTier4Spawn??-Infinity)>=ENEMY_TIER_TUNING.tier4.minimumSpacingSeconds&&living.filter(enemy=>(enemy.combatTier??getEnemyTier(enemy.speciesId,enemy.variant,enemy.isBoss))===4).length<ENEMY_TIER_TUNING.tier4.maxAlive,
+ };
+ const {speciesId:id,rare}=selectEncounter(rng,t,tuning.speciesTier,tuning.allowRare!==false,rolledVariant,limits);
  const {x,z}=enemySpawnPosition(state.player,rng);
- const variant=rare?'normal':rollVariant(rng,t,tuning.variantWeights);
- const enemy=createEnemy(state,rng,id,variant,x,z,rare||rng.next()<.009+t/50000);
+ const variant=rare?'normal':rolledVariant;
+ const canBeElite=t>=180&&getEnemySpeciesProfile(id).strength+variantThreat(variant)+ELITE_THREAT<=maximumEncounterThreat(t);
+ const enemy=createEnemy(state,rng,id,variant,x,z,rare||(canBeElite&&rng.next()<.003+t/200000));
+ if(enemy.combatTier===3)state.lastTier3Spawn=t;
+ if(enemy.combatTier===4)state.lastTier4Spawn=t;
  const scale=Number.isFinite(tuning.statScale)?clamp(tuning.statScale!, .25,8):1;
  enemy.hp*=scale;enemy.maxHp*=scale;enemy.damage*=scale;return enemy;
 }

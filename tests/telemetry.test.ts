@@ -99,7 +99,9 @@ test('invalid replay configs fail clearly instead of starting a stalled or unbou
 });
 
 test('fresh-save and legacy-full pools are explicit replay settings and fresh reports respect unlock gates',()=>{
- const fresh=runExperiment({seed:1124,starter:7,seconds:300,maintainHealth:true,pools:'fresh'});
+ // Seed 4 reaches a cache at 17s, before combat choices or recruit pools diverge.
+ const replay={seed:4,starter:7,seconds:300,maintainHealth:true};
+ const fresh=runExperiment({...replay,pools:'fresh'});
  assert.equal(fresh.config.pools,'fresh');assert.ok(fresh.recruitOffers.length>0);
  assert.ok(fresh.recruitOffers[0].at>=DESIGN.recruitUnlockSeconds[0]&&fresh.recruitOffers[0].at<=300);
  assert.ok(fresh.recruitOffers.every(offer=>offer.species.every(id=>!GATED_RECRUITS.includes(id))));
@@ -107,7 +109,8 @@ test('fresh-save and legacy-full pools are explicit replay settings and fresh re
  assert.ok(itemChoices.length>0,'The replay visits caches and exercises the fresh item pool');
  assert.ok(itemChoices.every(choice=>!(GATED_ITEMS as readonly string[]).includes(choice.id)&&ITEMS.some(item=>item.id===choice.id)), 'Fresh caches exclude locked and retired relics');
  assert.equal(fresh.validationErrors.length,0);
- const legacy=runExperiment({seed:1124,seconds:1,pools:'legacy-full'});
+ const legacy=runExperiment({...replay,seconds:90,pools:'legacy-full'});
+ assert.ok(legacy.choices.some(choice=>choice.kind==='item'),'The matching legacy replay also visits a cache');
  assert.equal(legacy.config.pools,'legacy-full');assert.equal(summarizeExperiments([fresh,legacy]).cohorts.length,2);
 });
 

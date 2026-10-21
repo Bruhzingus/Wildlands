@@ -6,7 +6,7 @@ const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 
 test('selected Quickened rules apply to the opening enemies as well as future arrivals',()=>{
  const normal=new Simulation(25,46837),quick=new Simulation(25,46837,{challenge:'quickened'});
- assert.equal(quick.state.enemies.length,8);
+ assert.equal(quick.state.enemies.length,3);
  quick.state.enemies.forEach((enemy,index)=>{const original=normal.state.enemies[index];assert.equal(enemy.speciesId,original.speciesId);assert.equal(enemy.x,original.x);assert.equal(enemy.speed,original.speed*1.2);assert.equal(enemy.damage,original.damage);});
 });
 

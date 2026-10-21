@@ -1,5 +1,5 @@
 import {Color3,Color4,Mesh,MeshBuilder,StandardMaterial,VertexBuffer,VertexData,type InstancedMesh,type Scene} from '@babylonjs/core';
-import {getEnemyAttackProfile} from '../../data/enemyAttacks.ts';
+import {resolveCommittedEnemyProfile} from '../../data/enemyAttacks.ts';
 import {COMBAT_VISUALS} from '../../data/config.ts';
 import type {RunState} from '../types.ts';
 
@@ -87,7 +87,7 @@ export class ThreatIndicators {
   const enemies=state.enemies.filter(e=>!e.dead&&e.windup).sort((a,b)=>Number(b.isBoss)-Number(a.isBoss)||distance(a.x,a.z)-distance(b.x,b.z));
   for(const enemy of enemies.slice(0,COMBAT_VISUALS.maxWindups)){
    const w=enemy.windup!,role=w.role,melee=role==='melee-fast'||role==='melee-slow',ranged=role==='ranged-burst'||role==='ranged-projectile'||w.kind==='volley';
-   const landing=w.kind==='slam'||role==='explosive-bomb',profile=getEnemyAttackProfile(enemy.speciesId);
+   const landing=w.kind==='slam'||role==='explosive-bomb',profile=resolveCommittedEnemyProfile(enemy,w,state.stats.elapsed);
    const flight=role==='explosive-bomb'?Math.max(.35,Math.hypot(w.x-enemy.x,w.z-enemy.z)/profile.projectileSpeed):0;
    alive.add(enemy.uid);
    cues.push({key:enemy.uid,name:`combat-windup-${enemy.uid}`,x:landing?w.x:enemy.x,z:landing?w.z:enemy.z,

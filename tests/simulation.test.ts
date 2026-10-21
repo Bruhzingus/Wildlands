@@ -68,6 +68,8 @@ test('followers can permanently faint and keep recruitment count intact',()=>{
  const sim=new Simulation(7,918),s=sim.state;s.stats.level=8;s.stats.elapsed=190;
  const offer=makeChoices(s,sim.rng)[0];applyChoice(s,offer);
  assert.equal(s.party.length,2);const follow=s.party[1];follow.hp=1;follow.x=1;follow.z=0;
+ // Isolate incoming damage from the party killing a weak opening enemy first.
+ for(const member of s.party)member.cooldown=1000;
  const foe=s.enemies[0];s.enemies=[foe];foe.uid=100;foe.speciesId=19;foe.x=follow.x;foe.z=follow.z;foe.attackCooldown=0;foe.speed=0;
  sim.update(.03,idle);
  for(let i=0;i<6;i++)sim.update(.04,idle);

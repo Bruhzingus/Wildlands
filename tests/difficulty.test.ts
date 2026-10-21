@@ -4,6 +4,7 @@ import {Simulation} from '../src/game/Simulation.ts';
 import {getSpecies} from '../src/data/kanto.ts';
 import {DIFFICULTY,ordinaryThreatScale} from '../src/data/config.ts';
 import {BOSS_RULES} from '../src/data/director.ts';
+import {ENEMY_TIER_TUNING,getEnemyTier} from '../src/data/enemyTiers.ts';
 import {createEnemy,createGuardian} from '../src/game/systems/spawning.ts';
 import {RNG} from '../src/utils/random.ts';
 
@@ -19,16 +20,79 @@ test('the opening stays unchanged and ordinary threat ramps smoothly to twenty p
  assert.equal(ordinaryThreatScale(NaN),1);
 });
 
-test('time increases enemy endurance while ordinary damage and movement keep their established ramps',()=>{
- const s=new Simulation(7,99).state,rng=new RNG(4),sp=getSpecies(19);
- for(const elapsed of [0,120,150,180,600,900]){
-  s.stats.elapsed=elapsed;const minutes=elapsed/60,enemy=createEnemy(s,rng,19,'normal',0,0);
-  const baseDamage=6+sp.stage*2.7+minutes*.46;
-  assert.equal(enemy.damage,baseDamage*ordinaryThreatScale(elapsed));
-  const timeHealth=1+.4*Math.max(0,elapsed-120)/780;
-  assert.ok(Math.abs(enemy.maxHp-(18+sp.stage*10+minutes*1.25)*(1+minutes*.07)*timeHealth)<1e-9);
-  assert.equal(enemy.speed,2.7+sp.stage*.2+minutes*.055);
+test('ordinary tier-one and tier-two stats grow gradually within bounds while body size stays consistent',()=>{
+ const s=new Simulation(7,99).state,rng=new RNG(4);
+ for(const speciesId of [19,26,82,148]){
+  assert.ok(getEnemyTier(speciesId)<=2);
+  s.stats.elapsed=0;const opening=createEnemy(s,rng,speciesId,'normal',0,0);let previous=opening;
+  for(const elapsed of [120,150,180,600,900]){
+   s.stats.elapsed=elapsed;const enemy=createEnemy(s,rng,speciesId,'normal',0,0);
+   assert.ok(enemy.maxHp>previous.maxHp&&enemy.damage>previous.damage&&enemy.speed>previous.speed,`${getSpecies(speciesId).name} at ${elapsed}s`);
+   assert.equal(enemy.size,opening.size,'Elapsed time does not inflate a species silhouette');
+   previous=enemy;
+  }
+  assert.ok(previous.maxHp/opening.maxHp<3.2,'Endurance growth remains bounded over a complete run');
+  assert.ok(previous.damage/opening.damage<2,'Time alone does not double ordinary damage');
+  assert.ok(previous.speed/opening.speed<1.25,'Movement gains preserve readable attack tells');
  }
+});
+
+test('a species and variant retain the same combat stats across random rolls and spawn positions',()=>{
+ const s=new Simulation(7,99).state;s.stats.elapsed=420;
+ for(const speciesId of [19,95,149])for(const variant of ['normal','rocket'] as const){
+  const first=createEnemy(s,new RNG(4),speciesId,variant,0,0),second=createEnemy(s,new RNG(97),speciesId,variant,22,-14);
+  for(const stat of ['maxHp','hp','damage','speed','size'] as const)assert.equal(first[stat],second[stat],`${getSpecies(speciesId).name} ${variant} ${stat}`);
+ }
+});
+
+test('species strength and size distinguish minibosses within the same evolution stage',()=>{
+ const s=new Simulation(7,99).state,rng=new RNG(4),weak=createEnemy(s,rng,19,'normal',0,0);
+ assert.equal(getSpecies(19).stage,1);
+ const bulky=[95,143].map(speciesId=>{
+  assert.equal(getSpecies(speciesId).stage,1);
+  const enemy=createEnemy(s,rng,speciesId,'normal',0,0);
+  assert.ok(enemy.maxHp>weak.maxHp*3&&enemy.damage>weak.damage*2&&enemy.size>weak.size*2.5,`${getSpecies(speciesId).name} is large and threatening despite sharing Rattata's stage`);
+  return enemy;
+ });
+ const butterfree=createEnemy(s,rng,12,'normal',0,0),charizard=createEnemy(s,rng,6,'normal',0,0);
+ assert.equal(getSpecies(12).stage,getSpecies(6).stage);
+ assert.equal(charizard.combatTier,3);assert.equal(butterfree.combatTier,3);
+ assert.ok(charizard.maxHp>butterfree.maxHp*1.25&&charizard.damage>butterfree.damage*1.8&&charizard.size>butterfree.size*1.4,'Tier-three durability floors retain Charizard\'s greater strength and size');
+ s.stats.elapsed=900;const lateWeak=createEnemy(s,rng,19,'normal',0,0);
+ for(const enemy of bulky){
+  assert.ok(enemy.maxHp>lateWeak.maxHp*1.5&&enemy.damage>lateWeak.damage*1.5,'A full run of time scaling does not make Rattata stronger than naturally imposing species');
+ }
+});
+
+test('miniboss and elite durability grow with their encounter windows and remain far above ordinary enemies',()=>{
+ const s=new Simulation(7,99).state,rng=new RNG(4);
+ for(const speciesId of [12,95,143,149]){
+  let previousHp=0;
+  for(const elapsed of [360,600,780,900]){
+   s.stats.elapsed=elapsed;
+   const ordinary=createEnemy(s,rng,148,'rocket',0,0),miniboss=createEnemy(s,rng,speciesId,'normal',0,0),elite=createEnemy(s,rng,speciesId,'rocket',0,0);
+   assert.equal(ordinary.combatTier,2);assert.equal(miniboss.combatTier,3);assert.equal(elite.combatTier,4);
+   assert.ok(miniboss.maxHp>previousHp*1.1,'Each later encounter window adds meaningful miniboss endurance');
+   assert.ok(miniboss.maxHp>ordinary.maxHp*4,'Even a small third-stage miniboss outlasts an enhanced ordinary enemy');
+   assert.ok(elite.maxHp>miniboss.maxHp*2.5,'Promoting a miniboss to tier four adds substantial durability');
+   assert.ok(elite.damage>miniboss.damage*1.9,'The promoted Rocket encounter also has greater offensive power');
+   assert.ok(miniboss.maxHp>ENEMY_TIER_TUNING.tier3.minimumHealth);
+   assert.equal(miniboss.size,createEnemy(s,rng,speciesId,'normal',20,20).size,'Durability does not depend on spawn position');
+   previousHp=miniboss.maxHp;
+  }
+ }
+});
+
+test('the scheduled Mewtwo has a separate durability budget above even a late Rocket Dragonite',()=>{
+ const sim=new Simulation(7,99),s=sim.state;s.stats.elapsed=899.99;s.enemies=[];s.pois=[];
+ s.party[0].level=25;s.party[0].cooldown=1e6;
+ const elite=createEnemy(s,new RNG(4),149,'rocket',0,0);
+ sim.update(.02,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});
+ const boss=s.enemies.find(enemy=>enemy.isBoss);
+ assert.ok(boss);assert.equal(boss.combatTier,5);assert.equal(boss.speciesId,150);
+ assert.ok(boss.maxHp>=90000,'A developed party faces a substantial final boss health pool');
+ assert.ok(boss.maxHp>elite.maxHp*5,'Mewtwo remains a major step above a tier-four encounter');
+ assert.ok(boss.damage>=BOSS_RULES.contactDamage,'Final boss contact damage uses its dedicated tuning');
 });
 
 test('elite encounters have substantial endurance and the final boss keeps readable tells with stronger attacks',()=>{

@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {FreeCamera,NullEngine,Scene,Vector3} from '@babylonjs/core';
-import {VARIANTS,SPAWN_VARIANTS,variantRewardXP,variantWeights} from '../src/data/variants.ts';
+import {ENCOUNTER_XP_MULTIPLIERS,VARIANTS,SPAWN_VARIANTS,variantRewardXP,variantWeights} from '../src/data/variants.ts';
 import {KANTO,getSpecies} from '../src/data/kanto.ts';
+import {getEnemySpeciesProfile} from '../src/data/enemySpecies.ts';
+import {ENEMY_TIER_TUNING,getEnemyTier} from '../src/data/enemyTiers.ts';
 import {DESIGN,typeMultiplier} from '../src/data/config.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {createEnemy,rollVariant,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
@@ -10,16 +12,28 @@ import {VariantCues} from '../src/game/render/AssetLibrary.ts';
 import {RNG} from '../src/utils/random.ts';
 import type {Variant} from '../src/game/types.ts';
 
-test('variant registry changes stats across all species without changing typing or adding attacks',()=>{
+test('variants preserve species typing and apply exact modifiers within ordinary tiers or promote minibosses to elites',()=>{
  const s=new Simulation(25,91).state,rng=new RNG(43);
- for(const sp of KANTO){
+ for(const elapsed of [0,900])for(const sp of KANTO){
+  s.stats.elapsed=elapsed;
   const normal=createEnemy(s,rng,sp.id,'normal',2,3);
   for(const variant of Object.keys(VARIANTS) as Variant[]){
    const enemy=createEnemy(s,rng,sp.id,variant,2,3),definition=VARIANTS[variant];
    assert.equal(enemy.speciesId,sp.id);assert.deepEqual(getSpecies(enemy.speciesId).types,sp.types);
    assert.equal(typeMultiplier('electric',getSpecies(enemy.speciesId).types),typeMultiplier('electric',sp.types));
-   assert.ok(Math.abs(enemy.maxHp/normal.maxHp-definition.hp)<1e-12);
-   assert.ok(Math.abs(enemy.damage/normal.damage-definition.damage)<1e-12);
+   const normalTier=getEnemyTier(sp.id),tier=getEnemyTier(sp.id,variant);
+   assert.equal(enemy.combatTier,tier);
+   if(normalTier<=2||normalTier===5){
+    assert.ok(Math.abs(enemy.maxHp/normal.maxHp-definition.hp)<1e-12,`${sp.name} ${variant} HP multiplier`);
+   }else if(normalTier===3&&variant!=='normal'){
+    assert.equal(tier,4);assert.ok(enemy.maxHp>normal.maxHp*2.5,`${sp.name} ${variant} promotion has elite durability`);
+   }else if(variant==='normal')assert.equal(enemy.maxHp,normal.maxHp);
+   else{
+    const healthRatio=enemy.maxHp/normal.maxHp;
+    assert.ok(healthRatio>=Math.min(1,definition.hp)-1e-12&&healthRatio<=Math.max(1,definition.hp)+1e-12,`${sp.name} ${variant} HP respects its multiplier and shared durability floor`);
+   }
+   const damageMultiplier=tier===4&&normalTier===3?ENEMY_TIER_TUNING.tier4.damageMultiplier/ENEMY_TIER_TUNING.tier3.damageMultiplier:1;
+   assert.ok(Math.abs(enemy.damage/normal.damage-definition.damage*damageMultiplier)<1e-12,`${sp.name} ${variant} damage includes the tier multiplier once`);
    assert.ok(Math.abs(enemy.speed/normal.speed-definition.speed)<1e-12);
    assert.equal(enemy.windup,undefined);assert.equal(enemy.isBoss,false);
   }
@@ -43,13 +57,44 @@ test('variant rarity follows configured early/late weights and legendary bosses 
  const one=new RNG(45),two=new RNG(45);assert.deepEqual(Array.from({length:100},()=>rollVariant(one,800)),Array.from({length:100},()=>rollVariant(two,800)));
 });
 
-test('XP rewards include stage, faction and elite/boss multipliers exactly once',()=>{
+test('XP rewards include species strength, stage, tier, faction and elite bonuses exactly once with fixed boss rewards',()=>{
  const s=new Simulation(25,13).state,rng=new RNG(24);
- for(const variant of Object.keys(VARIANTS) as Variant[])for(const speciesId of [10,11,12]){
+ for(const variant of Object.keys(VARIANTS) as Variant[])for(const speciesId of [10,11,12,19,95,149]){
   const enemy=createEnemy(s,rng,speciesId,variant,4,0),stage=getSpecies(speciesId).stage,multiplier=VARIANTS[variant].xp;
-  assert.equal(variantRewardXP(enemy),(5+stage*2)*multiplier);
-  enemy.elite=true;assert.equal(variantRewardXP(enemy),(20+stage*2)*multiplier);
+  const speciesReward=1+Math.max(0,getEnemySpeciesProfile(speciesId).strength-2.5)*.28;
+  const tier=getEnemyTier(speciesId,variant),tierReward=tier===3?ENCOUNTER_XP_MULTIPLIERS.tier3:tier===4?ENCOUNTER_XP_MULTIPLIERS.tier4:1;
+  assert.ok(Math.abs(variantRewardXP(enemy)-(5+stage*2)*speciesReward*multiplier*tierReward)<1e-10,`#${speciesId} ${variant} applies tier ${tier} reward once`);
+  enemy.elite=true;assert.ok(Math.abs(variantRewardXP(enemy)-(20+stage*2)*speciesReward*multiplier*tierReward)<1e-10,`#${speciesId} ${variant} combines the elite and tier reward once`);
   enemy.isBoss=true;assert.equal(variantRewardXP(enemy),(90+stage*2)*multiplier);
+ }
+ const weak=createEnemy(s,rng,19,'normal',4,0),bulky=createEnemy(s,rng,95,'normal',4,0);
+ assert.equal(variantRewardXP(weak),7,'Opening prey keeps its established XP');
+ assert.ok(variantRewardXP(bulky)>variantRewardXP(weak)*10,'A naturally tougher single-stage miniboss pays for its extra endurance');
+});
+
+test('an explicit guardian combat tier controls its XP compensation while the boss payout stays fixed',()=>{
+ const s=new Simulation(25,13).state,guardian=createEnemy(s,new RNG(24),26,'rocket',4,0,true);
+ const ordinaryReward=variantRewardXP(guardian);
+ guardian.combatTier=4;guardian.landmarkGuardian=true;guardian.shrineGuardian=true;guardian.hardShrine=true;
+ assert.ok(Math.abs(variantRewardXP(guardian)-ordinaryReward*ENCOUNTER_XP_MULTIPLIERS.tier4)<1e-10);
+ guardian.isBoss=true;
+ assert.equal(variantRewardXP(guardian),(90+getSpecies(26).stage*2)*VARIANTS.rocket.xp,'A boss flag overrides the guardian tier and species compensation');
+});
+
+test('strength-scaled defeat XP is split between instant credit and its pickup exactly once',()=>{
+ for(const [speciesId,variant,elite] of [[19,'normal',false],[26,'rocket',false],[95,'normal',false],[144,'normal',false],[149,'rocket',true]] as const){
+  const sim=new Simulation(25,13),s=sim.state;s.enemies=[];s.drops=[];s.pois=[];
+  (sim as any).lootRng.next=()=>.99;
+  const enemy=createEnemy(s,sim.rng,speciesId,variant,s.player.x,s.player.z,elite),reward=variantRewardXP(enemy);
+  s.enemies=[enemy];
+  (sim as any).damageEnemy(enemy,100000,'normal',s.party[0].uid);
+  assert.ok(Math.abs(s.party[0].xp!-reward*.52)<1e-9);
+  assert.ok(Math.abs(s.drops.filter(drop=>drop.kind==='xp').reduce((sum,drop)=>sum+drop.value,0)-reward*.48)<1e-9);
+  (sim as any).damageEnemy(enemy,100000,'normal',s.party[0].uid);
+  (sim as any).updateDrops(0);
+  assert.ok(Math.abs(s.party[0].xp!-reward)<1e-9,'One defeat pays its scaled total once');
+  (sim as any).updateDrops(0);
+  assert.ok(Math.abs(s.party[0].xp!-reward)<1e-9,'Collecting the same location again grants no extra XP');
  }
 });
 

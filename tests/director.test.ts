@@ -26,7 +26,29 @@ test('director advances the dramatic arc at every configured boundary with inspe
  assert.equal(s.director!.transitions,5);
  s.stats.elapsed=884.99;assert.equal(updateDirector(s).bossWarning,false);
  s.stats.elapsed=885;assert.equal(updateDirector(s).bossWarning,true);assert.equal(s.director!.bossCountdown,15);
- assert.equal(s.director!.enemyBudget,175,'The final approach remains intense until the actual boss phase');
+ assert.equal(s.director!.enemyBudget,118,'The final approach holds its budget until the actual boss phase');
+});
+
+test('ordinary pacing grows smoothly through phase boundaries with single arrivals',()=>{
+ const {s}=arena();
+ const opening=updateDirector(s);assert.equal(opening.spawnInterval,DESIGN.spawnStartInterval);assert.equal(opening.enemyBudget,18);
+ assert.equal(opening.variantWeights.normal,1,'The run begins with ordinary weak enemies');
+ for(const phase of DIRECTOR_PHASES.slice(1,-1)){
+  s.stats.elapsed=phase.at-.001;const before=updateDirector(s);
+  s.stats.elapsed=phase.at;const after=updateDirector(s);
+  assert.ok(Math.abs(before.spawnInterval-after.spawnInterval)<.001,`${phase.id} should not create a burst of arrivals`);
+  assert.equal(before.enemyBudget,after.enemyBudget);
+ }
+ let previousInterval=Infinity,previousBudget=0;
+ for(let elapsed=0;elapsed<900;elapsed++){
+  s.stats.elapsed=elapsed;const snapshot=updateDirector(s);
+  assert.ok(snapshot.spawnInterval<=previousInterval);assert.ok(snapshot.enemyBudget>=previousBudget);
+  assert.equal(snapshot.batchSize,1,'Later difficulty comes from stronger enemies and gradual arrivals');
+  previousInterval=snapshot.spawnInterval;previousBudget=snapshot.enemyBudget;
+ }
+ assert.equal(previousInterval,DESIGN.spawnEndInterval);
+ s.stats.elapsed=900;s.bossSpawned=true;const boss=updateDirector(s);
+ assert.ok(boss.enemyBudget<previousBudget);assert.ok(boss.spawnInterval>previousInterval);
 });
 
 test('runtime budget adaptation delays future arrivals without despawning or moving existing enemies',()=>{
@@ -42,7 +64,7 @@ test('runtime budget adaptation delays future arrivals without despawning or mov
 test('early director stays calm, accounts denied spawns and never accumulates a spawn flood',()=>{
  const {sim,s}=arena();s.player.iframes=10000;
  // Isolate spawn accounting from bombers spending themselves without kill rewards.
- for(let i=0;i<1500;i++){sim.update(.04,idle);for(const enemy of s.enemies)enemy.speciesId=19;}
+ for(let i=0;i<4500;i++){sim.update(.04,idle);for(const enemy of s.enemies)enemy.speciesId=19;}
  assert.ok(s.enemies.length<=s.director!.enemyBudget);assert.ok(s.enemies.length<50);assert.ok(s.director!.denied>0);
  assert.equal(s.director!.spawned,s.enemies.length);
  s.enemies=[];sim.update(.04,idle);assert.ok(s.enemies.length<=1);
@@ -59,7 +81,7 @@ test('legendary warning emits once, spawn is distant and simultaneous level-up r
  sim.choose(s.upgradeChoices[0].id);assert.equal(s.phase,'boss');
 });
 
-test('Mewtwo cycles aimed volley, expanding psychic ring and bounded distant summons after distinct tells',()=>{
+test('Mewtwo cycles aimed volley, psychic ring, bounded summons and a committed Psyshock burst',()=>{
  const {sim,s,boss}=bossArena(),events:GameEvent[]=[];sim.onEvent=event=>events.push(event);
  sim.update(.02,idle);assert.equal(boss.windup?.kind,'volley');assert.equal(s.projectiles.length,0);
  const volley=structuredClone(boss.windup);s.player.z=5;
@@ -74,11 +96,18 @@ test('Mewtwo cycles aimed volley, expanding psychic ring and bounded distant sum
  for(let i=0;i<38;i++)sim.update(.04,idle);
  const adds=s.enemies.filter(enemy=>!existing.has(enemy.uid));assert.ok(adds.length>=BOSS_RULES.summonCount);
  for(const add of adds)assert.ok(Math.hypot(add.x-s.player.x,add.z-s.player.z)>20,'Summons arrive at a safe distance and move normally');
- assert.equal(boss.bossCycle,0);assert.deepEqual(events.filter(event=>event.kind==='tell').slice(0,3).map(event=>event.shape),['volley','psychicRing','summon']);
+ assert.equal(boss.bossCycle,3);
+ boss.attackCooldown=0;sim.update(.02,idle);assert.equal(boss.windup?.kind,'slam');assert.equal(boss.windup?.moveName,'Psyshock');
+ assert.equal(boss.windup?.radius,BOSS_RULES.burstRadius);
+ const snapshot={x:boss.windup!.x,z:boss.windup!.z};s.player.x+=20;
+ for(let i=0;i<56;i++)sim.update(.02,idle);
+ assert.equal(boss.bossCycle,0);
+ const burst=events.find(event=>event.kind==='attack'&&event.label==='Psyshock');assert.ok(burst);assert.equal(burst.x,snapshot.x);assert.equal(burst.z,snapshot.z);
+ assert.deepEqual(events.filter(event=>event.kind==='tell').slice(0,4).map(event=>event.shape),['volley','psychicRing','summon','slam']);
 });
 
 test('all boss windups are paused and can be interrupted with stun without executing the attack',()=>{
- for(const cycle of [0,1,2]){const {sim,s,boss}=bossArena();boss.bossCycle=cycle;sim.update(.02,idle);
+ for(const cycle of [0,1,2,3]){const {sim,s,boss}=bossArena();boss.bossCycle=cycle;sim.update(.02,idle);
   s.phase='paused';const before=structuredClone(s);sim.update(.04,{...idle,special:true});assert.deepEqual(s,before);
   s.phase='boss';boss.stunTime=.5;sim.update(.02,idle);assert.equal(boss.windup,undefined);
   assert.equal(s.projectiles.length,0);assert.equal(s.psychicRings!.length,0);assert.equal(s.enemies.length,1);

@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation,type GameEvent} from '../src/game/Simulation.ts';
 import {createPOIs,rareEventFor,type ExplorationEvent} from '../src/game/systems/environment.ts';
+import {getEnemySpeciesProfile} from '../src/data/enemySpecies.ts';
+import {maximumEncounterThreat} from '../src/data/encounters.ts';
+import {variantThreat} from '../src/data/variants.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function eventFixture(kind:ExplorationEvent['kind']){
@@ -24,6 +27,10 @@ test('rare spring and shrine rewards apply once through interaction and guardian
    const guardian=s.enemies.find(enemy=>enemy.shrineGuardian);assert.ok(guardian,'The shrine blessing is guarded');
    (sim as any).damageEnemy(guardian,guardian.maxHp*2,'normal',s.party[0].uid);
    assert.ok(Math.abs(s.buffs.luck-.07)<1e-9,'Defeating the guardian grants the separate shrine blessing');
+   // Settle the miniboss XP levels before checking that another interaction
+   // cannot grant the blessing or healing again. Loot has separate coverage.
+   s.drops=[];sim.update(.02,idle);
+   while(s.phase==='choice')sim.choose(s.upgradeChoices[0].id);
   }
   const hp=s.player.hp,luck=s.buffs.luck;sim.update(.02,idle);sim.update(.02,{...idle,interact:true});
   assert.equal(s.player.hp,hp);assert.equal(s.buffs.luck,luck);assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,1);
@@ -31,10 +38,15 @@ test('rare spring and shrine rewards apply once through interaction and guardian
 });
 
 test('rare cache ambush respects distant spawns and the complete paused item selection',()=>{
- const {sim,s,site,events}=eventFixture('cache-ambush');sim.update(.02,{...idle,interact:true});
- assert.equal(site.used,true);assert.equal(s.phase,'choice');assert.equal(s.upgradeChoices.length,3);assert.ok(s.upgradeChoices.every(choice=>choice.kind==='item'));
- assert.equal(s.enemies.length,2);assert.ok(s.enemies.every(enemy=>enemy.variant==='rocket'&&Math.hypot(enemy.x-s.player.x,enemy.z-s.player.z)>=24));
- const frozen=structuredClone(s);for(let i=0;i<15;i++)sim.update(.04,{...idle,interact:true});assert.deepEqual(s,frozen);
- sim.choose(s.upgradeChoices[0].id);assert.equal(s.items.length,1);assert.equal(s.phase,'playing');
- assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,1);
+ for(const elapsed of [0,120]){
+  const {sim,s,site,events}=eventFixture('cache-ambush');s.stats.elapsed=elapsed;sim.update(.02,{...idle,interact:true});
+  assert.equal(site.used,true);assert.equal(s.phase,'choice');assert.equal(s.upgradeChoices.length,3);assert.ok(s.upgradeChoices.every(choice=>choice.kind==='item'));
+  assert.equal(s.enemies.length,2);
+  assert.ok(s.enemies.every(enemy=>enemy.variant===(elapsed===0?'normal':'rocket')&&Math.hypot(enemy.x-s.player.x,enemy.z-s.player.z)>=24));
+  assert.ok(s.enemies.every(enemy=>getEnemySpeciesProfile(enemy.speciesId).strength+variantThreat(enemy.variant)<=maximumEncounterThreat(s.stats.elapsed)),
+   'Cache ambushes respect the threat window, using weak wild Pokemon before Rocket variants unlock');
+  const frozen=structuredClone(s);for(let i=0;i<15;i++)sim.update(.04,{...idle,interact:true});assert.deepEqual(s,frozen);
+  sim.choose(s.upgradeChoices[0].id);assert.equal(s.items.length,1);assert.equal(s.phase,'playing');
+  assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,1);
+ }
 });

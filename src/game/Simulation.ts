@@ -14,8 +14,9 @@ import {memberDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpe
 import {executePattern,executeChain,type AttackTarget} from './combat/patterns.ts';
 import {nearestEnemy,enemiesInRadius} from './combat/targeting.ts';
 import {addProjectile,stepProjectiles} from './combat/projectiles.ts';
-import {getEnemyAttackProfile,getEliteAreaMove,withEnemyAttackRole} from '../data/enemyAttacks.ts';
-import {canStartEnemyMove,enemyMovementIntent,enemyMoveRole,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
+import {getEliteAreaMove,resolveCommittedEnemyProfile} from '../data/enemyAttacks.ts';
+import {canStartEnemyMove,enemyMovementIntent,chooseEnemyAttack,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
+import {getEnemyTier} from '../data/enemyTiers.ts';
 import {getBuildModifiers,dispatchBuildEvent,type BuildEvent,type BuildAction} from './systems/builds.ts';
 import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
 import {averagePartyLevel,enemyProgressionScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
@@ -41,7 +42,7 @@ export class Simulation {
   this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:120,maxHp:120,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
    party:[starter],enemies:[],projectiles:[],drops:[],pois,stats:{elapsed:0,kills:0,recruits:0,evolutions:0,level:1,xp:0,xpToNext:xpThreshold(1),damageDealt:0,damageTaken:0,faints:0,bossKilled:false,highestCombo:0},
    items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],...configuration};
-  for(let i=0;i<8;i++){
+  for(let i=0;i<3;i++){
    const pos=enemySpawnPosition(this.state.player,this.rng);const e=createEnemy(this.state,this.rng,this.rng.pick([10,13,16,19,21,29,43]),'normal',pos.x,pos.z);this.state.enemies.push(e);
   }
   updateDirector(this.state);
@@ -146,7 +147,9 @@ export class Simulation {
   this.spawnAccum+=dt;const interval=director.spawnInterval;
   while(this.spawnAccum>interval){this.spawnAccum-=interval;for(let i=0;i<director.batchSize;i++){
    const enemy=spawnRandomEnemy(s,this.rng,{capacity:director.enemyBudget,speciesTier:director.speciesTier,variantWeights:director.variantWeights,statScale:director.endlessScale});
-   recordDirectorSpawn(s,!!enemy);if(enemy){s.enemies.push(enemy);s.lastEnemySpawn=s.stats.elapsed;}
+   recordDirectorSpawn(s,!!enemy);if(enemy){s.enemies.push(enemy);s.lastEnemySpawn=s.stats.elapsed;
+    if((enemy.combatTier??1)>=3)this.emit({kind:'log',label:`${enemy.combatTier===3?'Miniboss':'Rare threat'}: ${enemy.variant==='normal'?'':getVariant(enemy.variant).label+' '}${getSpecies(enemy.speciesId).name}`});
+   }
   }}
   if(!s.bossSpawned && s.stats.elapsed>=DESIGN.bossAtSeconds){
    s.bossSpawned=true;s.phase='boss';const pos=enemySpawnPosition(s.player,this.rng,30,38);const e=createEnemy(s,this.rng,ENCOUNTER_TABLES.boss[0],'legendary',pos.x,pos.z,true,true);
@@ -224,15 +227,17 @@ export class Simulation {
      if(e.windup.remaining===0){
       const windup=e.windup;e.windup=undefined;
       if(windup.kind==='enemyMove'){
+       const committed=resolveCommittedEnemyProfile(e,windup,s.stats.elapsed);e.lastAttackRole=committed.role;
        resolveEnemyMove(e,windup,s,{
         animate:(enemy,facing,duration)=>this.animateAttack(enemy,facing,duration),
         projectile:projectile=>{addProjectile(s,projectile);},
         hurtPlayer:(damage,poison,sourceId)=>this.hurtPlayer(damage,poison,false,false,sourceId),
         hurtCompanion:(member,damage,poison,sourceId)=>this.hurtCompanion(member,damage,poison,sourceId),
         visual:event=>this.emit(event),suicide:enemy=>{enemy.dead=true;enemy.hp=0;this.statusOwners.delete(enemy.uid);},
-       });
+       },committed);
+       e.attackIndex=(e.attackIndex??0)+1;
       }
-      else if(windup.kind==='volley'){this.bossVolley(e,windup.facing);e.attackCooldown=BOSS_RULES.volleyCooldown;e.bossCycle=((e.bossCycle||0)+1)%3;}
+      else if(windup.kind==='volley'){this.bossVolley(e,windup.facing);e.attackCooldown=BOSS_RULES.volleyCooldown;e.bossCycle=((e.bossCycle||0)+1)%4;}
       else if(windup.kind==='psychicRing'){
        this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=BOSS_RULES.ringCooldown;e.bossCycle=2;
        const rings=s.psychicRings||(s.psychicRings=[]);
@@ -240,39 +245,45 @@ export class Simulation {
         maxRadius:BOSS_RULES.ringMaxRadius,speed:BOSS_RULES.ringSpeed,width:BOSS_RULES.ringWidth,damage:BOSS_RULES.ringDamage,hit:new Set()});
        this.emit({kind:'boss',x:windup.x,z:windup.z,label:'Psychic — jump or dodge through',shape:'psychicRing'});
       }else if(windup.kind==='summon'){
-       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=BOSS_RULES.summonCooldown;e.bossCycle=0;
+       this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=BOSS_RULES.summonCooldown;e.bossCycle=3;
        this.bossSummon(e);
       }else{
-       this.animateAttack(e,windup.facing);e.attackCooldown=3.8;e.bossCycle=(e.bossCycle||0)+1;
+       this.animateAttack(e,windup.facing);e.attackCooldown=e.isBoss?BOSS_RULES.burstCooldown:3.8;e.bossCycle=e.isBoss?0:(e.bossCycle||0)+1;
        const areaMove=getEliteAreaMove(e.speciesId),poison=areaMove.element==='poison'||!!getVariant(e.variant).contactPoison;
-       this.emit({kind:'attack',x:windup.x,z:windup.z,amount:3.3,color:areaMove.color,shape:'slam',sourceId:e.uid,label:areaMove.moveName});
-       if(distance2(p,windup)<3.3)this.hurtPlayer(e.damage*1.2,poison,false,false,e.uid);
-       for(const member of [...s.party].slice(1))if(distance2(member,windup)<3.3)this.hurtCompanion(member,e.damage*.65,poison,e.uid);
+       const radius=windup.radius??3.3;
+       this.emit({kind:'attack',x:windup.x,z:windup.z,amount:radius,radius,color:areaMove.color,shape:'slam',sourceId:e.uid,label:windup.moveName??areaMove.moveName});
+       if(distance2(p,windup)<radius)this.hurtPlayer(e.damage*(e.isBoss?1.65:1.2),poison,false,false,e.uid);
+       for(const member of [...s.party].slice(1))if(distance2(member,windup)<radius)this.hurtCompanion(member,e.damage*(e.isBoss?.9:.65),poison,e.uid);
       }
      }
      if(s.result!==null)return;continue;
     }
    }
-   if(e.stunTime===0&&e.attackCooldown<=0&&(e.isBoss||(e.elite&&d<11&&(e.bossCycle||0)%2===0))){
-    const kind=e.isBoss?(['volley','psychicRing','summon'] as const)[e.bossCycle||0]:'slam';
-    const duration=kind==='volley'?BOSS_RULES.volleyWindup:kind==='psychicRing'?BOSS_RULES.ringWindup:kind==='summon'?BOSS_RULES.summonWindup:.65,facing=Math.atan2(dx,dz);
-    const centered=kind==='psychicRing'||kind==='summon',radius=kind==='volley'?5:kind==='psychicRing'?4:kind==='summon'?6:3.3;
-    const moveName=kind==='volley'?'Psystrike':kind==='psychicRing'?'Psychic':kind==='summon'?'Teleport':getEliteAreaMove(e.speciesId).moveName;
+   // Higher-tier loadouts own all their moves; explicit low-tier elites retain
+   // their legacy area move without adding a third move to miniboss rotations.
+   const combatTier=e.combatTier??getEnemyTier(e.speciesId,e.variant,e.isBoss);
+   if(e.stunTime===0&&e.attackCooldown<=0&&(e.isBoss||(e.elite&&combatTier<=2&&d<11&&(e.bossCycle||0)%2===0))){
+    const kind=e.isBoss?(['volley','psychicRing','summon','slam'] as const)[(e.bossCycle||0)%4]:'slam';
+    const duration=kind==='volley'?BOSS_RULES.volleyWindup:kind==='psychicRing'?BOSS_RULES.ringWindup:kind==='summon'?BOSS_RULES.summonWindup:e.isBoss?BOSS_RULES.burstWindup:.65,facing=Math.atan2(dx,dz);
+    const centered=kind==='psychicRing'||kind==='summon',radius=kind==='volley'?5:kind==='psychicRing'?4:kind==='summon'?6:e.isBoss?BOSS_RULES.burstRadius:3.3;
+    const moveName=kind==='volley'?'Psystrike':kind==='psychicRing'?'Psychic':kind==='summon'?'Teleport':e.isBoss?'Psyshock':getEliteAreaMove(e.speciesId).moveName;
     e.windup={kind,remaining:duration,duration,x:centered?e.x:target.x,z:centered?e.z:target.z,facing,radius,moveName};
+    e.lastAttackRole=kind==='summon'?'healer':kind==='slam'?'melee-slow':'ranged-projectile';
     this.animateAttack(e,facing,duration);
     this.emit({kind:'tell',x:kind==='volley'?e.x:e.windup.x,z:kind==='volley'?e.z:e.windup.z,toX:target.x,toZ:target.z,
      radius,amount:radius,duration,color:e.isBoss?'#c6a2dc':'#e9a38c',sourceId:e.uid,shape:kind,label:moveName});
     continue;
    }
    if(!e.isBoss){
-    const baseProfile=getEnemyAttackProfile(e.speciesId),profile=withEnemyAttackRole(baseProfile,enemyMoveRole(e,s,baseProfile));
+    const profile=chooseEnemyAttack(e,s);
     if(canStartEnemyMove(e,target,s,profile)){
      e.windup=prepareEnemyMove(e,target,profile);
+     e.windup.moveIndex=e.attackIndex??0;e.lastAttackRole=profile.role;
      if(e.elite)e.bossCycle=(e.bossCycle||0)+1;
      this.animateAttack(e,e.windup.facing,e.windup.duration);this.emit(enemyMoveTell(e,e.windup,profile));continue;
     }
     if(e.stunTime===0){
-     const intent=enemyMovementIntent(e,target,s,baseProfile),movement=e.speed*enemySpeedFactor(e)*dt*intent.speedScale;
+     const intent=enemyMovementIntent(e,target,s,profile),movement=e.speed*enemySpeedFactor(e)*dt*intent.speedScale;
      const next=this.obstacles.move(e,intent.x*movement,intent.z*movement);e.x=next.x;e.z=next.z;
      if(e.attackTimer===0)e.facing=Math.atan2(dx,dz);
      e.animation=e.attackTimer>0?'attack':movement>0?'walk':'idle';
@@ -629,8 +640,9 @@ export class Simulation {
    else {s.player.hp=Math.min(s.player.maxHp,s.player.hp+42);for(const member of s.party){member.hp=Math.min(member.maxHp,member.hp+35);}this.emit({kind:'interact',label:'Restored 42 HP!',x:poi.x,z:poi.z,color:'#90ff9c'});}
   }else if(poi.kind==='shrine'){
    if(s.pois.some(site=>site.challenge)){poi.used=false;this.emit({kind:'log',label:'Finish your active shrine trial first.'});return;}
-   const id=this.rng.pick([26,38,59,65,76,94,112,130,143]);
-   const tier=shrineTier(s,poi),guardian=createGuardian(s,this.rng,id,poi.x+7,poi.z,true,tier);
+   const tier=shrineTier(s,poi);
+   const pool=tier>=4?[59,65,76,94,112,130,131,143,144,145,146,149]:tier>=2?[59,65,76,94,112,130,143]:[20,24,26,28,42,47,57,67,82];
+   const id=this.rng.pick(pool),guardian=createGuardian(s,this.rng,id,poi.x+7,poi.z,true,tier);
    poi.challenge={guardianId:guardian.uid,endsAt:s.stats.elapsed+SHRINE.duration,tier};
    s.enemies.push(guardian);this.emit({kind:'interact',label:`Tier ${tier} shrine: defeat ${getSpecies(id).name} in ${SHRINE.duration}s. Stay within ${SHRINE.radius}m!`,x:poi.x,z:poi.z,color:'#d2b5ff'});
   }else{
