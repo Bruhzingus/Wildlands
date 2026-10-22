@@ -71,13 +71,13 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
  const rng=new RNG(seed^0x6ac690c5),pois:POI[]=[];
  const profile=worldProfile(seed,mapId),lake=profile.lake,landmarks=profile.landmarks,solidLandmarks=worldLandmarkProps(profile);
  const sites:[POI['kind'],number,number,BiomeId?][]=[
-  ['cache',24,24,'meadow'],['shrine',-48,-43,'woodland'],['elite',72,-74,'ruins'],
-  ['cache',-84,-20,'woodland'],['healing',-28,18,'meadow'],['cache',87,-8,'ruins'],
+  ['cache',24,24,'meadow'],['shrine',-48,-43,'woodland'],['shrine',72,-74,'ruins'],
+  ['cache',-84,-20,'woodland'],['cache',-28,18,'meadow'],['cache',87,-8,'ruins'],
   ['shrine',-29,-86,'woodland'],['shrine',40,-56,'ruins'],['cache',-26,40,'lake'],
-  ['healing',-76,67,'lake'],['cache',28,82,'meadow'],['elite',80,56,'ruins'],
+  ['cache',-76,67,'lake'],['cache',28,82,'meadow'],['shrine',80,56,'ruins'],
  ];
  // Outer discoveries vary in kind as well as position. Three further sites emerge during play.
- for(const [x,z] of [[-95,-87],[-98,28],[3,-96],[96,-48],[94,90],[-5,99]])sites.push([rng.pick(['cache','shrine','elite','healing'] as const),x,z]);
+ for(const [index,[x,z]] of [[-95,-87],[-98,28],[3,-96],[96,-48],[94,90],[-5,99]].entries())sites.push([index<2?'shrine':rng.pick(['cache','shrine'] as const),x,z]);
  for(const change of profile.definition.changes)sites.push([change.kind,rng.between(-88,88),rng.between(-88,88)]);
  for(const [kind,cx,cz,biome] of sites){
   const valid=(point:Vec2)=>{
@@ -102,20 +102,18 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
   const paid=!change&&kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
   const chestIndex=pois.filter(poi=>poi.price!==undefined).length;
   const uid=20+pois.length,challengeIndex=pois.filter(poi=>poi.kind==='shrine').length,challengeKind=kind==='shrine'?'guardian' as OptionalChallengeId:undefined;
-  pois.push({uid,...candidate,kind,used:false,...(challengeKind?{challengeKind,shrineTier:1+challengeIndex%2}:{}),...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
+  pois.push({uid,...candidate,kind,used:false,...(challengeKind?{challengeKind,shrineTier:1+challengeIndex%2,shrineVariant:uid%3}:{}),...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
  }
  return pois;
 }
-export type ExplorationEvent={kind:'wild-bloom'|'cache-ambush'|'ancient-echo';label:string};
+export type ExplorationEvent={kind:'cache-ambush'|'ancient-echo';label:string};
 /** A stable one-shot hook attached to an optional site, independent of combat RNG and visit order. */
 export function rareEventFor(seed:number,poi:POI):ExplorationEvent|null {
- if(poi.kind==='elite')return null;
  let mixed=(seed^0x1833a72b)^Math.imul(poi.uid,0x45d9f3b);
  mixed=Math.imul(mixed^(mixed>>>16),0x7feb352d);mixed=Math.imul(mixed^(mixed>>>15),0x846ca68b);mixed^=mixed>>>16;
  const rng=new RNG(mixed);
  if(rng.next()>=WORLD.rareEventChance)return null;
- return poi.kind==='healing'?{kind:'wild-bloom',label:'Wild bloom: the spring restores the whole party.'}
-  :poi.kind==='cache'?{kind:'cache-ambush',label:'A rustle in the grass: a rare cache ambush!'}
+ return poi.kind==='cache'?{kind:'cache-ambush',label:'A rustle in the grass: a rare cache ambush!'}
   :{kind:'ancient-echo',label:'Ancient echo: a lingering blessing surrounds the party.'};
 }
 export function boundaryStrength(position:Vec2):number {

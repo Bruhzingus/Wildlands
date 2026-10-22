@@ -1,15 +1,15 @@
 # Shrine encounters
 
-Shrines are stone sculptures of the Pokémon they summon. Each nearby preview shows the species, count, hazards, tier and recommended level. The preview appears within 12m; press E within 4.5m to begin. The leader must be within 10 levels of the recommendation, including both endpoints.
+Shrines are stone sculptures of the Pokémon they summon. Each nearby preview shows the species, count, hazards, tier and recommended level. The preview appears within 12m; press E within 4.5m to begin. The leader must be within 10 levels of the recommendation, including both endpoints. The first six tiers have multiple species variants; each site's sculpture, preview and guardians use the same variant.
 
 | Tier | Encounter | Recommended level | Arena radius | Hazards | Total HP | Dust |
 |---|---|---:|---:|---|---:|---|
-| 1 | 1 Machop | 5 | 20m | None | 1,350 | Pale mint |
-| 2 | 3 Pikachu | 9 | 20m | None | 1,500 | Pale cyan |
-| 3 | 2 Arbok | 13 | 18m | Poison | 1,800 | Soft blue |
-| 4 | 3 Sandslash | 17 | 17m | Slow ground | 2,200 | Blue |
-| 5 | 3 Haunter | 22 | 19m | Poison | 2,800 | Lavender |
-| 6 | 2 Machamp | 27 | 16m | None | 3,400 | Violet |
+| 1 | 1 Machop, Geodude or Mankey | 5 | 20m | None | 1,350 | Pale mint |
+| 2 | 3 Pikachu, Growlithe or Eevee | 9 | 20m | None | 1,500 | Pale cyan |
+| 3 | 2 Arbok, Ekans or Zubat | 13 | 18m | Poison | 1,800 | Soft blue |
+| 4 | 3 Sandslash or Raticate | 17 | 17m | Slow ground | 2,200 | Blue |
+| 5 | 3 Haunter or Gengar | 22 | 19m | Poison | 2,800 | Lavender |
+| 6 | 2 Machamp or Primeape | 27 | 16m | None | 3,400 | Violet |
 | 7 | 2 Ninetales | 32 | 19m | Fire | 4,200 | Dusky pink |
 | 8 | 3 Golem | 38 | 16m | Slow ground | 5,400 | Crimson |
 | 9 | 1 Gyarados | 44 | 22m | Poison | 6,500 | Deep red |
@@ -20,7 +20,7 @@ Shrines are stone sculptures of the Pokémon they summon. Each nearby preview sh
 | 14 | 2 Zapdos | 80 | 17m | Fire, poison | 20,000 | Near-black violet |
 | 15 | 1 Mewtwo | 90 | 16m | Slow ground, poison, fire | 26,000 | Black |
 
-The opening sites offer tiers 1 and 2. Sites keep their tier while it is within the leader's level window. An outgrown, inactive site moves into that window. A completed site recharges for four minutes and advances one tier if the new tier is allowed. Failed trials retry after one minute at the same tier. Active encounters keep their original tier and reward multiplier.
+The opening sites offer tiers 1 and 2. All former elite map sites are now tiered shrines. Each site keeps its species variant across retries and tier changes. Sites keep their tier while it is within the leader's level window. An outgrown, inactive site moves into that window. A completed site recharges for four minutes and advances one tier if the new tier is allowed. Failed trials retry after one minute at the same tier. Active encounters keep their original tier and reward multiplier.
 
 Defeat every guardian within 60 seconds and stay inside the marked arena. HP and attack damage are authored per tier, rather than growing with elapsed time or the player's damage upgrades. The opening encounter targets 20–35 seconds with a special ability; later encounters target 15–45 seconds, with type matchups and builds affecting the result. A deterministic level-5 Charmander with rank-2 attacks, aimed specials and evasive movement clears the opening encounter at approximately 23 seconds when started at 2:00, without health assistance. This is a repeatable combat check, not a human difficulty measurement.
 

@@ -13,9 +13,9 @@ export interface MapDefinition {
  lighting:{sky:number;sun:number};
 }
 const changes:MapDefinition['changes']=[
- {at:180,kind:'healing',name:'Bloom spring',label:'The wilds bloom. A new healing spring opens along the trails.'},
+ {at:180,kind:'cache',name:'Bloom cache',label:'The wilds bloom. A new discovery cache opens along the trails.'},
  {at:420,kind:'cache',name:'Storm salvage',label:'A passing storm uncovers a free salvage cache.'},
- {at:660,kind:'elite',name:'Roaming champion',label:'A roaming champion settles in the outer wilds. Challenge it for training.'},
+ {at:660,kind:'shrine',name:'Roaming shrine',label:'An ancient shrine awakens in the outer wilds.'},
 ];
 const wildlands:MapDefinition={id:'wildlands',title:'Wildlands',description:'Shifting hills, four regions, 18 discoveries and changing trails. Mewtwo arrives at 15:00.',
  geography:'rolling',encounterId:'wildlands',palette:BIOMES,waterColor:'#638f98',shoreColor:'#a4a17b',skyColor:'#a1c4d1',fogColor:'#a2bbbd',
@@ -35,7 +35,7 @@ export const MAP_DEFINITIONS:Readonly<Record<MapId,MapDefinition>>={
   landmarkProps:[{kind:'rock',x:-61,z:-50,scale:2.8,scaleY:2.6,landmark:true},{kind:'rock',x:-65,z:-52,scale:1.5,landmark:true},
    {kind:'ruin',x:55.5,z:-49,scale:1.1,scaleY:3,landmark:true},{kind:'ruin',x:66.5,z:-49,scale:1.1,scaleY:3,landmark:true},
    {kind:'rock',x:50,z:40,scale:2.4,scaleY:1.5,landmark:true},{kind:'rock',x:56,z:44,scale:1.8,landmark:true},{kind:'rock',x:58,z:36,scale:1.3,landmark:true}],
-  changes:[{at:180,kind:'healing',name:'Geothermal spring',label:'Geothermal pressure opens a new healing spring.'},{at:420,kind:'cache',name:'Exposed relic cache',label:'An ash squall exposes a free relic cache.'},{at:660,kind:'elite',name:'Cinder champion',label:'A cinder champion arrives at the ridge. An optional battle awaits.'}],
+  changes:[{at:180,kind:'cache',name:'Geothermal cache',label:'Geothermal pressure opens a new discovery cache.'},{at:420,kind:'cache',name:'Exposed relic cache',label:'An ash squall exposes a free relic cache.'},{at:660,kind:'shrine',name:'Cinder shrine',label:'A cinder shrine awakens on the ridge.'}],
  },
 };
 export const getMapDefinition=(id:MapId='wildlands')=>MAP_DEFINITIONS[id]??wildlands;

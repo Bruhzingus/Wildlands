@@ -4,22 +4,33 @@ import {worldProfile,siteAvailable,type WorldProfile,type MapId} from '../../dat
 import {TreasureChests} from './TreasureChests.ts';
 import {SHRINE_TIERS,shrineForPOI,shrineHazardZones,type ShrineHazard} from '../../data/shrines.ts';
 import {createShrineStatue} from './ShrineStatues.ts';
-import type {POI,TerrainFeature} from '../types.ts';
+import type {BerryTree,POI,TerrainFeature} from '../types.ts';
+import {BERRIES,BERRY_ORDER,type BerryId} from '../../data/berries.ts';
 import {biomeAt,createEnvironment,explorationRoute,terrainHeight} from '../systems/environment.ts';
+const BERRY_TREE_PALETTES:Record<BerryId,{bark:string;lower:string;upper:string}>={
+ oran:{bark:'#6f6250',lower:'#4d896f',upper:'#73aa8e'},
+ leppa:{bark:'#825f46',lower:'#8d7948',upper:'#b4985d'},
+ sitrus:{bark:'#7d6541',lower:'#708d45',upper:'#a6b85a'},
+ pinap:{bark:'#765b3d',lower:'#608a43',upper:'#91b854'},
+ 'silver-pinap':{bark:'#676b6d',lower:'#668286',upper:'#a0bab6'},
+};
 export class World{
  setQuality(quality:'low'|'balanced'|'high'){
   // These decorations have no collider. Solid props and navigation stay visible.
-  for(const mesh of this.spawned)if(mesh.name.startsWith('flower-')||mesh.name.startsWith('bush-'))mesh.setEnabled(quality!=='low');
+  for(const mesh of this.spawned)if(mesh.name.startsWith('bush-'))mesh.setEnabled(quality!=='low');
  }
- private spawned:AbstractMesh[]=[];private landmarks=new Map<number,{marker:TransformNode;mesh:AbstractMesh;body:AbstractMesh;statue?:Mesh;speciesId?:number;dust?:AbstractMesh[];hazards?:AbstractMesh[]}>();
+ private spawned:AbstractMesh[]=[];private landmarks=new Map<number,{marker:TransformNode;body:AbstractMesh;statue?:Mesh;speciesId?:number;dust?:AbstractMesh[];hazards?:AbstractMesh[]}>();
  private shrineMaterials:StandardMaterial[]=[];private shrineStone!:StandardMaterial;private shrineCarving!:StandardMaterial;
  private statueSources=new Map<number,Mesh>();
  private hazardMaterials={} as Record<ShrineHazard,StandardMaterial>;
  private terrainFeatures=new Map<number,{root:TransformNode;ring:AbstractMesh;body:AbstractMesh}>();
+ private berryViews=new Map<number,{trunk:AbstractMesh;lower:AbstractMesh;upper:AbstractMesh;crown:Mesh[];ground:{body:Mesh;leaf:Mesh}[]}>();
+ private berryMaterials={} as Record<BerryId,StandardMaterial>;
+ private berryTreeMaterials={} as Record<BerryId,{bark:StandardMaterial;lower:StandardMaterial;upper:StandardMaterial}>;
  private chests:TreasureChests|undefined;
  private reusable:Mesh[]=[];private materials:StandardMaterial[]=[];private lights:(HemisphericLight|DirectionalLight)[]=[];private scene:Scene;
  readonly profile:WorldProfile;
- constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands'){this.scene=scene;this.profile=worldProfile(seed,mapId);this.buildTerrain(pois);this.buildEnvironment(seed,pois);this.buildLandmarks(pois);this.buildTerrainFeatures(createEnvironment(seed,pois,mapId).features);this.update(0,pois);}
+ constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands',berryTrees:BerryTree[]=[]){this.scene=scene;this.profile=worldProfile(seed,mapId);this.buildTerrain(pois);this.buildEnvironment(seed,pois,berryTrees);this.buildBerryTrees(berryTrees);this.buildLandmarks(pois);this.buildTerrainFeatures(createEnvironment(seed,pois,mapId).features);this.update(0,pois,0,[],berryTrees);}
  height(x:number,z:number){return terrainHeight(x,z,this.profile);}
  mat(name:string,hex:string,alpha=1){const m=new StandardMaterial(name,this.scene);m.diffuseColor=Color3.FromHexString(hex);m.emissiveColor=m.diffuseColor.scale(.13);m.specularColor=new Color3(.06,.07,.06);m.alpha=alpha;this.materials.push(m);return m;}
  private buildTerrain(pois:POI[]){
@@ -60,29 +71,78 @@ export class World{
   this.lights.push(ambient,sun);
   // Lighting without live dynamic shadow maps is much cheaper for dense enemy scenes.
  }
- private buildEnvironment(seed:number,pois:POI[]){
+ private buildEnvironment(seed:number,pois:POI[],berryTrees:readonly BerryTree[]=[]){
   const palette=this.profile.definition.scenery;
-  const bark=this.mat('bark',palette.bark), pine=this.mat('pine',palette.pine),pine2=this.mat('pine2',palette.bush),rock=this.mat('stone',palette.rock),flower=this.mat('wildflowers',palette.flower),ruins=this.mat('old masonry',palette.ruins);
+  const bark=this.mat('bark',palette.bark), pine=this.mat('pine',palette.pine),pine2=this.mat('pine2',palette.bush),rock=this.mat('stone',palette.rock),ruins=this.mat('old masonry',palette.ruins);
   const trunk=MeshBuilder.CreateCylinder('tree trunk',{height:2.4,diameterTop:.42,diameterBottom:.73,tessellation:5},this.scene);trunk.material=bark;trunk.isVisible=false;
   const canopy=MeshBuilder.CreateCylinder('cone crown',{height:3.8,diameterTop:0,diameterBottom:3.4,tessellation:5},this.scene);canopy.material=pine;canopy.isVisible=false;
   const shrub=MeshBuilder.CreateIcoSphere('bush',{radius:1.1,subdivisions:0},this.scene);shrub.material=pine2;shrub.isVisible=false;
   const boulder=MeshBuilder.CreateIcoSphere('low-poly rock',{radius:1.25,subdivisions:1},this.scene);boulder.material=rock;boulder.isVisible=false;
   const smallRock=MeshBuilder.CreateBox('ruin block',{width:2.4,depth:1.8,height:2.2},this.scene);smallRock.material=ruins;smallRock.isVisible=false;
-  const petal=MeshBuilder.CreateIcoSphere('flower',{radius:.26,subdivisions:0},this.scene);petal.material=flower;petal.isVisible=false;
-  this.reusable.push(trunk,canopy,shrub,boulder,smallRock,petal);
+  this.reusable.push(trunk,canopy,shrub,boulder,smallRock);
   let id=0;
+  const berryTreePositions=new Set(berryTrees.map(tree=>`${tree.x}/${tree.z}`));
   for(const prop of createEnvironment(seed,pois,this.profile.definition.id).props){
    const {kind,x,z,scale}=prop,y=this.height(x,z);
+   if(kind==='tree'&&berryTreePositions.has(`${x}/${z}`))continue;
    if(kind==='rock'){const height=palette.rockHeight*(prop.scaleY??1),m=boulder.createInstance(`${prop.landmark?'watchstone':'rock'}-${id++}`);m.position.set(x,y+height*.95*scale,z);m.scaling.set(scale,height*scale,scale);this.spawned.push(m);}
    else if(kind==='bush'){const m=shrub.createInstance(`bush-${id++}`);m.position.set(x,y+.5,z);m.scaling.scaleInPlace(scale*.7);this.spawned.push(m);}
    else if(kind==='tree'){const t=trunk.createInstance(`trunk-${id++}`),c=canopy.createInstance(`${prop.landmark?'great-pine':'crown'}-${id++}`);t.position.set(x,y+1.2*scale,z);t.scaling.scaleInPlace(scale);c.position.set(x,y+3.2*scale,z);c.scaling.scaleInPlace(scale);this.spawned.push(t,c);}
-   else if(kind==='flower'){const f=petal.createInstance(`flower-${id++}`);f.position.set(x,y+.22,z);f.scaling.scaleInPlace(scale);this.spawned.push(f);}
-   else {const b=smallRock.createInstance(`${prop.landmark?'gate-pillar':'ruin'}-${id++}`);b.position.set(x,y+1.1*prop.scaleY!,z);b.scaling.set(scale,prop.scaleY!,1);b.rotation.y=prop.rotation!;this.spawned.push(b);}
+   else if(kind==='ruin'){const b=smallRock.createInstance(`${prop.landmark?'gate-pillar':'ruin'}-${id++}`);b.position.set(x,y+1.1*prop.scaleY!,z);b.scaling.set(scale,prop.scaleY!,1);b.rotation.y=prop.rotation!;this.spawned.push(b);}
   }
   for(let side=0;side<4;side++)for(let i=0;i<25;i++){
    const along=-DESIGN.mapRadius+i*DESIGN.mapRadius*2/24,bound=DESIGN.mapRadius+3;
    const x=side<2?along:(side===2?-bound:bound),z=side<2?(side===0?-bound:bound):along;
    const m=canopy.createInstance(`boundary-${side}-${i}`);m.position.set(x,this.height(x,z)+3.5,z);m.scaling.set(2.4,2.4,2.4);this.spawned.push(m);
+  }
+ }
+ private buildBerryTrees(trees:BerryTree[]){
+  const bodySource=MeshBuilder.CreateIcoSphere('berry body source',{radius:.42,subdivisions:1},this.scene);
+  const leafSource=MeshBuilder.CreateIcoSphere('berry leaf source',{radius:.18,subdivisions:0},this.scene);
+  const trunkSource=MeshBuilder.CreateCylinder('berry tree trunk source',{height:1.05,diameterTop:.34,diameterBottom:.48,tessellation:6},this.scene);
+  const lowerCanopySource=MeshBuilder.CreateIcoSphere('berry tree lower canopy source',{radius:1,subdivisions:1},this.scene);
+  const upperCanopySource=MeshBuilder.CreateIcoSphere('berry tree upper canopy source',{radius:1,subdivisions:1},this.scene);
+  bodySource.isVisible=leafSource.isVisible=trunkSource.isVisible=lowerCanopySource.isVisible=upperCanopySource.isVisible=false;
+  this.reusable.push(bodySource,leafSource,trunkSource,lowerCanopySource,upperCanopySource);
+  const leafMaterial=this.mat('berry leaves','#64a655');leafSource.material=leafMaterial;
+  for(const id of BERRY_ORDER){
+   const palette=BERRY_TREE_PALETTES[id];this.berryMaterials[id]=this.mat(`${id} berry`,BERRIES[id].color);
+   this.berryTreeMaterials[id]={bark:this.mat(`${id} berry tree bark`,palette.bark),lower:this.mat(`${id} berry tree lower canopy`,palette.lower),upper:this.mat(`${id} berry tree upper canopy`,palette.upper)};
+  }
+  for(const tree of trees){
+   const trunk=trunkSource.clone(`berry-tree-${tree.uid}-trunk`)!,lower=lowerCanopySource.clone(`berry-tree-${tree.uid}-lower`)!,upper=upperCanopySource.clone(`berry-tree-${tree.uid}-upper`)!;
+   trunk.isVisible=lower.isVisible=upper.isVisible=true;trunk.isPickable=lower.isPickable=upper.isPickable=false;this.spawned.push(trunk,lower,upper);
+   const crown=Array.from({length:5},(_,index)=>{
+    const berry=bodySource.clone(`berry-tree-${tree.uid}-fruit-${index}`)!;
+    berry.isVisible=true;berry.isPickable=false;this.spawned.push(berry);return berry;
+   });
+   const ground=Array.from({length:3},(_,index)=>{
+    const body=bodySource.clone(`berry-${tree.uid}-${index}`)!,leaf=leafSource.clone(`berry-leaf-${tree.uid}-${index}`)!;
+    body.isVisible=leaf.isVisible=true;leaf.material=leafMaterial;
+    body.isPickable=leaf.isPickable=false;this.spawned.push(body,leaf);return {body,leaf};
+   });
+   this.berryViews.set(tree.uid,{trunk,lower,upper,crown,ground});
+  }
+ }
+ private updateBerryArt(trees:BerryTree[],elapsed:number){
+  for(const tree of trees){const view=this.berryViews.get(tree.uid);if(!view)continue;
+   const color=this.berryMaterials[tree.berry],palette=this.berryTreeMaterials[tree.berry],silver=tree.berry==='silver-pinap',pinap=tree.berry==='pinap'||silver;
+   const variation=.94+(tree.uid%5)*.025,scale=tree.scale*variation,ground=this.height(tree.x,tree.z);
+   view.trunk.position.set(tree.x,ground+.525*scale,tree.z);view.trunk.scaling.set(scale,scale,scale);view.trunk.material=palette.bark;
+   view.lower.position.set(tree.x,ground+1.58*scale,tree.z);view.lower.scaling.set(1.17*scale,.74*scale,1.17*scale);view.lower.material=palette.lower;
+   view.upper.position.set(tree.x,ground+2.35*scale,tree.z);view.upper.scaling.set(.76*scale,.85*scale,.76*scale);view.upper.material=palette.upper;
+   for(const [index,mesh] of view.crown.entries()){
+    const angle=index*Math.PI*2/5+tree.uid*.37,ring=index===4?.5:.96,high=index===4?2.58:1.68+(index%2)*.27;
+    mesh.position.set(tree.x+Math.sin(angle)*ring*scale,ground+high*scale,tree.z+Math.cos(angle)*ring*scale);
+    mesh.scaling.set(pinap?.38:.31,pinap?.5:.31,.31);mesh.material=color;
+   }
+   for(const [index,{body,leaf}] of view.ground.entries()){
+    const berry=tree.berries[index],visible=!!berry&&!berry.collected;
+    body.setEnabled(visible);leaf.setEnabled(visible);if(!berry||!visible)continue;
+    const fall=Math.max(0,1-(elapsed-berry.droppedAt)/.85),height=this.height(berry.x,berry.z)+.45+fall*2.7*tree.scale;
+    body.position.set(berry.x,height,berry.z);body.scaling.set(pinap?.42:.4,pinap?.54:.4,.4);body.material=color;
+    leaf.position.set(berry.x,height+(pinap?.33:.27),berry.z);leaf.scaling.set(.85,.45,.65);
+   }
   }
  }
  private buildLandmarks(pois:POI[]){
@@ -93,33 +153,30 @@ export class World{
   const dustSource=MeshBuilder.CreatePolyhedron('shrine dust source',{type:1,size:.055},this.scene),hazardSource=MeshBuilder.CreateDisc('shrine hazard source',{radius:1,tessellation:32,sideOrientation:Mesh.DOUBLESIDE},this.scene);
   dustSource.isVisible=hazardSource.isVisible=false;this.reusable.push(dustSource,hazardSource);
   this.chests=new TreasureChests(this.scene,pois,(x,z)=>this.height(x,z));
-  const mats={shrine:this.mat('shrine','#aaa2c4'),elite:this.mat('elite','#ba8574'),healing:this.mat('healing','#88b39a')};
-  const bases={shrine:MeshBuilder.CreateCylinder('shrine plinth',{height:.65,diameterTop:2.8,diameterBottom:3.4,tessellation:8},this.scene),elite:MeshBuilder.CreateIcoSphere('elite stone',{radius:1.15,subdivisions:1},this.scene),healing:MeshBuilder.CreateCylinder('healing spring',{height:.7,diameter:3,tessellation:8},this.scene)};
-  const ringBases={} as Record<Exclude<POI['kind'],'cache'>,Mesh>;
+  const mats={shrine:this.mat('shrine','#aaa2c4'),healing:this.mat('healing','#88b39a')};
+  const bases={shrine:MeshBuilder.CreateCylinder('shrine plinth',{height:.65,diameterTop:2.8,diameterBottom:3.4,tessellation:8},this.scene),healing:MeshBuilder.CreateCylinder('healing spring',{height:.7,diameter:3,tessellation:8},this.scene)};
   for(const [key,mesh] of Object.entries(bases)){
    const kind=key as Exclude<POI['kind'],'cache'>;mesh.material=mats[kind];mesh.isVisible=false;this.reusable.push(mesh);
-   const ring=MeshBuilder.CreateTorus(`${kind} marker source`,{diameter:4,thickness:.13,tessellation:16},this.scene);
-   ring.material=mats[kind];ring.isVisible=false;ringBases[kind]=ring;this.reusable.push(ring);
   }
   for(const poi of pois){if(poi.kind==='cache')continue;const mesh=bases[poi.kind].clone(`POI ${poi.kind} ${poi.uid}`)!;mesh.isVisible=true;
    const root=new TransformNode(`landmark-${poi.uid}`,this.scene);mesh.parent=root;root.position.set(poi.x,this.height(poi.x,poi.z),poi.z);
-   mesh.position.y={shrine:.325,elite:1.15,healing:.35}[poi.kind];
-   const ring=ringBases[poi.kind].clone(`marker-ring-${poi.uid}`)!;ring.isVisible=true;ring.parent=root;ring.position.y=.08;
-   const entry:{marker:TransformNode;mesh:AbstractMesh;body:AbstractMesh;dust?:AbstractMesh[];hazards?:AbstractMesh[]}={marker:root,mesh:ring,body:mesh};
+   mesh.position.y={shrine:.325,healing:.35}[poi.kind];
+   const entry:{marker:TransformNode;body:AbstractMesh;dust?:AbstractMesh[];hazards?:AbstractMesh[]}={marker:root,body:mesh};
    if(poi.kind==='shrine'){
     mesh.material=this.shrineStone;
     entry.dust=Array.from({length:10},(_,index)=>{const mote=dustSource.clone(`shrine-dust-${poi.uid}-${index}`)!;mote.isVisible=true;mote.parent=root;mote.isPickable=false;this.spawned.push(mote);return mote;});
     entry.hazards=Array.from({length:3},(_,index)=>{const zone=hazardSource.clone(`shrine-hazard-${poi.uid}-${index}`)!;zone.isVisible=true;zone.rotation.x=Math.PI/2;zone.parent=root;zone.isPickable=false;zone.setEnabled(false);this.spawned.push(zone);return zone;});
    }
-   this.landmarks.set(poi.uid,entry);this.spawned.push(mesh,ring);
+   this.landmarks.set(poi.uid,entry);this.spawned.push(mesh);
   }
  }
  private buildTerrainFeatures(features:TerrainFeature[]){
   const bramble=this.mat('bramble ground','#62713f',.72),beacon=this.mat('ruin beacon','#d49d50');
-  // Reuse the landmark primitives; interaction markers must not turn seven
-  // small objects into seven new geometries on every restart.
+  // Share one source mesh per feature shape so every marker reuses geometry.
   const brambleSource=MeshBuilder.CreateDisc('bramble ground source',{radius:1,tessellation:14},this.scene);brambleSource.material=bramble;brambleSource.isVisible=false;this.reusable.push(brambleSource);
-  const beaconSource=this.scene.getMeshByName('obelisk') as Mesh,ringSource=this.scene.getMeshByName('shrine marker source') as Mesh;
+  const beaconSource=this.scene.getMeshByName('obelisk') as Mesh;
+  const ringSource=MeshBuilder.CreateTorus('terrain feature ring source',{diameter:4,thickness:.13,tessellation:16},this.scene);
+  ringSource.isVisible=false;this.reusable.push(ringSource);
   for(const feature of features){const root=new TransformNode(`terrain-feature-${feature.uid}`,this.scene);root.position.set(feature.x,this.height(feature.x,feature.z)+.04,feature.z);
    const brambles=feature.kind==='bramble',body=brambles?brambleSource.createInstance(`bramble-${feature.uid}`):beaconSource.clone(`ruin-beacon-${feature.uid}`)!;
    body.rotation.x=brambles?Math.PI/2:0;body.position.y=brambles?.01:.9;body.scaling.set(brambles?feature.radius:.42,brambles?feature.radius:.7,brambles?1:.42);if(!brambles)body.material=beacon;body.parent=root;
@@ -128,14 +185,14 @@ export class World{
    this.terrainFeatures.set(feature.uid,{root,ring,body});this.spawned.push(body,ring);
   }
  }
- update(_dt:number,pois:POI[],elapsed=0,features:TerrainFeature[]=[]){
+ update(_dt:number,pois:POI[],elapsed=0,features:TerrainFeature[]=[],berryTrees:BerryTree[]=[]){
+  this.updateBerryArt(berryTrees,elapsed);
   this.chests?.update(pois,elapsed);
   for(const poi of pois){const entry=this.landmarks.get(poi.uid);if(!entry)continue;
    entry.marker.setEnabled(siteAvailable(poi,elapsed)&&(!poi.used||poi.respawnAt!==undefined||!!poi.challenge));
    entry.body.scaling.y=poi.used?.35:1;
-   entry.mesh.scaling.set(poi.challenge?shrineForPOI(poi).radius/2:1,1,poi.challenge?shrineForPOI(poi).radius/2:1);
    if(poi.kind==='shrine'){
-    const definition=shrineForPOI(poi),material=this.shrineMaterials[definition.tier-1];entry.mesh.material=material;
+    const definition=shrineForPOI(poi),material=this.shrineMaterials[definition.tier-1];
     if(entry.speciesId!==definition.speciesId){
      entry.statue?.dispose();let source=this.statueSources.get(definition.speciesId);
      if(!source){source=createShrineStatue(this.scene,definition.speciesId,this.shrineStone,this.shrineCarving);source.isVisible=false;this.statueSources.set(definition.speciesId,source);}
@@ -156,5 +213,5 @@ export class World{
   }
   for(const feature of features){const view=this.terrainFeatures.get(feature.uid);if(!view)continue;view.root.setEnabled(feature.state!=='spent');if(feature.kind==='ruin-beacon')view.ring.scaling.set(feature.state==='arming'?1.18:1,1,feature.state==='arming'?1.18:1);}
  }
- dispose(){this.chests?.dispose();for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.terrainFeatures.values())root.root.dispose();for(const source of this.statueSources.values()){const material=source.material;source.dispose();material?.dispose();}this.statueSources.clear();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.terrainFeatures.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
+ dispose(){this.chests?.dispose();for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.terrainFeatures.values())root.root.dispose();for(const source of this.statueSources.values()){const material=source.material;source.dispose();material?.dispose();}this.statueSources.clear();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.terrainFeatures.clear();this.berryViews.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
 }

@@ -261,54 +261,67 @@
 .card-training .choice-footer {border-top:2px dashed #42664a50}
 
 .choice-card.card-relic {
- --tablet-shape:polygon(16% 0,84% 0,100% 7%,100% 92%,87% 100%,13% 100%,0 92%,0 7%);
+ --tablet-shape:polygon(8% 0,78% 0,81% 2%,91% 0,100% 6%,100% 88%,96% 91%,100% 96%,92% 100%,10% 100%,0 92%,0 9%);
  isolation:isolate;
  border-radius:0;
- clip-path:var(--tablet-shape);
- padding:9px;
- background:linear-gradient(125deg,#fff0b9 0%,#a78850 12%,#58442d 28%,var(--rarity) 50%,#57432b 72%,#d0ab67 94%);
- color:#eee2c5;
- filter:drop-shadow(0 9px 6px #0008);
- box-shadow:inset 0 0 0 2px #221c16;
+ padding:10px;
+ border:0 solid var(--rarity);
+ background:transparent;
+ color:#fff6e6;
+ box-shadow:none;
+ filter:drop-shadow(0 0 8px color-mix(in srgb,var(--rarity) 95%,transparent)) drop-shadow(0 0 22px color-mix(in srgb,var(--rarity) 65%,transparent)) drop-shadow(0 11px 7px #0009);
 }
 .choice-card.card-relic::before,.choice-card.card-relic::after {
  content:'';position:absolute;pointer-events:none;clip-path:var(--tablet-shape);
 }
 .choice-card.card-relic::before {
- z-index:-2;inset:5px;
- background:linear-gradient(125deg,#e1c385,#564431 30%,#241f1a 65%,#b49255);
+ z-index:-2;inset:0;
+ background:
+  linear-gradient(136deg,transparent 0 84%,#4d4032 84.5% 85%,#e2d0ad 85.5% 86%,transparent 86.5%) 0 0/100% 100%,
+  linear-gradient(42deg,transparent 0 88%,#4a3b2e 88.5% 89%,transparent 89.5%) 0 0/100% 100%,
+  linear-gradient(135deg,#eee0bc 0%,#bfa983 9%,#796854 24%,#ac9676 53%,#665846 82%,#d7c39e 100%);
 }
 .choice-card.card-relic::after {
- z-index:-1;inset:11px;
+ z-index:-1;inset:10px;
  background:
-  radial-gradient(circle at 15% 5%,#f2d995 0 2px,#493725 3px,transparent 4px),
-  radial-gradient(circle at 85% 5%,#f2d995 0 2px,#493725 3px,transparent 4px),
-  radial-gradient(circle at 15% 95%,#c0a46c 0 2px,#493725 3px,transparent 4px),
-  radial-gradient(circle at 85% 95%,#c0a46c 0 2px,#493725 3px,transparent 4px),
-  repeating-linear-gradient(115deg,transparent 0 49px,#e3d0a108 50px,transparent 52px 89px),
-  repeating-linear-gradient(5deg,#ffffff03 0 1px,transparent 1px 5px),
-  linear-gradient(130deg,#443d32,#282720 55%,#3d352b);
+  linear-gradient(126deg,transparent 0 12%,#e6d8b855 12.2% 12.6%,transparent 13%) 0 0/100% 100%,
+  linear-gradient(38deg,transparent 0 91%,#372d2466 91.2% 91.6%,transparent 92%) 0 0/100% 100%,
+  repeating-linear-gradient(112deg,transparent 0 47px,#e8d7b014 48px,transparent 50px 87px),
+  linear-gradient(145deg,#a28d70,#786a57 54%,#88765f);
 }
-.card-relic .choice-header {padding:17px 21px 8px;border-radius:0;background:transparent}
-.card-relic .choice-index {background:#b49a66;color:#211e18;box-shadow:inset 0 0 0 1px #ead6a0,0 2px 3px #0007}
-.card-relic .choice-art {background:radial-gradient(ellipse at center,#be995b18,transparent 65%);border-bottom:0}
-.card-relic .choice-art::before {width:112px;height:112px;border:1px solid #f7d48c75;border-radius:50%;box-shadow:0 0 0 9px #e7be6020,inset 0 0 20px #e7be6015;animation:relic-halo 5s ease-in-out infinite}
-.card-relic .choice-art::after {width:86px;height:86px;border:1px solid #e7be6080;transform:rotate(45deg);animation:relic-turn 24s linear infinite}
-.card-relic .upgrade-glyph {color:#ffe2a3;filter:drop-shadow(0 0 12px #e7be6040)}
-.card-relic .choice-title {margin:0 14px;padding:12px 5px;background:linear-gradient(90deg,transparent,#1c1c1880,transparent);color:#ffe2a3;text-align:center;border-top:3px double #ad905261;border-bottom:3px double #ad905261;text-shadow:0 2px 1px #000}
-.choice-card.card-relic .choice-owner {padding:12px 18px 0;color:#c4b89b}
-.card-relic .choice-rarity {padding:12px 18px;color:var(--rarity)}
+.card-relic .choice-header {padding:13px 17px 5px;border-radius:0;background:transparent}
+.card-relic .choice-kind {color:#fff0d2}
+.card-relic .choice-index {background:#695a47;color:#fff4dc;box-shadow:inset 1px 1px 0 #dfcba8,inset -2px -2px 0 #3a3027}
+.card-relic .choice-art {height:136px;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--rarity) 24%,transparent),transparent 72%);border-bottom:0}
+.card-relic .choice-art::before {
+ width:158px;height:124px;
+ clip-path:polygon(23% 0,77% 0,100% 25%,100% 76%,77% 100%,23% 100%,0 76%,0 25%);
+ background:linear-gradient(135deg,#554838 0 8%,#c2ad8a 9%,#4e4336 17%,#5f5142 80%,#cdb894 91%,#77634d 100%);
+ filter:drop-shadow(0 0 14px color-mix(in srgb,var(--rarity) 80%,transparent));
+}
+.card-relic .choice-art::after {
+ width:138px;height:104px;
+ clip-path:polygon(22% 0,78% 0,100% 26%,100% 74%,78% 100%,22% 100%,0 74%,0 26%);
+ background:radial-gradient(ellipse at center,color-mix(in srgb,var(--rarity) 22%,transparent),transparent 72%),linear-gradient(145deg,#554a3e,#6c5b4a 60%,#796650);
+ box-shadow:inset 3px 3px 8px #241e18aa;
+ animation:relic-glow 4.5s ease-in-out infinite;
+}
+.card-relic .upgrade-glyph {color:#fff2d7;filter:drop-shadow(0 0 13px var(--rarity)) drop-shadow(0 2px 1px #251e18)}
+.card-relic .choice-title {margin:0 12px;padding:9px 5px;background:linear-gradient(#5a4d40,#695947);color:#fff2dc;text-align:center;border:1px solid #c7b18f;box-shadow:inset 2px 2px 0 #3d3229,inset -2px -2px 0 #8b765a;text-shadow:0 2px 1px #2c231c}
+.choice-card.card-relic .choice-owner {padding:12px 17px 0;color:#ecddc6}
+.card-relic .choice-rarity {padding:10px 17px;color:var(--rarity);text-shadow:0 0 8px color-mix(in srgb,var(--rarity) 65%,transparent)}
 .card-relic .choice-rarity .rarity-label {color:var(--rarity)}
-.card-relic .rarity-rule {background:var(--rarity);height:2px;opacity:.65}
-.card-relic p {padding:0 18px 18px;color:#eee2c5}
-.card-relic .choice-preview {padding:0 18px 18px;color:#c4b89b}
-.card-relic .choice-stat strong {color:#ffe2a3}
-.card-relic .choice-footer {width:auto;margin:0 14px;padding:13px 5px 22px;background:transparent;color:#edcf9a;border-radius:0;border-top:3px double #ad905261}
-.card-relic .choice-footer span:last-child {color:#ffe2a3}
-.choice-card.card-relic:focus-visible {box-shadow:inset 0 0 0 4px #fff0b9}
+.card-relic .rarity-rule {background:var(--rarity);height:2px;box-shadow:0 0 7px var(--rarity)}
+.card-relic p {padding:0 17px 18px;color:#fff3e4}
+.card-relic .choice-preview {padding:0 17px 18px;color:#ecddc8}
+.card-relic .choice-stat strong {color:#fff2dc}
+.card-relic .choice-footer {width:auto;margin:0 12px 4px;padding:11px 10px;background:linear-gradient(#695a49,#564a3e);color:#f6e8d0;border:1px solid #c5ad88;box-shadow:inset 2px 2px 0 #41362c,inset -2px -2px 0 #917b5d}
+.card-relic .choice-footer span:last-child {color:#fff2dc}
+.choice-card.card-relic:focus-visible {box-shadow:0 0 0 3px #fff2dc}
 @media(hover:hover) {
- .choice-card.card-relic:hover {background:linear-gradient(125deg,#fff4cf,#bc9c60 20%,var(--rarity) 50%,#6c5131 72%,#ebca8b);box-shadow:inset 0 0 0 2px #221c16}
+ .choice-card.card-relic:hover {box-shadow:none;filter:drop-shadow(0 0 13px var(--rarity)) drop-shadow(0 0 30px color-mix(in srgb,var(--rarity) 80%,transparent)) drop-shadow(0 15px 10px #0009)}
 }
+.choice-card.card-relic:active {box-shadow:none}
 
 .choice-card.card-new-move {border-radius:3px 22px 3px 3px;background:#e6f2f1}
 .card-new-move .choice-header {background:#163641;border-radius:0 18px 0 0;border-bottom:2px solid #86ded7}
@@ -329,18 +342,17 @@
 .card-new-move .choice-footer span:first-child::before {content:'\2197 ';font-size:14px}
 
 @keyframes training-highlight {0%,100% {opacity:.25;transform:translateY(-35%)}50% {opacity:.8;transform:translateY(35%)}}
-@keyframes relic-halo {0%,100% {opacity:.6;transform:scale(.94)}50% {opacity:1;transform:scale(1.04)}}
-@keyframes relic-turn {from {transform:rotate(45deg)}to {transform:rotate(405deg)}}
+@keyframes relic-glow {0%,100% {filter:drop-shadow(0 0 5px color-mix(in srgb,var(--rarity) 42%,transparent))}50% {filter:drop-shadow(0 0 13px color-mix(in srgb,var(--rarity) 80%,transparent))}}
 @keyframes move-orbit {to {transform:rotate(360deg)}}
 @keyframes move-sweep {0%,20% {transform:translateX(-45%);opacity:0}50% {opacity:1}80%,100% {transform:translateX(45%);opacity:0}}
 @media(max-width:590px) {
  .card-training .choice-art,.card-relic .choice-art,.card-new-move .choice-art {border-bottom:0}
- .card-relic .choice-art::before {width:65px;height:65px}
- .card-relic .choice-art::after {width:52px;height:52px}
+ .card-relic .choice-art::before {width:68px;height:72px}
+ .card-relic .choice-art::after {width:58px;height:62px}
  .card-new-move .choice-art::before {width:64px;height:64px}
- .choice-card.card-relic {--tablet-shape:polygon(12% 0,88% 0,100% 7%,100% 92%,88% 100%,12% 100%,0 92%,0 7%);padding:9px;grid-template-columns:65px minmax(0,1fr)}
+ .choice-card.card-relic {--tablet-shape:polygon(8% 0,79% 0,82% 2%,91% 0,100% 8%,100% 91%,92% 100%,9% 100%,0 91%,0 9%);padding:9px;grid-template-columns:65px minmax(0,1fr)}
  .card-relic .choice-header {padding:12px 18px 8px}
- .card-relic .choice-art {border-right:1px solid #ad905240}
+ .card-relic .choice-art {height:auto;border-right:1px solid #d2bd9955}
  .card-relic .choice-title {margin:0 9px;padding:9px 4px;font-size:14px}
  .choice-card.card-relic .choice-owner {padding:8px 10px 0}
  .card-relic .choice-rarity {padding:9px 10px}

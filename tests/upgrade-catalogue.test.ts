@@ -6,6 +6,7 @@ import {KANTO,RECRUIT_POOL,starterChoices} from '../src/data/kanto.ts';
 import {TRAINING_UPGRADES,trainingVariants} from '../src/data/progression.ts';
 import {LEARNABLE_MOVES} from '../src/data/moves.ts';
 import {SYNERGIES} from '../src/data/synergies.ts';
+import {getSpecialProfile} from '../src/data/specials.ts';
 import {migrateSave} from '../src/game/save.ts';
 
 const entries=createUpgradeCatalogue(),fresh=()=>migrateSave({version:2})!;
@@ -17,7 +18,7 @@ test('menu catalogue includes every upgrade definition and all documented groups
  assert.equal(counts.get('signatures'),KANTO.length);assert.equal(counts.get('learned'),LEARNABLE_MOVES.length);
  assert.equal(counts.get('evolutions'),KANTO.reduce((sum,species)=>sum+species.evolvesTo.length,0));
  assert.equal(counts.get('recruitment'),RECRUIT_POOL.length+starterChoices().length);
- assert.equal(counts.get('synergies'),SYNERGIES.length);assert.equal(counts.get('specials'),25);
+ assert.equal(counts.get('synergies'),SYNERGIES.length);assert.equal(counts.get('specials'),new Set(KANTO.map(species=>{const special=getSpecialProfile(species.id);return `${special.kind}:${special.name}`;})).size);
  assert.ok([...counts.values()].every(count=>count>0));
  assert.equal(new Set(entries.map(entry=>entry.id)).size,entries.length);
  for(const entry of entries){assert.ok(entry.title&&entry.description);assert.doesNotMatch(JSON.stringify(entry),/undefined|NaN/);}

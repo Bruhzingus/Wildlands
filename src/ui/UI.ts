@@ -1,3 +1,4 @@
+import {version as gameVersion} from '../../package.json';
 import {getSpecies,ELEMENT_COLORS,starterChoices} from '../data/kanto.ts';
 import {DESIGN} from '../data/config.ts';
 import {PARTY_DAMAGE_COLORS} from '../data/damageNumbers.ts';
@@ -10,6 +11,7 @@ import './upgrades.css';
 import './pokemonProgression.css';
 import './evolution.css';
 import './movement.css';
+import './berries.css';
 import type {EvolutionReceipt} from '../game/evolution.ts';
 import {loadSettings,saveSettings,type GameSettings} from '../game/settings.ts';
 import {getBuildSummary,getBuildModifiers} from '../game/systems/builds.ts';
@@ -23,13 +25,14 @@ import {upgradeIcon} from './upgradeIcons.ts';
 import {getMoveDefinition} from '../data/moves.ts';
 import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
-import {getMovementTrait,movementTraitLabel,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
+import {getMovementTrait,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
 import {PROGRESSION,nextMilestone} from '../data/progression.ts';
 import {CHEST_TIERS,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
 import {SHRINE_RULES,shrineContents,shrineForPOI,shrineLevelAllowed} from '../data/shrines.ts';
 import {formatPercent,upgradeStatPreview} from './upgradePreview.ts';
 import {rerollChoices,xpThreshold} from '../game/systems/progression.ts';
 import {UpgradeCatalogue} from './UpgradeCatalogue.ts';
+import {BERRIES,BERRY_ORDER} from '../data/berries.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const fmt=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(Math.floor(n%60)).padStart(2,'0')}`;
@@ -51,18 +54,14 @@ export class UI {
   this.clearDetachedImages();this.focusFirst();
  }
  private bindCatalogue(state?:RunState){this.content.querySelector('[data-open-catalogue]')?.addEventListener('click',()=>this.openCatalogue(state));}
- private evolving=false;
- isEvolving(){return this.evolving;}
- showEvolution(receipt:EvolutionReceipt,queued:boolean){
-  this.evolving=true;this.overlay.classList.remove('hidden');this.overlay.classList.add('evolution-mode');
-  const from=getSpecies(receipt.from),to=getSpecies(receipt.to),number=(value:number)=>Number(value.toFixed(1));
-  this.content.innerHTML=`<section class="evolution-screen" aria-label="Evolution complete"><div class="eyebrow">TEAM MILESTONE / GAME PAUSED</div><div class="evolution-forms"><figure class="evolution-before">${this.portrait(from.id)}<figcaption>${esc(from.name)}</figcaption></figure><span aria-hidden="true">→</span><figure class="evolution-after">${this.portrait(to.id)}<figcaption>${esc(to.name)}</figcaption></figure></div><h2>${esc(to.name)} joins your journey</h2><p class="evolution-gains">Max HP ${number(receipt.hpBefore)} → ${number(receipt.hpAfter)} · +${Math.round(receipt.powerGain*100)}% permanent attack<br>LV ${receipt.level} and XP kept · Current health fraction kept</p><p class="evolution-moves">${receipt.moves.map(move=>`${esc(move.name)} <strong>R${move.before} → R${move.rank}</strong>`).join(' · ')}${receipt.freedSlots?`<br>Signature training merged · ${receipt.freedSlots} move slot${receipt.freedSlots===1?'':'s'} freed`:''}</p><div class="pause-buttons"><button id="evolution-continue" class="btn btn-primary">${queued?'Next reward':'Resume'}</button><button id="restart-btn" class="btn btn-ghost">New run</button></div></section>`;
-  this.content.querySelector('#evolution-continue')!.addEventListener('click',()=>this.onResume());
-  if(movementTraitLabel(receipt.from)!==movementTraitLabel(receipt.to))this.content.querySelector('.evolution-moves')!.insertAdjacentHTML('afterend',`<p class="evolution-gains">Movement when leading: ${esc(movementTraitLabel(receipt.from))} → ${esc(movementTraitLabel(receipt.to))}</p>`);
-  this.content.querySelector('#restart-btn')!.addEventListener('click',()=>this.onRestart());
-  this.imageFallbacks(this.content);this.focusFirst();
+ showEvolution(receipt:EvolutionReceipt){
+  const from=getSpecies(receipt.from),to=getSpecies(receipt.to);
+  const banner=q('#evolution-announcement');
+  banner.style.setProperty('--evolution-color',ELEMENT_COLORS[to.types[0]]);
+  banner.innerHTML=`<span class="evolution-kicker">EVOLUTION</span><strong>${esc(from.name)} <span aria-hidden="true">→</span> ${esc(to.name)}</strong><small>+${Math.round(receipt.powerGain*100)}% attack · ${Math.round(receipt.hpAfter-receipt.hpBefore)} max HP</small>`;
+  banner.classList.remove('hidden');
  }
- clearEvolution(){this.evolving=false;this.overlay.classList.remove('evolution-mode');this.lastPhase='';}
+ clearEvolution(){const banner=q('#evolution-announcement');banner.classList.add('hidden');banner.textContent='';}
  private overlay=q('#overlay');private content=q('#overlay-content');private hud=q('#hud');
  private lastPhase='';private lastChoices='';private toastTimer=0;private focusFrame=0;private listeners=new AbortController();
  private imageLoads=new Map<HTMLImageElement,HTMLImageElement>();
@@ -97,8 +96,14 @@ export class UI {
   this.previousParty.clear();this.previousFaints=0;this.previousElapsed=0;this.faintUntil=0;this.faintNotice='';this.cooldowns={};this.readyNotice='';this.readyUntil=0;
   this.lastPhase='title';this.hud.classList.add('hidden');this.overlay.classList.remove('hidden');
   const options=starterChoices().filter(id=>this.save.unlocked.includes(id));
-  this.content.innerHTML=`<div class="front-page"><div class="eyebrow">KANTO SURVIVAL / v0.3</div><h1>WILD<span>LANDS</span></h1><p class="subtitle">Survive 15 minutes. Build your squad.</p><h2>Choose your partner</h2><div class="starter-grid">${options.map(id=>this.pokemonCard(id)).join('')}</div>${renderRunOptions(this.save)}${renderUnlockLibrary(this.save)}<p class="control-help">${controls}</p>${this.settingsPanel()}<p class="disclaimer">Unofficial, noncommercial fan prototype. Pokémon names and artwork belong to their respective owners.</p></div>`;
-  this.content.querySelectorAll<HTMLElement>('[data-starter]').forEach(el=>el.addEventListener('click',()=>this.onStart(Number(el.dataset.starter))));
+  this.content.innerHTML=`<div class="front-page"><div class="eyebrow">KANTO SURVIVAL / <span class="game-version">v${esc(gameVersion)}</span></div><h1>WILD<span>LANDS</span></h1><p class="subtitle">Survive 15 minutes. Build your squad.</p><div class="front-launch"><button id="play-btn" class="btn btn-primary" type="button">Play as ${esc(getSpecies(options[0]).name)}</button><p>Choose a partner below to start with them.</p></div><h2>Choose your partner</h2><div class="starter-grid">${options.map(id=>this.pokemonCard(id)).join('')}</div>${renderRunOptions(this.save)}${renderUnlockLibrary(this.save)}<p class="control-help">${controls}</p>${this.settingsPanel()}<p class="disclaimer">Unofficial, noncommercial fan prototype. Pokémon names and artwork belong to their respective owners.</p></div>`;
+  let selectedStarter=options[0];
+  const play=this.content.querySelector<HTMLButtonElement>('#play-btn')!;
+  play.addEventListener('click',()=>this.onStart(selectedStarter));
+  this.content.querySelectorAll<HTMLElement>('[data-starter]').forEach(el=>{
+   el.addEventListener('focus',()=>{selectedStarter=Number(el.dataset.starter);play.textContent=`Play as ${getSpecies(selectedStarter).name}`;});
+   el.addEventListener('click',()=>this.onStart(Number(el.dataset.starter)));
+  });
   this.content.querySelector('.starter-grid')!.insertAdjacentHTML('afterend','<div class="catalogue-menu-link"><button type="button" class="btn btn-ghost" data-open-catalogue>Browse all upgrades</button></div>');
   this.bindCatalogue();this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
   bindProgressionUI(this.content,this.save,{onImport:imported=>{Object.assign(this.save,imported);const saved=persist(this.save);this.showTitle();this.toast(saved?'Save imported. Collection updated.':'Save imported for this session. Browser storage is unavailable.');}});
@@ -164,7 +169,6 @@ export class UI {
 
  update(s:RunState){const choices=s.phase==='choice'?JSON.stringify([s.upgradeChoices,s.rerolls,s.levelUpMemberId,s.party.find(member=>member.uid===s.levelUpMemberId)?.level,s.pendingLevelUps?.length,s.choiceTitle]):'';
   if(this.catalogue){if(s.phase==='paused')return;this.clearCatalogue();}
-  if(this.evolving){this.refresh(s);return;}
   if(s.phase!==this.lastPhase||choices!==this.lastChoices){this.lastPhase=s.phase;this.lastChoices=choices;this.displayPhase(s);}
   if(s.phase==='playing'||s.phase==='boss'||s.phase==='choice')this.refresh(s);
  }
@@ -190,7 +194,7 @@ export class UI {
 
  private upgradeCard(c:UpgradeChoice,index:number,s:RunState){const tags={recruit:'RECRUIT',evolve:'EVOLUTION',attack:'MOVE',learn:'NEW MOVE',stat:'TRAINING',item:'RELIC'};
   const cardType=c.kind==='item'?'relic':c.kind==='learn'?'new-move':c.kind==='stat'?'training':c.kind==='attack'?'move':c.kind;
-  const cardNote=c.kind==='item'?'CARRY A RELIC':c.kind==='learn'?'LEARN A NEW MOVE':c.kind==='stat'?'TRAIN YOUR SQUAD':'UPGRADE';
+  const cardNote=c.kind==='item'?'CARRY A RELIC':c.kind==='learn'?'LEARN A NEW MOVE':c.kind==='stat'?(c.speciesId!==undefined?'TRAIN THIS POKÉMON':'TRAIN YOUR SQUAD'):'UPGRADE';
   const portraitId=c.kind==='evolve'?c.targetId:c.kind==='recruit'?c.speciesId:undefined;
   const p=portraitId?getSpecies(portraitId):null;
   const img=p?this.portrait(p.id,'upgrade-pokemon'):`<div class="upgrade-glyph" aria-hidden="true">${upgradeIcon(c)}</div>`;
@@ -259,6 +263,8 @@ export class UI {
   q('#level-label').textContent=`LV ${leader.level}`;q('#xp-text').textContent=`${Math.floor(leaderXP)} / ${leaderNext} XP`;
   q('#xp-fill').style.width=`${percent(leaderXP,leaderNext)}%`;
   const milestone=nextMilestone(leader.level);q('#next-milestone').textContent=milestone?`NEXT ${milestone>=PROGRESSION.leveling.trainingFocusLevel?'TRAINING':'CHOICE'}: LV ${milestone}`:`MAX LEVEL ${PROGRESSION.leveling.maxLevel}`;
+  const berryBuffs=BERRY_ORDER.flatMap(kind=>{const active=(s.berryBuffs?.[kind]??[]).filter(expiresAt=>expiresAt>stats.elapsed);return active.length?[`${BERRIES[kind].name.replace(' Berry','').toUpperCase()} x${active.length} ${Math.ceil(Math.max(...active)-stats.elapsed)}s`]:[];});
+  q('#berry-buff').textContent=berryBuffs.length?`BERRIES · ${berryBuffs.join(' · ')}`:'';
   const special=getSpecialProfile(leader.speciesId,leader.attackLevel),specialTile=q('#special-cd');
   const specialLabel=specialTile.querySelector('span:not(.kbd)')!;if(specialLabel.textContent!==special.name.toUpperCase())specialLabel.textContent=special.name.toUpperCase();
   specialTile.title=`${special.description} (${special.cooldown.toFixed(0)}s base cooldown)`;
@@ -294,15 +300,19 @@ export class UI {
   });
   this.refreshPartyAlert(s);
   const near=s.pois.find(poi=>siteAvailable(poi,stats.elapsed)&&(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge)??s.pois.find(poi=>poi.kind==='shrine'&&siteAvailable(poi,stats.elapsed)&&distance2(p,poi)<SHRINE_RULES.previewRadius);
-  const interaction=q('#interaction');interaction.classList.toggle('hidden',!near);
+  const nearBerry=!near?(s.berryTrees??[]).find(tree=>distance2(p,tree)<6&&tree.berries.some(berry=>!berry.collected)):undefined;
+  const interaction=q('#interaction');interaction.classList.toggle('hidden',!near&&!nearBerry);
   if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,seconds=Math.ceil((near.challenge?.endsAt??near.respawnAt??0)-s.stats.elapsed),definition=shrineForPOI(near),allowed=near.kind!=='shrine'||shrineLevelAllowed(s.party[0].level,definition),inReach=distance2(p,near)<DESIGN.interactionRadius,remaining=s.enemies.filter(enemy=>!enemy.dead&&enemy.challengeSiteId===near.uid).length,signature=`${near.uid}/${cost}/${affordable}/${seconds}/${near.used}/${shrineTier(s,near)}/${allowed}/${inReach}/${remaining}`;
    if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;
     const label=near.challenge?`${esc(shrineContents(definition))}<small>${remaining} left · ${seconds}s · Stay within ${definition.radius}m</small>`
      :near.used?`${near.kind==='shrine'?'Shrine recharges':'Chest restocks'} in ${seconds}s`
      :near.kind==='cache'&&near.price!==undefined?`${chestRarity(s,near).toUpperCase()} chest · ${affordable?'Choose relic':'Need'} ${cost} coins`
-    :({cache:'Open discovery cache · One use',shrine:`${esc(shrineContents(definition))}<small>Tier ${definition.tier} · Recommended Lv ${definition.level} · ${definition.radius}m arena${allowed?'':' · Must be within 10 levels'}</small>`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
+    :({cache:'Open discovery cache · One use',shrine:`${esc(shrineContents(definition))}<small>Tier ${definition.tier} · Recommended Lv ${definition.level} · ${definition.radius}m arena${allowed?'':' · Must be within 10 levels'}</small>`,healing:'Recover HP'})[near.kind];
     interaction.innerHTML=`${near.used||!allowed||!inReach?'':'<span class="kbd">E</span> '}<span class="poi-copy">${near.name?`${esc(near.name)} · `:''}${label}</span>`;interaction.classList.toggle('unaffordable',(!affordable||!allowed)&&!near.used);
    }
+  }else if(nearBerry){
+   const berry=BERRIES[nearBerry.berry],signature=`berry-${nearBerry.uid}-${nearBerry.cycle}`;
+   if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;interaction.innerHTML=`<span class="poi-copy">${esc(berry.name)} · ${esc(berry.rarity)}<small>${esc(berry.description)} Walk over fallen berries to collect.</small></span>`;interaction.classList.remove('unaffordable');}
   }
   this.drawMap(s);
   q('#boss-bar').classList.toggle('hidden',!boss);
@@ -359,6 +369,7 @@ export class UI {
   context.clearRect(0,0,MAP_SIZE,MAP_SIZE);context.drawImage(this.mapBase,0,0);
   const boss=s.enemies.find(e=>e.isBoss&&!e.dead),markers:MapMarker[]=[{...s.player,id:'player',kind:'player',priority:3,radius:6},
    ...s.pois.filter(p=>siteAvailable(p,s.stats.elapsed)&&(!p.used||p.respawnAt!==undefined||p.challenge)).map(p=>({...p,rarity:chestRarity(s,p),id:`poi-${p.uid}`,priority:p.challenge?2:1,kind:p.kind,radius:3.5})),
+   ...(s.berryTrees??[]).map(tree=>({...tree,id:`berry-${tree.uid}`,kind:'berry' as const,priority:.5,radius:2.5,label:BERRIES[tree.berry].name,used:tree.berries.every(berry=>berry.collected)})),
    ...profile.landmarks.map(p=>({...p,id:p.id,kind:'landmark' as const,priority:0,radius:4,label:p.initial}))];
   if(boss)markers.push({...boss,id:'boss',kind:'boss',priority:2,radius:5});
   const placed=layoutMapMarkers(markers);canvas.dataset.markers=String(placed.length);
@@ -369,8 +380,8 @@ export class UI {
    if(kind==='player'){context.rotate(s.player.facing);context.moveTo(0,-6);context.lineTo(-4.5,4.5);context.lineTo(4.5,4.5);context.closePath();context.fillStyle='#f4f2d9';context.fill();context.stroke();}
    else if(kind==='cache'){context.fillStyle=marker.price===undefined?'#bad49a':CHEST_TIERS[marker.rarity??'common'].color;context.rect(-3,-3,6,6);context.fill();context.stroke();if(marker.price!==undefined){context.moveTo(-2,0);context.lineTo(2,0);context.stroke();}}
    else if(kind==='shrine'||kind==='boss'){context.moveTo(0,-4);context.lineTo(4,0);context.lineTo(0,4);context.lineTo(-4,0);context.closePath();context.fillStyle=kind==='boss'?'#e0c2ed':'#bda5db';context.fill();context.stroke();}
-   else if(kind==='elite'){context.moveTo(-3,3);context.lineTo(0,-4);context.lineTo(3,3);context.closePath();context.fillStyle='#ed887b';context.fill();context.stroke();}
    else if(kind==='healing'){context.fillStyle='#d0e5ba';context.fillRect(-3.5,-1.2,7,2.4);context.fillRect(-1.2,-3.5,2.4,7);}
+   else if(kind==='berry'){context.fillStyle='#83b467';context.arc(0,0,3,0,Math.PI*2);context.fill();context.stroke();context.fillStyle='#da8c7c';context.beginPath();context.arc(1,-1,1.2,0,Math.PI*2);context.fill();}
    else {context.font='bold 9px monospace';context.textAlign='center';context.textBaseline='middle';context.lineWidth=2;context.strokeText(marker.label??'',0,0);context.fillStyle='#e8ebda';context.fillText(marker.label??'',0,0);}
    context.restore();
   }
@@ -381,6 +392,6 @@ export class UI {
   const el=q('#toast');this.toastPriority=priority;this.toastExpires=now+3100;el.textContent=label;el.classList.add('show');
   clearTimeout(this.toastTimer);this.toastTimer=window.setTimeout(()=>{el.classList.remove('show');this.toastPriority=0;},3100);
  }
- handleNumber(key:string,s:RunState):boolean{if(this.evolving)return ['1','2','3','4'].includes(key);if(s.phase!=='choice'||!['1','2','3','4'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
+ handleNumber(key:string,s:RunState):boolean{if(s.phase!=='choice'||!['1','2','3','4'].includes(key))return false;const choice=s.upgradeChoices[Number(key)-1];if(choice)this.onPick(choice.id);return true;}
  dispose(){this.clearCatalogue();this.listeners.abort();clearTimeout(this.toastTimer);cancelAnimationFrame(this.focusFrame);for(const probe of this.imageLoads.values()){probe.onload=null;probe.onerror=null;probe.removeAttribute('src');}this.imageLoads.clear();this.content.replaceChildren();const strip=q('#party-strip');strip.replaceChildren();delete strip.dataset.signature;}
 }

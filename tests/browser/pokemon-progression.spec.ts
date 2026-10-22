@@ -73,6 +73,34 @@ test('ordinary levels keep playing and milestone cards train only the Pokémon t
  expect(errors).toEqual([]);
 });
 
+test('follower stat training displays its owner and changes only that Pokémon',async({page})=>{
+ await startSquad(page);
+ const before=await page.evaluate(async()=>{
+  // @ts-ignore Vite resolves browser source imports.
+  const {makeChoices}=await import('/src/game/systems/progression.ts');
+  // @ts-ignore Vite resolves browser source imports.
+  const {RNG}=await import('/src/utils/random.ts');
+  const g=(window as any).__WILDLANDS__,s=g.sim.state;
+  s.party[1].level=3;s.levelUpMemberId=101;s.recruitCount=5;
+  for(let seed=1;seed<=100;seed++){
+   const choices=makeChoices(s,new RNG(seed)),power=choices.find((choice:any)=>choice.stat==='power');
+   if(power){g.sim.enterChoice(choices,undefined,'level');return {id:power.id,amount:power.amount,shared:{...s.buffs},leader:JSON.stringify(s.party[0].trainingBuffs??{})};}
+  }
+  throw new Error('No damage training offer');
+ });
+ const card=page.locator(`[data-choice="${before.id}"]`);
+ await expect(card).toHaveAttribute('data-choice-member','101');
+ await expect(card.locator('.choice-owner')).toHaveText('Charmander · LV 3');
+ await expect(card).toContainText('TRAIN THIS POKÉMON');
+ await expect(card.locator('.choice-preview')).toContainText('Damage bonus');
+ await card.click();
+ const after=await page.evaluate(()=>{
+  const s=(window as any).__WILDLANDS__.sim.state;
+  return {shared:{...s.buffs},leader:JSON.stringify(s.party[0].trainingBuffs??{}),follower:s.party[1].trainingBuffs.power};
+ });
+ expect(after.shared).toEqual(before.shared);expect(after.leader).toEqual(before.leader);expect(after.follower).toBe(before.amount);
+});
+
 test('queued individual levels change the owner without resuming combat',async({page})=>{
  await startSquad(page);
  await page.evaluate(async()=>{
@@ -163,11 +191,14 @@ test('evolution cards improve stats and every known move while merging duplicate
  await expect(card).toContainText('+1 rank to every known move');
  await expect(card).toContainText('signature attack at rank 6');
  await card.click();
+ await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.party[1].speciesId)).toBe(5);
  const member=await page.evaluate(()=>{
   const m=(window as any).__WILDLANDS__.sim.state.party[1];
   return {species:m.speciesId,level:m.level,xp:m.xp,maxHp:m.maxHp,hp:m.hp,power:m.evolutionPower,rank:m.attackLevel,moves:m.learnedMoves.map((move:any)=>[move.moveId,move.rank])};
  });
- expect(member).toEqual({species:5,level:5,xp:17,maxHp:200,hp:100,power:.25,rank:6,moves:[['swift',2],['brick-break',3]]});
+ // Live regeneration can tick between choosing the evolution and reading the state.
+ expect(member.hp).toBeCloseTo(100,0);
+ expect({...member,hp:100}).toEqual({species:5,level:5,xp:17,maxHp:200,hp:100,power:.25,rank:6,moves:[['swift',2],['brick-break',3]]});
  await expect(page.locator('[data-member="101"] .party-rank')).toHaveText('R6');
 });
 

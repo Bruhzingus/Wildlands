@@ -5,6 +5,7 @@ import {AssetLibrary,CharacterVisuals} from './render/AssetLibrary.ts';
 import {Effects} from './render/Effects.ts';
 import {HealthBars} from './render/HealthBars.ts';
 import {DamageNumbers} from './render/DamageNumbers.ts';
+import {EvolutionEffect} from './render/EvolutionEffect.ts';
 import {UI} from '../ui/UI.ts';
 import {loadSave,type SaveData} from './save.ts';
 import {ProgressionTracker} from './achievements.ts';
@@ -16,12 +17,14 @@ import {ImpactFeedback} from './feedback.ts';
 import {AutomaticQuality,graphicsProfile,initialQuality} from './graphics.ts';
 import {FrameMetrics} from './performance.ts';
 import type {EvolutionReceipt} from './evolution.ts';
+import {ELEMENT_COLORS,getSpecies} from '../data/kanto.ts';
 
 const isActive=(sim:Simulation|null)=>sim?.state.phase==='playing'||sim?.state.phase==='boss';
 const withoutActions=(input:MoveInput):MoveInput=>({...input,jump:false,dodge:false,special:false,interact:false});
 
 export class Game{
  private evolution:EvolutionReceipt|null=null;
+ private evolutionEffect:EvolutionEffect|null=null;private evolutionTime=0;private evolutionCuePending=false;
  private damageNumbers:DamageNumbers|null=null;
  private canvas=document.querySelector<HTMLCanvasElement>('#renderCanvas')!;
  private engine:Engine;private scene:Scene;private camera:ArcRotateCamera;
@@ -52,10 +55,7 @@ export class Game{
   this.ui.onStart=id=>this.start(id);
   this.ui.onPick=id=>this.pick(id);
   this.ui.onReroll=()=>{if(this.sim?.reroll()){this.audio.unlock();this.audio.cue('upgrade');this.ui.update(this.sim.state);}};
-  this.ui.onResume=()=>{
-   if(this.evolution){this.evolution=null;this.visuals?.finishEvolution();this.ui.clearEvolution();if(this.sim)this.ui.update(this.sim.state);}
-   this.captureForPlay();
-  };
+  this.ui.onResume=()=>this.captureForPlay();
   this.ui.onRestart=()=>this.restart();
   this.ui.onEndless=()=>{this.ended=false;this.clearInput();this.sim?.continueEndless();this.captureForPlay();};
   this.installInput();this.engine.runRenderLoop(()=>this.frame());
@@ -75,12 +75,10 @@ export class Game{
  }
  private clearInput(){this.pressed.clear();this.justPressed.clear();this.pendingActions={jump:false,dodge:false,special:false,interact:false};}
  private pick(id:string){
-  if(this.evolution)return;
   this.audio.unlock();this.audio.setActive(false);this.clearInput();
   const choice=this.sim?.state.upgradeChoices.find(choice=>choice.id===id);
-  if(this.sim?.choose(id)){if(choice?.kind!=='evolve')this.audio.cue(choice?.kind==='recruit'?'recruit':'upgrade');this.observeProgression();}
-  if(this.evolution&&this.sim){if(isActive(this.sim))this.sim.pause();this.releasePointer();this.ui.showEvolution(this.evolution,this.sim.state.phase==='choice');return;}
-  this.captureForPlay();
+  if(this.sim?.choose(id,choice?.kind==='evolve')){if(choice?.kind!=='evolve')this.audio.cue(choice?.kind==='recruit'?'recruit':'upgrade');this.observeProgression();}
+  this.captureForPlay(choice?.kind==='evolve'&&!!this.evolution);
  }
  private releasePointer(){
   this.captureWanted=false;this.capturePending=false;this.captureAttempt++;clearTimeout(this.captureTimer);this.pointerCaptured=false;this.captureError=null;
@@ -88,12 +86,11 @@ export class Game{
  }
  private pause(){this.clearInput();if(isActive(this.sim))this.sim?.pause();this.releasePointer();this.audio.silence();this.feedback.reset();this.flashUntil=0;}
  /** Called directly from a click/key gesture; browsers require that to capture. */
- private captureForPlay(){
-  if(this.evolution)return;
+ private captureForPlay(keepEvolutionVisible=false){
   const sim=this.sim;if(!sim||(!isActive(sim)&&sim.state.phase!=='paused'))return;
   this.audio.unlock();this.audio.setActive(false);this.feedback.reset();
   this.clearInput();
-  if(isActive(sim))sim.pause();
+  if(isActive(sim)&&!keepEvolutionVisible)sim.pause();
   this.lastPhase=sim.state.phase;this.captureWanted=true;
   this.ui.setCaptureHint('Resume locks the mouse for continuous camera control. Esc pauses and releases it.');
   this.ui.update(sim.state);this.canvas.focus();
@@ -111,6 +108,7 @@ export class Game{
   this.pointerCaptured=true;this.clearInput();
   if(this.sim.state.phase==='paused')this.sim.pause();
   this.audio.setActive(true);
+  if(this.evolutionCuePending){this.evolutionCuePending=false;this.audio.cue('evolve',this.evolution?.to);}
   this.lastPhase=this.sim.state.phase;this.previous=performance.now();this.ui.update(this.sim.state);this.canvas.focus();
  }
  private captureFailed(attempt:number){
@@ -171,7 +169,7 @@ export class Game{
   const map=MAP_OPTIONS.find(option=>option.id===this.save.selection.map)!;
   this.sim=new Simulation(starterId,map.seed,{mapId:map.id,challenge:this.save.selection.challenge,itemUnlocks:[...this.save.unlockedItems],recruitUnlocks:[...this.save.unlockedRecruits]});
   this.progression=new ProgressionTracker(this.save,this.sim.state);this.ui.setProgressionResult([]);
-  this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois,this.sim.state.mapId);
+  this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois,this.sim.state.mapId,this.sim.state.berryTrees??[]);
   this.assets=new AssetLibrary(this.scene);this.visuals=new CharacterVisuals(this.assets);
   this.healthBars=new HealthBars(this.scene,this.motionPreference.matches,id=>this.assets?.headroom(id)??1);
   this.damageNumbers=new DamageNumbers(this.scene,(x,z)=>this.world!.height(x,z),id=>this.assets?.headroom(id)??1);
@@ -184,15 +182,18 @@ export class Game{
  }
  private restart(){if(this.sim)this.progression?.finish(this.sim.state);this.cleanupRun();this.ui.showTitle();}
  private cleanupRun(){this.releasePointer();this.healthBars?.dispose();this.fx?.dispose();this.visuals?.dispose();this.assets?.dispose();this.world?.dispose();
-  this.evolution=null;this.ui.clearEvolution();
+  this.evolution=null;this.evolutionTime=0;this.evolutionCuePending=false;this.evolutionEffect?.dispose();this.evolutionEffect=null;this.ui.clearEvolution();
   this.damageNumbers?.dispose();this.damageNumbers=null;
   this.healthBars=null;this.fx=null;this.visuals=null;this.assets=null;this.world=null;this.sim=null;this.progression=null;this.clearInput();this.ended=false;this.lastPhase='title';this.flashUntil=0;
   this.audio.reset();this.feedback.reset();this.previousSpecialCooldown=null;
  }
- private event(event:GameEvent){if(event.label)this.ui.toast(event.label,['boss','faint','win','death'].includes(event.kind)?2:1);this.fx?.onEvent(event);
+ private event(event:GameEvent){if(event.label&&event.kind!=='evolve')this.ui.toast(event.label,['boss','faint','win','death'].includes(event.kind)?2:1);this.fx?.onEvent(event);
   if(event.kind==='evolve'&&event.evolution){
-   this.evolution=event.evolution;this.visuals?.beginEvolution(event.evolution.uid,event.evolution.from);
-   this.audio.setActive(false);this.audio.cue('evolve',event.speciesId);this.clearInput();this.feedback.reset();this.flashUntil=0;
+   this.evolution=event.evolution;this.evolutionTime=0;this.visuals?.beginEvolution(event.evolution.uid,event.evolution.from);
+   this.evolutionEffect?.dispose();
+   const from=getSpecies(event.evolution.from),to=getSpecies(event.evolution.to);
+   this.evolutionEffect=new EvolutionEffect(this.scene,event.evolution.uid,Color3.FromHexString(ELEMENT_COLORS[from.types[0]]),Color3.FromHexString(ELEMENT_COLORS[to.types[0]]));
+   this.ui.showEvolution(event.evolution);this.evolutionCuePending=true;
    return;
   }
   if(this.sim)this.damageNumbers?.onEvent(event,this.sim.state);
@@ -223,9 +224,8 @@ export class Game{
  private frame(){const now=performance.now();const frameInterval=Math.max(0,(now-this.previous)/1000),dt=Math.min(.08,frameInterval);this.previous=now;
   if(!this.sim||!this.world){this.justPressed.clear();this.scene.render();return;}
   const sim=this.sim,state=sim.state;
-  if(this.evolution){if(isActive(sim))sim.pause();if(!this.ui.isEvolving()){this.releasePointer();this.ui.showEvolution(this.evolution,state.phase==='choice');}}
   if(state.phase!==this.lastPhase){this.clearInput();if(!isActive(sim)&&!(state.phase==='paused'&&this.captureWanted))this.releasePointer();this.lastPhase=state.phase;}
-  if(isActive(sim)&&document.pointerLockElement!==this.canvas)this.pause();
+  if(isActive(sim)&&document.pointerLockElement!==this.canvas&&!this.capturePending)this.pause();
   const active=isActive(sim)&&document.pointerLockElement===this.canvas,input=this.input();sim.setWalking(active&&Math.hypot(input.mx,input.mz)>.01);
   if(active&&this.ui.settings.graphicsQuality==='auto'){if(this.automatic.update(frameInterval))this.applyGraphics();}else this.automatic.resetWindow();
   const simulationStart=this.metrics?performance.now():0;
@@ -244,7 +244,7 @@ export class Game{
      if(this.feedback.inspect().freeze)break;
     }
    }
-   this.world.update(dt,state.pois,state.stats.elapsed,state.terrainFeatures);
+   this.world.update(dt,state.pois,state.stats.elapsed,state.terrainFeatures,state.berryTrees??[]);
    if(!isActive(sim)){this.clearInput();this.releasePointer();this.lastPhase=state.phase;}
   }
   const simulationEnd=this.metrics?performance.now():0;
@@ -259,7 +259,14 @@ export class Game{
   if(playing)Vector3.LerpToRef(this.camera.target,target,1-Math.exp(-9*dt),this.camera.target);
   const cameraAngle=-this.camera.alpha-Math.PI/2;
   const presentationDt=playing&&!impactFrame.freeze&&!this.feedback.inspect().freeze?dt:0;
-  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y,this.evolution&&!document.hidden?dt:0,!!state.player.movement?.flying,state.player);
+  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y,this.evolution&&playing?dt:0,!!state.player.movement?.flying,state.player);
+  if(this.evolution){
+   if(playing){this.evolutionTime+=dt;this.evolutionEffect?.update(dt,state.party.find(member=>member.uid===this.evolution!.uid),(x,z)=>this.world!.height(x,z));}
+   if(this.evolutionTime>=2.3||state.phase==='result'){
+    this.evolution=null;this.evolutionTime=0;this.evolutionEffect?.dispose();this.evolutionEffect=null;this.visuals?.finishEvolution();this.ui.clearEvolution();
+    if(state.phase!=='result')sim.resumeDeferredRewards();
+   }
+  }
   this.healthBars?.sync(state,presentationDt,(x,z)=>this.world!.height(x,z));
   this.fx?.update(state,presentationDt);
   document.querySelector<HTMLElement>('#damage-flash')!.style.opacity=now<this.flashUntil?'.38':'0';

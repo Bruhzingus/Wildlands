@@ -41,14 +41,15 @@ test('learning is occasional while existing move and stat training stay in every
 });
 
 test('each stat has stronger rarity variants with observable odds and no duplicate stat cards',()=>{
- const state=new Simulation(4,38).state,rng=new RNG(3907),seen=new Map(),counts={common:0,rare:0,epic:0,legendary:0};
+ const state=new Simulation(4,38).state,rng=new RNG(3907),seen=new Map(),counts={common:0,uncommon:0,rare:0,epic:0,legendary:0};
  for(let roll=0;roll<12000;roll++){
   const choices=makeChoices(state,rng,'squad');
   assert.equal(new Set(choices.map(choice=>choice.stat)).size,choices.length);
   for(const choice of choices){seen.set(choice.id,choice);counts[choice.rarity]++;}
  }
  assert.equal(seen.size,TRAINING_UPGRADES.reduce((sum,definition)=>sum+trainingVariants(definition).length,0));
- for(const rarity of ['common','rare','epic','legendary'] as const)assert.ok(Math.abs(counts[rarity]/36000-PROGRESSION.rarityWeights[rarity]/100)<(rarity==='legendary'?.0015:.025));
+ const totalWeight=Object.values(PROGRESSION.rarityWeights).reduce((sum,value)=>sum+value,0);
+ for(const rarity of ['common','uncommon','rare','epic','legendary'] as const)assert.ok(Math.abs(counts[rarity]/36000-PROGRESSION.rarityWeights[rarity]/totalWeight)<(rarity==='legendary'?.0015:.025));
  for(const definition of TRAINING_UPGRADES){
   for(const {rarity,amount} of trainingVariants(definition)){
    const card=seen.get(rarity==='common'?definition.id:`${definition.id}-${rarity}`);

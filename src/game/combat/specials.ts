@@ -154,10 +154,11 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
     case 'flamethrower':case 'flurry':{
      if(effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
      const origin={x:state.player.x,z:state.player.z};
+     const hpScale=member.speciesId===129?1+2*(1-Math.min(1,Math.max(0,state.player.hp/Math.max(1,state.player.maxHp)))):1;
      for(const enemy of enemiesInRadius(state.enemies,origin,profile.range)){
       const x=enemy.x-origin.x,z=enemy.z-origin.z,d=Math.hypot(x,z);
       if(d>1&&(x*effect.dx+z*effect.dz)/d<Math.cos(profile.angle/2))continue;
-      hit(enemy,profile.damageScale,profile.kind==='flamethrower'?{burn:1}:{},index===profile.pulses-1?profile.knockback:0);
+      hit(enemy,profile.damageScale*hpScale,profile.kind==='flamethrower'?{burn:1}:{},index===profile.pulses-1?profile.knockback:0);
      }
      visual('cone',origin,profile.range,.22,{facing:Math.atan2(effect.dx,effect.dz),angle:profile.angle});break;
     }

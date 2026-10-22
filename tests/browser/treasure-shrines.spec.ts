@@ -24,8 +24,8 @@ test('treasure tiers, spent chests and shrine trials render readable live status
  await page.keyboard.press('e');await expect(page.locator('#interaction')).toContainText('1 left');
  expect(await page.evaluate(()=>{
   const g=(window as any).__WILDLANDS__,s=g.sim.state,site=s.pois.find((p:any)=>p.challenge);
-  return g.scene.getMeshByName(`marker-ring-${site.uid}`).scaling.x;
- })).toBe(10);
+  return !!g.scene.getMeshByName(`shrine-statue-${site.uid}`);
+ })).toBe(true);
  await page.keyboard.press('Escape');await expect(page.locator('#resume-btn')).toBeVisible();
  const before=await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.stats.elapsed);
  await page.waitForTimeout(150);

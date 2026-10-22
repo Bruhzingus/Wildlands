@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation} from '../src/game/Simulation.ts';
 import {DESIGN} from '../src/data/config.ts';
-import {SHRINE_TIERS,SHRINE_RULES,refreshShrineTier,shrineContents,shrineDefinition,shrineHazardZones,shrineLevelAllowed,shrineXPMultiplier} from '../src/data/shrines.ts';
+import {SHRINE_TIERS,SHRINE_SPECIES,SHRINE_RULES,refreshShrineTier,shrineContents,shrineDefinition,shrineForPOI,shrineHazardZones,shrineLevelAllowed,shrineXPMultiplier} from '../src/data/shrines.ts';
+import {createPOIs} from '../src/game/systems/environment.ts';
 import {variantRewardXP} from '../src/data/variants.ts';
 import type {POI} from '../src/game/types.ts';
 import {scriptedInput} from '../scripts/lib/run-metrics.ts';
@@ -17,12 +18,24 @@ function arena(tier=1,level=shrineDefinition(tier).level){
 
 test('fifteen tiers vary species, count, arena and hazards and finish in black legendary dust',()=>{
  assert.equal(SHRINE_TIERS.length,15);assert.equal(new Set(SHRINE_TIERS.map(def=>def.speciesId)).size,15);
+ assert.equal(SHRINE_SPECIES.length,SHRINE_TIERS.length);
+ assert.ok(SHRINE_SPECIES.every((species,index)=>species[0]===SHRINE_TIERS[index].speciesId));
  assert.ok(new Set(SHRINE_TIERS.map(def=>def.radius)).size>=5);assert.ok(new Set(SHRINE_TIERS.map(def=>def.count)).size>=3);
  assert.deepEqual(new Set(SHRINE_TIERS.flatMap(def=>def.hazards)),new Set(['slow','poison','fire']));
  assert.equal(SHRINE_TIERS.at(-1)!.color,'#09080e');assert.equal(SHRINE_TIERS.at(-1)!.speciesId,150);
  assert.equal(shrineContents(shrineDefinition(6)),'Machamp Shrine - 2 Machamp');
  assert.equal(shrineContents(shrineDefinition(9)),'Gyarados Shrine - 1 Gyarados + Poison');
  for(let i=1;i<SHRINE_TIERS.length;i++)assert.ok(SHRINE_TIERS[i].level>SHRINE_TIERS[i-1].level);
+});
+
+test('early shrine sites show different statues and summon their advertised species',()=>{
+ const sites=createPOIs(194).filter(poi=>poi.kind==='shrine'&&poi.shrineTier===1);
+ assert.deepEqual(new Set(sites.map(poi=>shrineForPOI(poi).speciesId)),new Set(SHRINE_SPECIES[0]));
+ for(const site of sites){
+  const definition=shrineForPOI(site),a=arena(1);a.site.uid=site.uid;a.site.shrineVariant=site.shrineVariant;
+  assert.equal(shrineContents(shrineForPOI(a.site)),shrineContents(definition));
+  a.start();assert.ok(a.s.enemies.every(enemy=>enemy.speciesId===definition.speciesId));
+ }
 });
 
 test('the level window is inclusive and invalid interactions do not consume a shrine',()=>{
@@ -53,7 +66,9 @@ test('every tier spawns exactly its advertised encounter with a fixed health bud
 
 test('multi-guardian trials award completion once, after the last guardian, and reserve all slots',()=>{
  const a=arena(6);a.start();a.kill(0);assert.ok(a.site.challenge);assert.equal(a.s.pendingSquadRewards,0);assert.equal(a.s.buffs.luck??0,0);
+ assert.equal(a.s.drops.filter(drop=>drop.kind==='coin'||drop.kind==='item').length,0,'individual guardians cannot award shrine loot');
  a.kill(1);assert.equal(a.site.challenge,undefined);assert.equal(a.site.uses,1);assert.equal(a.s.pendingSquadRewards,1);assert.equal(a.s.buffs.luck,.04);
+ assert.equal(a.s.drops.filter(drop=>drop.kind==='coin'||drop.kind==='item').length,1,'the completed shrine awards one total loot prize');
  a.kill(1);assert.equal(a.s.pendingSquadRewards,1);
  const crowded=arena(2);crowded.s.enemies=Array.from({length:DESIGN.maxEnemies-3},(_,index)=>({...a.s.enemies[0],uid:1000+index,dead:false}));
  crowded.start();assert.equal(crowded.site.used,false);assert.equal(crowded.site.challenge,undefined);

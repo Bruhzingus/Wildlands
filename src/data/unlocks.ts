@@ -1,5 +1,5 @@
 import {getSpecies,starterChoices} from './kanto.ts';
-import {ITEM_DEFINITIONS} from './items.ts';
+import {ITEM_DEFINITIONS,relicFamily} from './items.ts';
 import {GATED_RECRUIT_SPECIES} from './rosterContent.ts';
 
 import {MAP_DEFINITIONS,type MapId} from './maps.ts';
@@ -12,7 +12,8 @@ export interface AchievementDefinition {id:string;title:string;description:strin
 export const STARTING_PARTNERS=[1,4,7,25] as const;
 export const GATED_ITEMS=['echo-bell','life-orb','iron-ball','prism-shard'] as const;
 export const GATED_RECRUITS=GATED_RECRUIT_SPECIES;
-export const BASE_ITEMS=ITEM_DEFINITIONS.filter(item=>!item.baseId&&!(GATED_ITEMS as readonly string[]).includes(item.id)).map(item=>item.id);
+/** Unlocks are stored by relic family, including authored multi-rarity families. */
+export const BASE_ITEMS=[...new Set(ITEM_DEFINITIONS.filter(item=>item.offerable!==false&&!(GATED_ITEMS as readonly string[]).includes(relicFamily(item.id))).map(item=>relicFamily(item.id)))];
 export const MAP_OPTIONS=Object.values(MAP_DEFINITIONS);
 export const CHALLENGE_OPTIONS=Object.values(CHALLENGE_DEFINITIONS);
 /** Finite accomplishments unlock choices, never permanent combat-stat bonuses. */

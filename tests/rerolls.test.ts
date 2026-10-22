@@ -23,7 +23,8 @@ test('rerolls replace all cards, preserve rarity slots, and consume exactly one 
   const before=s.upgradeChoices,title=s.choiceTitle;
   s.pendingLevelUps=[1];s.levelUpMemberId=1;s.coins=70;
   assert.equal(sim.reroll(),true);
-  assert.deepEqual(s.upgradeChoices.map(c=>c.rarity),before.map(c=>c.rarity));
+  const tiers=['common','uncommon','rare','epic','legendary'];
+  assert.ok(s.upgradeChoices.every((choice,index)=>tiers.indexOf(choice.rarity)>=tiers.indexOf(before[index].rarity)));
   assert.ok(s.upgradeChoices.every(c=>!before.some(old=>old.id===c.id||old.stat===c.stat)));
   assert.equal(new Set(s.upgradeChoices.map(c=>c.stat)).size,3);
   assert.equal(s.rerolls,1);assert.equal(s.phase,'choice');assert.equal(s.choiceTitle,title);

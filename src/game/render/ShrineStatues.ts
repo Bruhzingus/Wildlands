@@ -24,6 +24,35 @@ export function createShrineStatue(scene:Scene,speciesId:number,stone:StandardMa
   for(let i=0;i<4;i++)rod([sign*(.8+i*.2),2+i*.1,-.1],[sign*(1.05+i*.4),spiky?1.25+(i%2)*.6:1.1+i*.2,-.28],.25,0);
  }};
  switch(speciesId){
+ case 74: // Geodude: round rocky body, heavy fists and no legs.
+  ball(0,1.4,0,.85,.8,.68);for(const sign of [-1,1]){rod([sign*.7,1.4,0],[sign*1.25,1.2,.1],.25,.23);ball(sign*1.46,1.15,.15,.38,.35,.38);}eyes(1.62,.66,.28);break;
+ case 56:case 57: // Mankey / Primeape: bristled monkey with raised fists.
+  ball(0,1.2,0,.72,.68,.57);ball(0,2,.3,.58,.5,.48);feet();
+  for(const sign of [-1,1]){rod([sign*.58,1.4,0],[sign*1.1,1.75,.1],.2,.16);ball(sign*1.22,1.88,.18,.32,.3,.28);rod([sign*.33,2.35,.18],[sign*.62,2.7,.1],.13,.02);}
+  tail([[0,.8,-.5],[.5,.8,-1],[.65,1.35,-1.15]],.14);eyes(2.1,.75,.27);break;
+ case 58: // Growlithe: canine muzzle, pointed ears and curled tail.
+  ball(0,1.05,0,.55,.55,.85);feet(true);ball(0,1.65,.62,.48,.44,.43);ball(0,1.47,1,.28,.19,.35);
+  for(const sign of [-1,1]){rod([sign*.3,1.9,.56],[sign*.42,2.4,.5],.18,.015);}
+  tail([[0,1,-.75],[.3,1.5,-1.2],[.6,1.9,-1.15],[.75,1.75,-.9]],.22);eyes(1.72,1,.25);break;
+ case 133: // Eevee: oversized ears, neck ruff and bushy tail.
+  ball(0,.95,0,.44,.56,.65);feet(true);ball(0,1.48,.42,.5,.43,.42);
+  for(const sign of [-1,1]){rod([sign*.28,1.75,.45],[sign*.55,2.65,.4],.2,.04);ball(sign*.35,1.1,.45,.28,.28,.29,true);}
+  tail([[0,.85,-.55],[.5,1.05,-1],[.75,1.55,-1.25]],.35);eyes(1.55,.82,.25);break;
+ case 23: // Ekans: low coiled snake with a lifted head and forked tongue.
+  {const coil=MeshBuilder.CreateTorus('snake coil',{diameter:1.55,thickness:.34,tessellation:18},scene);coil.position.y=.35;coil.material=stone;parts.push(coil);}
+  rod([.25,.4,0],[0,1.75,.3],.19,.16);ball(0,1.82,.43,.36,.23,.39);tail([[0,1.82,.75],[0,1.62,1],[.15,1.57,1.18]],.09);eyes(1.9,.76,.2);break;
+ case 41: // Zubat: winged body with wide ears and fangs.
+  rod([0,.2,0],[0,1.2,0],.16,.12);ball(0,1.6,0,.4,.44,.33);wings();
+  for(const sign of [-1,1]){rod([sign*.22,1.9,0],[sign*.35,2.48,0],.15,.02);rod([sign*.15,1.35,.3],[sign*.15,1.08,.48],.07,0,true);}break;
+ case 20: // Raticate: hunched rodent, buck teeth and long thin tail.
+  ball(0,.95,0,.65,.52,.9);feet(true);ball(0,1.38,.7,.53,.45,.47);ball(0,1.18,1.07,.37,.2,.29);
+  for(const sign of [-1,1]){ball(sign*.39,1.76,.5,.25,.29,.13);ball(sign*.12,1.04,1.31,.1,.2,.06,true);}
+  tail([[0,.7,-.75],[.5,.5,-1.2],[.9,.65,-1.65],[1.1,1,-1.95]],.13);eyes(1.5,1.05,.27);break;
+ case 94: // Gengar: squat ghost with pointed ears, spines and clawed hands.
+  ball(0,1.2,0,.82,.85,.68);ball(0,2,.18,.67,.52,.53);feet();
+  for(const sign of [-1,1]){rod([sign*.5,2.28,.1],[sign*.75,2.78,-.05],.19,0);rod([sign*.7,1.3,.1],[sign*1.13,.9,.45],.22,.16);}
+  for(let i=-2;i<=2;i++)rod([i*.25,1.8,-.45],[i*.31,2.25-Math.abs(i)*.12,-.7],.18,0);
+  eyes(2.06,.66,.33);rod([-.32,1.68,.63],[.32,1.68,.63],.07,.07,true);break;
  case 27:case 28: // Sandshrew / Sandslash: plated back, pointed snout and digging claws.
   ball(0,1.05,0,.72,.85,.65);ball(0,1.85,.22,.52,.53,.48);ball(0,1.68,.62,.32,.23,.36);feet();
   for(const sign of [-1,1]){rod([sign*.38,2.08,.1],[sign*.5,2.55,.05],.2,.03);rod([sign*.5,1.3,.1],[sign*.86,.65,.5],.22,.16);

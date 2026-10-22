@@ -2,7 +2,7 @@ import {DESIGN} from '../data/config.ts';
 import type {LootRarity,Vec2} from '../game/types.ts';
 
 export const MAP_SIZE=166,MAP_INSET=10;
-export interface MapMarker extends Vec2 {id:string;kind:'player'|'boss'|'cache'|'shrine'|'elite'|'healing'|'landmark';radius:number;priority:number;label?:string;price?:number;rarity?:LootRarity;used?:boolean;}
+export interface MapMarker extends Vec2 {id:string;kind:'player'|'boss'|'cache'|'shrine'|'healing'|'berry'|'landmark';radius:number;priority:number;label?:string;price?:number;rarity?:LootRarity;used?:boolean;}
 export interface PlacedMarker extends MapMarker {mapX:number;mapY:number;anchorX:number;anchorY:number;}
 
 /** North is +Z. Square projection keeps the playable map's corners visible. */

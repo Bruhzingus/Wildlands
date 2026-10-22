@@ -24,8 +24,15 @@ test('digging specialists use a slower, longer directional dash that spends a ch
   assert.ok(MOVEMENT_TRAITS.burrowSeconds>DESIGN.dodgeSeconds);
   step(sim,.5,{mz:1,jump:true,special:true});assert.ok(isBurrowed(p));assert.equal(p.z,0);assert.equal(p.y,0);assert.equal(p.specialCooldown,0);
   step(sim,.4);assert.equal(isBurrowed(p),false);assert.ok(p.x>6);assert.equal(p.dodgeCharges,0);
-  step(sim,3,{dodge:true});assert.equal(isBurrowed(p),false,'Holding Shift cannot repeatedly burrow');assert.equal(p.dodgeCharges,1);
+  step(sim,4,{dodge:true});assert.equal(isBurrowed(p),false,'Holding Shift cannot repeatedly burrow');assert.equal(p.dodgeCharges,1);
  }
+});
+
+test('Sandshrew takes 30% longer to recharge stamina without changing other burrow users',()=>{
+ const sandshrew=arena(27),sandslash=arena(28);
+ sandshrew.update(.02,{...idle,dodge:true});sandslash.update(.02,{...idle,dodge:true});
+ assert.equal(sandshrew.state.player.dodgeCooldown,DESIGN.dodgeCooldown*1.3);
+ assert.equal(sandslash.state.player.dodgeCooldown,DESIGN.dodgeCooldown);
 });
 
 test('burrow prevents enemy contact, projectiles, blast damage, rings, poison and bypass damage throughout',()=>{

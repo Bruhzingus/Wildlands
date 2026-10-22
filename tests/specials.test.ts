@@ -83,6 +83,25 @@ test('Flamethrower sustains damage in a forward cone without hitting enemies beh
  assert.ok((s.activeSpecials?.length??0)>0,'The breath must persist across frames');
 });
 
+test('Magikarp Flail reaches 40% farther and scales each strike from 1× to 3× with missing HP',()=>{
+ assert.ok(Math.abs(getSpecialProfile(129).range/4.5-1.4)<1e-9);
+ const strike=(hpFraction:number)=>{
+  const {sim,s,events}=arena(129),target=foe(sim,0,5.9),outside=foe(sim,0,7.5);
+  s.player.hp=s.player.maxHp*hpFraction;
+  sim.update(.02,{...idle,aimX:0,aimZ:1,special:true});
+  assert.equal(outside.hp,outside.maxHp);
+  return {damage:hits(events,target)[0]?.amount??0,sim,s,events,target};
+ };
+ const full=strike(1),half=strike(.5),low=strike(.01);
+ assert.ok(full.damage>0,'Flail should reach the target beyond its old 4.5m range');
+ assert.ok(Math.abs(half.damage/full.damage-2)<1e-9);
+ assert.ok(Math.abs(low.damage/full.damage-2.98)<1e-9);
+ full.s.player.hp=full.s.player.maxHp*.5;
+ advance(full.sim,.46);advance(half.sim,.46);
+ assert.equal(hits(full.events,full.target).length,2);
+ assert.ok(Math.abs(hits(full.events,full.target)[1].amount!/hits(half.events,half.target)[1].amount!-1)<1e-9,'The second pulse should use current HP');
+});
+
 test('Surf travels through a corridor, soaking and pushing each enemy only once',()=>{
  const {sim,s,events}=arena(7),near=foe(sim,0,5),far=foe(sim,0,15),side=foe(sim,8,9),behind=foe(sim,0,-8);
  sim.update(.02,{...idle,special:true});assert.equal(far.hp,far.maxHp,'A distant foe cannot be hit before the wave reaches it');

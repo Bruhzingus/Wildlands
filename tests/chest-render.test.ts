@@ -8,7 +8,7 @@ test('chest geometry opens at its hinge, hides discovery loot and restores locke
  const engine=new NullEngine(),scene=new Scene(engine),pois:POI[]=[{uid:1,x:0,z:0,kind:'cache',used:false},{uid:2,x:4,z:0,kind:'cache',used:false,price:45,rarity:'rare'}];
  const chests=new TreasureChests(scene,pois,()=>0);chests.update(pois,0);
  const root=scene.getTransformNodeByName('landmark-1')!,hinge=scene.getTransformNodeByName('chest-hinge-2')!,lock=scene.getMeshByName('chest-lock-2')!,body=scene.getMeshByName('chest-body-2')!;
- assert.equal(scene.getMeshByName('discovery-glow-1')!.isEnabled(),true);assert.equal(lock.isEnabled(),true);assert.equal(body.material!.name,'rare stained chest wood');
+ assert.equal(scene.getMeshByName('discovery-glow-1'),null);assert.equal(root.isEnabled(),true);assert.equal(lock.isEnabled(),true);assert.equal(body.material!.name,'rare stained chest wood');
  pois.forEach(p=>p.used=true);pois[1].respawnAt=180;chests.update(pois,1);
  assert.equal(root.isEnabled(),false);assert.equal(lock.isEnabled(),false);assert.equal(hinge.rotation.x,Math.PI*.64);
  assert.equal(scene.getMeshByName('chest-empty-floor-2')!.isEnabled(),true);

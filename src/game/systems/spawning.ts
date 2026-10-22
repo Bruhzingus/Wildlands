@@ -53,7 +53,7 @@ export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Vari
  const damageScale=(boss?1.35:ordinaryThreatScale(state.stats.elapsed)*(elite?DIFFICULTY.eliteDamage:1))*progression.damage*challengeRules(state.challenge).damageScale*late.damage;
  return {uid:state.idCounter++,speciesId,variant,combatTier,attackIndex:0,x,z,hp,maxHp:hp,speed:(2.8+t*.035)*profile.speed*mod.speed*challengeRules(state.challenge).speedScale,damage:(6+profile.strength*1.2+t*.3)*profile.damage*mod.damage*damageScale*(tuning?.damageMultiplier??1),size:boss?4.4:profile.size*(elite?1.22:1)*(tuning?.sizeMultiplier??1),hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
 }
-/** Shrines have fixed tier budgets; elite landmarks scale with the run. */
+/** Shrine guardians have fixed tier budgets; the legacy non-shrine guardian scales with the run. */
 export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false,tier=1):Enemy {
  if(shrine){
   const definition=shrineDefinition(tier),combatTier=Math.min(4,getEnemyTier(speciesId)) as EnemyTier;

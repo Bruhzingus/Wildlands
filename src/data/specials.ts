@@ -31,7 +31,7 @@ const families:readonly [readonly number[],SpecialTuning][]=[
  [[63,64,65],{kind:'teleport',name:'Teleport Lance',description:'Fire a piercing psychic lance toward your aim, then teleport to its endpoint.',range:19,radius:1.3,damageScale:2.8}],
  [[66,67,68],{kind:'flurry',name:'Close Combat',description:'Unleash three heavy forward strikes; the final blow launches enemies away.',range:7,radius:0,angle:1.7,duration:.65,pulses:3,damageScale:1.1,knockback:4}],
  [[92,93,94],{kind:'curse',name:'Haunting Hex',description:'Mark a distant cluster, then detonate the curse after a delay and leave them poisoned.',range:20,radius:4.5,duration:1,pulses:1,damageScale:2.6}],
- [[129],{kind:'flurry',name:'Flail',description:'Thrash at nearby enemies with short body strikes.',range:4.5,angle:1.2,duration:.45,pulses:2,damageScale:.28,element:'normal'}],
+ [[129],{kind:'flurry',name:'Flail',description:'Strike nearby enemies; damage rises linearly up to 3× as Magikarp loses HP.',range:6.3,angle:1.2,duration:.45,pulses:2,damageScale:.28,element:'normal'}],
  [[130],{kind:'lance',name:'Hyper Beam',description:'Fire a powerful straight beam through the enemy line.',range:25,radius:1.3,damageScale:3.2,element:'normal'}],
  [[133],{kind:'quickstep',name:'Quick Attack',description:'Dash quickly through enemies in a straight line.',range:9,radius:1.5,projectiles:0,damageScale:1.3,element:'normal'}],
  [[134],{kind:'surf',name:'Tidal Rush',description:'Sweep a long corridor with a traveling wave that soaks and pushes foes.',range:25,radius:4,duration:1.2,damageScale:2.3,knockback:4}],

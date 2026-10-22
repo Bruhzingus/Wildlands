@@ -149,12 +149,13 @@ test('learned move upgrades apply the percentage gains printed on their cards',(
 
 test('training keeps improving the build beyond old stat and move limits',()=>{
  const state=new Simulation(4,41).state,member=state.party[0];state.recruitCount=5;member.attackLevel=80;
- for(const upgrade of TRAINING_UPGRADES)state.buffs[upgrade.stat]=upgrade.amount*30;
+ member.trainingBuffs={};
+ for(const upgrade of TRAINING_UPGRADES)member.trainingBuffs[upgrade.stat]=upgrade.amount*30;
  const choices=makeChoices(state,new RNG(1));assert.equal(choices.length,3);
  assert.ok(choices.some(choice=>choice.kind==='attack'&&choice.rank===81));
  const before=getBuildModifiers(state);
  const defense=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='haste')!;
- assert.equal(applyChoice(state,{...defense,kind:'stat',rank:31}).applied,true);
+ assert.equal(applyChoice(state,{...defense,kind:'stat',speciesId:member.uid,rank:31}).applied,true);
  assert.ok(getBuildModifiers(state).haste>before.haste);
  assert.ok(allOffers(state).some(choice=>choice.stat==='haste'));
  const cache=makeChoices(state,new RNG(1),'cache');assert.ok(cache.every(choice=>choice.kind==='item'));

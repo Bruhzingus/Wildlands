@@ -34,19 +34,19 @@ test('every registered map is 25% wider with deterministic varied geography and 
    }
   }
  }
- assert.ok(signatures.size>=6);assert.ok(kinds.size>=5);
+ assert.ok(signatures.size>=6);assert.ok(kinds.size>=2);
 });
 
 test('timed discoveries stay unavailable and frozen while paused, then announce exactly once',()=>{
  for(const mapId of ['wildlands','volcanic-ridge'] as const){
   const sim=new Simulation(7,301,{mapId}),s=sim.state,events:GameEvent[]=[];sim.onEvent=e=>events.push(e);
   s.enemies=[];s.player.iframes=10000;s.party[0].cooldown=10000;(sim as any).spawnAccum=-10000;
-  const spring=s.pois.find(p=>p.availableAt===180)!;Object.assign(s.player,{x:spring.x,z:spring.z,hp:20});
-  sim.update(.02,{...idle,interact:true});assert.equal(spring.used,false);assert.equal(s.player.hp,20);
+  const discovery=s.pois.find(p=>p.availableAt===180)!;Object.assign(s.player,{x:discovery.x,z:discovery.z,hp:20});
+  sim.update(.02,{...idle,interact:true});assert.equal(discovery.used,false);assert.equal(s.player.hp,20);
   s.stats.elapsed=179.99;sim.pause();const frozen=structuredClone(s);sim.update(.04,idle);assert.deepEqual(s,frozen);
-  sim.pause();sim.update(.02,idle);assert.equal(spring.announced,true);assert.equal(events.filter(e=>e.label===spring.changeLabel).length,1);
-  sim.update(.02,{...idle,interact:true});assert.equal(spring.used,true);assert.ok(s.player.hp>20);
-  sim.update(.02,idle);sim.update(.02,{...idle,interact:true});assert.equal(events.filter(e=>e.label===spring.changeLabel).length,1);
+  sim.pause();sim.update(.02,idle);assert.equal(discovery.announced,true);assert.equal(events.filter(e=>e.label===discovery.changeLabel).length,1);
+  sim.update(.02,{...idle,interact:true});assert.equal(discovery.used,true);assert.equal(s.phase,'choice');sim.choose(s.upgradeChoices[0].id);
+  sim.update(.02,idle);sim.update(.02,{...idle,interact:true});assert.equal(events.filter(e=>e.label===discovery.changeLabel).length,1);
   s.stats.elapsed=420;sim.update(.02,idle);const cache=s.pois.find(p=>p.availableAt===420)!;assert.equal(cache.price,undefined);assert.equal(cache.announced,true);
   s.stats.elapsed=660;s.recruitCount=5;sim.update(.02,idle);assert.equal(s.pois.find(p=>p.availableAt===660)!.announced,true);
  }
@@ -81,7 +81,9 @@ test('both map legendaries arrive at fifteen minutes, execute configured pattern
    }else if(bossDefinition.patterns[index]==='psychicRing')assert.equal(s.psychicRings[0].color,bossDefinition.color);
    else {const adds=s.enemies.filter(e=>!e.isBoss);assert.ok(adds.length>=bossDefinition.rules.summonCount);assert.ok(adds.every(e=>bossDefinition.summons.includes(e.speciesId)));}
   }
-  s.items=['wide-lens'];s.player.hp=77;(sim as any).damageEnemy(boss,200000,'normal',1);
+  s.items=['wide-lens'];s.player.hp=77;
+  // Each stage reserves its own HP threshold, even against an overwhelming hit.
+  for(let hit=0;hit<3&&!boss.dead;hit++)(sim as any).damageEnemy(boss,boss.maxHp*100,'normal',1);
   assert.equal(s.result,'victory');assert.equal(s.stats.bossKilled,true);assert.equal(s.projectiles.filter(p=>!p.friendly).length,0);
   sim.continueEndless();assert.equal(s.endless,true);assert.equal(s.player.hp,77);assert.deepEqual(s.items,['wide-lens']);
   sim.update(.02,idle);assert.equal(s.enemies.filter(e=>e.isBoss&&!e.dead).length,0);

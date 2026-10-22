@@ -11,6 +11,8 @@ export interface BuildRuntimeState {
  /** Optional explicit assignments; an assigned relic follows its member and goes inactive on faint. */
  itemOwners?:Record<string,number>;
  budgetWindow:number;actionsInWindow:number;
+ /** Metronome follows the shared hit stream, so swapping targets resets its ramp. */
+ metronomeTargetId?:number;metronomeHits?:number;
 }
 export interface BuildEvent {kind:BuildEventKind;sourceId?:number;targetId?:number;damage?:number;element?:Element;depth?:number;count?:number;critTier?:number;}
 interface ActionSource {sourceId:number;targetId?:number;element:Element;depth:number;}
@@ -23,6 +25,7 @@ export type BuildAction=ActionSource & (
  |{kind:'status';status:BuildStatus;duration:number;targetId:number}
  |{kind:'xp';amount:number}
  |{kind:'specialCharge';amount:number}
+ |{kind:'specialCooldownPercent';amount:number}
 );
 export interface BuildContext {state:RunState;rng:{next():number};}
 export interface BuildSummary {
@@ -31,12 +34,12 @@ export interface BuildSummary {
 }
 /** The shared window limits extra combat effects. Guaranteed resource changes always apply. */
 export const BUILD_LIMITS={maxProcDepth:2,maxActionsPerEvent:128,windowSeconds:.1,maxActionsPerWindow:Infinity,maxEffectDamage:Infinity,maxEffectRadius:Infinity,maxEffectJumps:8,maxStatusSeconds:Infinity} as const;
-export const BUILD_STAT_CAPS:BuildModifiers={staminaRechargeReduction:1,defense:Infinity,deflection:.5,staminaCapacity:Infinity,critDamagePercent:Infinity,power:Infinity,haste:Infinity,speed:Infinity,armor:Infinity,damageReduction:1,xp:Infinity,xpCatchup:Infinity,critChance:Infinity,critDamage:Infinity,radius:Infinity,magnet:Infinity,specialHaste:Infinity,stamina:Infinity,regeneration:Infinity,partyRegeneration:Infinity,regenerationPercent:Infinity,partyRegenerationPercent:Infinity,projectiles:Infinity,pierce:Infinity,chains:Infinity,projectileSpeed:Infinity,duration:Infinity};
+export const BUILD_STAT_CAPS:BuildModifiers={staminaRechargeReduction:1,defense:Infinity,deflection:.5,staminaCapacity:Infinity,critDamagePercent:Infinity,power:Infinity,specialPower:Infinity,haste:Infinity,speed:Infinity,armor:Infinity,damageReduction:1,xp:Infinity,xpCatchup:Infinity,critChance:Infinity,critDamage:Infinity,radius:Infinity,magnet:Infinity,specialHaste:Infinity,stamina:Infinity,regeneration:Infinity,partyRegeneration:Infinity,regenerationPercent:Infinity,partyRegenerationPercent:Infinity,projectiles:Infinity,pierce:Infinity,chains:Infinity,projectileSpeed:Infinity,duration:Infinity};
 const STAT_MIN:Partial<BuildModifiers>={power:-.6,haste:-1+Number.EPSILON,speed:-.5,critDamage:1,radius:-.5,projectileSpeed:-.5};
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const finite=(value:number|undefined,fallback=0)=>value!==undefined&&Number.isFinite(value)?value:fallback;
-const initialModifiers=():BuildModifiers=>({staminaRechargeReduction:0,defense:0,deflection:0,staminaCapacity:0,critDamagePercent:0,power:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,xpCatchup:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
-const buffAliases:Record<string,BuildStat>={staminaRechargeReduction:'staminaRechargeReduction',defense:'defense',deflection:'deflection',staminaCapacity:'staminaCapacity',critDamagePercent:'critDamagePercent',duration:'duration',projectileSpeed:'projectileSpeed',critDamage:'critDamage',xpCatchup:'xpCatchup',projectiles:'projectiles',pierce:'pierce',chains:'chains',regeneration:'regeneration',partyRegeneration:'partyRegeneration',power:'power',haste:'haste',speed:'speed',armor:'armor',damageReduction:'damageReduction',xp:'xp',crit:'critChance',radius:'radius',magnet:'magnet',stamina:'stamina',specialHaste:'specialHaste',regenerationPercent:'regenerationPercent',partyRegenerationPercent:'partyRegenerationPercent'};
+const initialModifiers=():BuildModifiers=>({staminaRechargeReduction:0,defense:0,deflection:0,staminaCapacity:0,critDamagePercent:0,power:0,specialPower:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,xpCatchup:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
+const buffAliases:Record<string,BuildStat>={staminaRechargeReduction:'staminaRechargeReduction',defense:'defense',deflection:'deflection',staminaCapacity:'staminaCapacity',critDamagePercent:'critDamagePercent',duration:'duration',projectileSpeed:'projectileSpeed',critDamage:'critDamage',xpCatchup:'xpCatchup',projectiles:'projectiles',pierce:'pierce',chains:'chains',regeneration:'regeneration',partyRegeneration:'partyRegeneration',power:'power',specialPower:'specialPower',haste:'haste',speed:'speed',armor:'armor',damageReduction:'damageReduction',xp:'xp',crit:'critChance',radius:'radius',magnet:'magnet',stamina:'stamina',specialHaste:'specialHaste',regenerationPercent:'regenerationPercent',partyRegenerationPercent:'partyRegenerationPercent'};
 export function itemStacks(state:RunState,id:string):number {
  const definition=getItemDefinition(id),count=state.itemStacks?.[id]??state.items.filter(owned=>owned===id).length;
  return definition?.stacking==='unique'?Math.min(1,count):count;
@@ -70,7 +73,7 @@ function rawModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
  const member=typeof owner==='number'?state.party.find(candidate=>candidate.uid===owner):owner||state.party[0];
  const modifiers=initialModifiers(),penalties={haste:1};
  modifiers.power+=finite(member?.evolutionPower);
- for(const [buff,stat] of Object.entries(buffAliases))if(stat!=='damageReduction')modifiers[stat]+=finite(state.buffs[buff]);
+ for(const [buff,stat] of Object.entries(buffAliases))if(stat!=='damageReduction')modifiers[stat]+=finite(state.buffs[buff])+finite(member?.trainingBuffs?.[buff]);
  for(const item of ownedItems(state,member?.uid))applyModifiers(modifiers,item.modifiers,state,member,itemStacks(state,item.id),penalties);
  for(const synergy of getActiveSynergies(state)){
   applyModifiers(modifiers,synergy.modifiers,state,member,1,penalties);
@@ -86,7 +89,7 @@ export function getBuildModifiers(state:RunState,owner?:PartyMember|number):Buil
  // Legacy armor and reduction now contribute percentage defense growth.
  const member=typeof owner==='number'?state.party.find(candidate=>candidate.uid===owner):owner||state.party[0];
  const baseDefense=member?getSpecies(member.speciesId).defense:0;
- modifiers.defense+=Math.max(0,finite(state.buffs.damageReduction))+modifiers.damageReduction+modifiers.armor/10;
+ modifiers.defense+=Math.max(0,finite(state.buffs.damageReduction))+Math.max(0,finite(member?.trainingBuffs?.damageReduction))+modifiers.damageReduction+modifiers.armor/10;
  modifiers.armor=baseDefense*(1+modifiers.defense);
  modifiers.critDamage*=1+Math.max(0,modifiers.critDamagePercent);
  for(const stat of Object.keys(modifiers) as BuildStat[]){
@@ -98,6 +101,15 @@ export function getBuildModifiers(state:RunState,owner?:PartyMember|number):Buil
 }
 function runtime(state:RunState):BuildRuntimeState{
  return state.build??= {counters:{},cooldownUntil:{},budgetWindow:-1,actionsInWindow:0};
+}
+/** Returns the average damage multiplier for this hit packet and advances its shared target streak. */
+export function metronomeDamageMultiplier(state:RunState,targetId:number,hits=1):number{
+ const bonus=ownedItems(state).reduce((total,item)=>total+(item.consecutiveTargetDamage??0)*itemStacks(state,item.id),0);
+ if(bonus<=0||!Number.isFinite(targetId))return 1;
+ const build=runtime(state),count=Math.max(1,Math.floor(finite(hits,1)));
+ const previous=build.metronomeTargetId===targetId?Math.max(0,build.metronomeHits??0):0;
+ build.metronomeTargetId=targetId;build.metronomeHits=previous+count;
+ return 1+bonus*(previous+(count-1)/2);
 }
 const STATUS_FIELDS:Record<BuildStatus,keyof Pick<Enemy,'stunTime'|'slowTime'|'poisonTime'|'burnTime'|'soakedTime'>>={stun:'stunTime',slow:'slowTime',poison:'poisonTime',burn:'burnTime',soaked:'soakedTime'};
 function resolveAction(action:EffectAction,event:BuildEvent,state:RunState,sourceId:number,depth:number,scale=1):BuildAction|undefined{

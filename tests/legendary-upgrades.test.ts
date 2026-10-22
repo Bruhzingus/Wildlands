@@ -9,9 +9,10 @@ import {RNG} from '../src/utils/random.ts';
 
 const close=(actual:number,expected:number)=>assert.ok(Math.abs(actual-expected)<1e-9,`${actual} != ${expected}`);
 
-test('every offerable relic has one legendary variant with its original triggers and stronger benefits',()=>{
+test('standard relic families have a legendary variant with original triggers and stronger benefits',()=>{
  const bases=ITEM_DEFINITIONS.filter(item=>item.offerable!==false&&!item.baseId);
- assert.equal(ITEMS.length,bases.length*2);
+ const authored=ITEM_DEFINITIONS.filter(item=>item.offerable!==false&&item.baseId&&getItemDefinition(item.baseId)?.baseId);
+ assert.equal(ITEMS.length,bases.length*2+authored.length);
  for(const base of bases){
   const legendary=getItemDefinition(`${base.id}-legendary`)!;
   assert.ok(legendary);assert.equal(legendary.rarity,'legendary');assert.equal(legendary.baseId,base.id);

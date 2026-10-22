@@ -24,10 +24,20 @@ export const SHRINE_TIERS:readonly ShrineDefinition[]=[
  {tier:14,speciesId:145,count:2,level:80,radius:17,health:20000,damage:75,hazards:['fire','poison'],color:'#271b30',targetSeconds:[15,45]},
  {tier:15,speciesId:150,count:1,level:90,radius:16,health:26000,damage:100,hazards:['slow','poison','fire'],color:'#09080e',targetSeconds:[15,45]},
 ];
+/** Each tier has several sculptures and matching guardians. Site identity keeps
+ * the choice stable through previews, fights, retries and saved runs. */
+export const SHRINE_SPECIES:readonly (readonly number[])[]=[
+ [66,74,56],[25,58,133],[24,23,41],[28,20],[93,94],[68,57],
+ [38],[76],[130],[3],[6],[149],[144],[145],[150],
+];
+const SHRINE_VARIANTS=SHRINE_SPECIES.map((species,index)=>species.map(speciesId=>({...SHRINE_TIERS[index],speciesId})));
 export const SHRINE_RULES={levelWindow:10,previewRadius:12,timeLimit:60,hazardPeriod:4,hazardWarning:1.25,hazardActive:1.75} as const;
 export function shrineDefinition(tier=1):ShrineDefinition{return SHRINE_TIERS[Math.max(0,Math.min(SHRINE_TIERS.length-1,Math.floor(tier)-1))];}
 export function shrineLevelAllowed(playerLevel:number,definition:ShrineDefinition):boolean{return Math.abs(playerLevel-definition.level)<=SHRINE_RULES.levelWindow;}
-export function shrineForPOI(poi:POI):ShrineDefinition{return shrineDefinition(poi.challenge?.tier??poi.shrineTier??1);}
+export function shrineForPOI(poi:POI):ShrineDefinition{
+ const definition=shrineDefinition(poi.challenge?.tier??poi.shrineTier??1),variants=SHRINE_VARIANTS[definition.tier-1];
+ return variants[(poi.shrineVariant??0)%variants.length];
+}
 export function shrineContents(definition:ShrineDefinition):string {
  const name=getSpecies(definition.speciesId).name;
  return `${name} Shrine - ${definition.count} ${name}${definition.hazards.map(hazard=>` + ${{slow:'Slow ground',poison:'Poison',fire:'Fire'}[hazard]}`).join('')}`;

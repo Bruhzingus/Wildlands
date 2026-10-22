@@ -17,15 +17,14 @@ function eventFixture(kind:ExplorationEvent['kind']){
  throw Error(`No rare event found for ${kind}`);
 }
 
-test('rare spring and shrine rewards apply once through interaction and guardian defeat',()=>{
- for(const kind of ['wild-bloom','ancient-echo'] as const){
+test('rare shrine reward applies once through interaction and guardian defeat',()=>{
+ for(const kind of ['ancient-echo'] as const){
   const {sim,s,site,events}=eventFixture(kind);sim.update(.02,{...idle,interact:true});
-  assert.equal(site.used,true);assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,kind==='wild-bloom'?1:0);
-  if(kind==='wild-bloom'){assert.equal(s.player.hp,87);assert.ok(s.party[1].hp>=80&&s.party[1].hp<80.1);}
-  else {
+  assert.equal(site.used,true);assert.equal(events.filter(e=>e.label===rareEventFor(s.seed,site)!.label).length,0);
+  {
    assert.equal(s.buffs.luck||0,0,'Shrines grant no blessing before victory');assert.ok(s.player.specialCooldown>0);
-   const guardian=s.enemies.find(enemy=>enemy.shrineGuardian);assert.ok(guardian,'The shrine blessing is guarded');
-   (sim as any).damageEnemy(guardian,guardian.maxHp*2,'normal',s.party[0].uid);
+   const guardians=s.enemies.filter(enemy=>enemy.shrineGuardian);assert.ok(guardians.length,'The shrine blessing is guarded');
+   for(const guardian of guardians)(sim as any).damageEnemy(guardian,guardian.maxHp*2,'normal',s.party[0].uid);
    assert.ok(Math.abs(s.buffs.luck-.07)<1e-9,'Defeating the guardian grants the separate shrine blessing');
    // Settle the miniboss XP levels before checking that another interaction
    // cannot grant the blessing or healing again. Loot has separate coverage.

@@ -7,7 +7,7 @@ import {applyChoice,canRecruit,eligibleEvolutions,makeChoices} from '../src/game
 import {RNG} from '../src/utils/random.ts';
 import {typeEffectiveness,typeMultiplier} from '../src/data/config.ts';
 import {DESIGN} from '../src/data/config.ts';
-import {createEnvironment,ObstacleField} from '../src/game/systems/environment.ts';
+import {createEnvironment,createPOIs,ObstacleField} from '../src/game/systems/environment.ts';
 import {createEnemy,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
 import {PROGRESSION} from '../src/data/progression.ts';
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
@@ -139,7 +139,7 @@ test('a dodge retains its initial direction when movement reverses',()=>{
 test('environment geometry is seeded, avoids spawn and leaves landmarks clear',()=>{
  const sim=new Simulation(1,301),layout=createEnvironment(sim.state.seed,sim.state.pois);
  assert.deepEqual(createEnvironment(sim.state.seed,sim.state.pois),layout);
- assert.notDeepEqual(createEnvironment(302,sim.state.pois),layout);
+ assert.notDeepEqual(createEnvironment(302,createPOIs(302)),layout);
  assert.ok(layout.obstacles.length>200);
  for(const obstacle of layout.obstacles){assert.ok(Math.hypot(obstacle.x,obstacle.z)>=17);assert.ok(sim.state.pois.every(p=>Math.hypot(p.x-obstacle.x,p.z-obstacle.z)>=5));}
 });
@@ -203,7 +203,9 @@ test('boss and level-up on the same frame resume correctly and endless stays in 
  const sim=new Simulation(1,91),s=sim.state;s.enemies=[];s.stats.elapsed=DESIGN.bossAtSeconds-.01;sim.debugLevel();
  sim.update(.03,idle);assert.equal(s.bossSpawned,true);assert.equal(s.phase,'choice');
  sim.choose(s.upgradeChoices[0].id);assert.equal(s.phase,'boss');
- s.stats.bossKilled=true;s.result='victory';s.phase='result';const squad=structuredClone(s.party);sim.continueEndless();
+ const boss=s.enemies.find(enemy=>enemy.isBoss)!;
+ for(let hit=0;hit<3&&!boss.dead;hit++)(sim as any).damageEnemy(boss,boss.maxHp*100,'normal',s.party[0].uid);
+ assert.equal(s.result,'victory');const squad=structuredClone(s.party);sim.continueEndless();
  assert.deepEqual(s.party,squad);sim.pause();sim.pause();assert.equal(s.phase,'playing');
 });
 test('invalid or stale upgrade choices cannot bypass progression gates',()=>{
@@ -229,10 +231,10 @@ test('defeating the actual boss offers endless without spawning another boss',()
  if(s.phase==='choice')sim.choose(s.upgradeChoices[0].id);
  assert.equal(s.phase,'playing');assert.ok(s.items.includes('echo-bell'));assert.ok(!s.enemies.some(enemy=>enemy.isBoss));
 });
-test('enemy spawns reserve a boss slot and elite landmarks respect the hard budget',()=>{
+test('enemy spawns reserve a boss slot and shrine guardians respect the hard budget',()=>{
  const sim=new Simulation(1,38),s=sim.state;s.enemies=[];
  for(let i=0;i<DESIGN.maxEnemies-1;i++){const enemy=spawnRandomEnemy(s,sim.rng);assert.ok(enemy);s.enemies.push(enemy!);}
  assert.equal(spawnRandomEnemy(s,sim.rng),null);
- const elite=s.pois.find(p=>p.kind==='elite')!;s.player.x=elite.x;s.player.z=elite.z;sim.update(.03,{...idle,interact:true});assert.equal(elite.used,false);assert.ok(s.enemies.length<DESIGN.maxEnemies);
+ const shrine=s.pois.find(p=>p.kind==='shrine')!;s.player.x=shrine.x;s.player.z=shrine.z;sim.update(.03,{...idle,interact:true});assert.equal(shrine.used,false);assert.ok(s.enemies.length<DESIGN.maxEnemies);
  s.stats.elapsed=DESIGN.bossAtSeconds;sim.update(.03,idle);assert.equal(s.enemies.length,DESIGN.maxEnemies);assert.equal(s.enemies.filter(e=>e.isBoss).length,1);assert.equal(spawnRandomEnemy(s,sim.rng),null);
 });

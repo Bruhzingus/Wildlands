@@ -23,7 +23,7 @@ test('item registry preserves legacy definitions while reward offers use the cur
  assert.deepEqual(ITEMS.map(choice=>choice.id),ITEM_DEFINITIONS.filter(item=>item.offerable!==false).map(item=>item.id));
  for(const item of ITEM_DEFINITIONS){
   assert.equal(item.maxStacks,item.stacking==='unique'?1:Infinity);assert.match(item.description,/\d/);
-  assert.ok(item.modifiers?.length||item.effects?.length,`${item.id} must affect gameplay`);
+  assert.ok(item.modifiers?.length||item.effects?.length||item.consecutiveTargetDamage||item.levelGain,`${item.id} must affect gameplay`);
   assert.equal(getItemDefinition(item.id),item);
  }
  for(const id of ['echo-bell','multi-lens','static-orb','leftovers','exp-share','life-orb','kings-rock','shell-bell','eviolite','charged-band'])assert.ok(getItemDefinition(id));

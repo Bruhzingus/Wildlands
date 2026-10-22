@@ -15,6 +15,8 @@ test('Pikachu charges a straight run, loses it when turning and explains movemen
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await start(page,25);
  await page.keyboard.down('w');
  await expect.poll(()=>game(page,'g=>g.sim.state.player.movement?.boost??0')).toBeGreaterThan(.24);
+ await expect.poll(()=>game(page,"g=>g.visuals.inspect()[0]?.requested")).toBe('walk');
+ await expect.poll(()=>game(page,"g=>g.visuals.inspect()[0]?.resolved")).toBe('Walk');
  await expect(page.locator('#movement-trait')).toContainText('+25% SPEED');
  await page.screenshot({path:'artifacts/browser/movement-traits/runup.png'});
  await page.keyboard.up('w');await page.keyboard.down('d');

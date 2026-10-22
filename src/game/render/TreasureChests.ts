@@ -3,23 +3,21 @@ import {CHEST_TIERS,chestRarity} from '../../data/economy.ts';
 import {siteAvailable} from '../../data/maps.ts';
 import type {LootRarity,POI} from '../types.ts';
 
-interface ChestView {root:TransformNode;hinge:TransformNode;wood:Mesh[];lock:Mesh;ring:Mesh;}
+interface ChestView {root:TransformNode;hinge:TransformNode;wood:Mesh[];lock:Mesh;}
 
 /** Shared wooden shells have real hollow interiors and lids hinged at the back. */
 export class TreasureChests {
  private views=new Map<number,ChestView>();private sources:Mesh[]=[];private materials:StandardMaterial[]=[];
  private composites:MultiMaterial[]=[];
- private woods=new Map<LootRarity,StandardMaterial>();private rings=new Map<LootRarity,StandardMaterial>();
+ private woods=new Map<LootRarity,StandardMaterial>();
  private scene:Scene;
  constructor(scene:Scene,pois:POI[],ground:(x:number,z:number)=>number){
   this.scene=scene;
   const wood=this.material('weathered chest wood','#896343'),grain=this.material('chest wood grain','#4b382b');
   const iron=this.material('worn chest iron','#4c5153'),brass=this.material('chest lock brass','#d1ad62');
   const inside=this.material('empty chest interior','#352b23'),scratches=this.material('scuffed chest edges','#b7956b');
-  const gold=this.material('discovery gold glow','#f4cb72',.24);gold.disableLighting=true;gold.emissiveColor=gold.diffuseColor;
   for(const rarity of ['common','rare','epic'] as const){
    const m=this.material(`${rarity} stained chest wood`,CHEST_TIERS[rarity].color);m.diffuseColor.scaleInPlace(.68);this.woods.set(rarity,m);
-   const ring=this.material(`${rarity} chest marker`,CHEST_TIERS[rarity].color,.38);ring.disableLighting=true;ring.emissiveColor=ring.diffuseColor;this.rings.set(rarity,ring);
   }
   const box=(name:string,w:number,h:number,d:number,x:number,y:number,z:number,material:StandardMaterial)=>{
    const m=MeshBuilder.CreateBox(name,{width:w,height:h,depth:d},scene);m.position.set(x,y,z);m.material=material;return m;
@@ -70,8 +68,6 @@ export class TreasureChests {
   const lidSource=merge('chest arched wooden lid',lid),lidTrimSource=merge('chest lid binding',lidTrim),lockSource=merge('chest secured padlock',locks),wearSource=merge('chest worn scratches',wear);
   bodySource.material=lidSource.material=wood;
   const floor=box('empty chest floor',1.98,.035,1.27,0,.275,0,inside);floor.isVisible=false;this.sources.push(floor);
-  const ring=MeshBuilder.CreateTorus('chest marker source',{diameter:3.8,thickness:.065,tessellation:32},scene);ring.material=gold;ring.isVisible=false;this.sources.push(ring);
-  const glow=this.glow(gold);this.sources.push(glow);
   for(const poi of pois.filter(p=>p.kind==='cache')){
    const root=new TransformNode(`landmark-${poi.uid}`,scene);root.position.set(poi.x,ground(poi.x,poi.z),poi.z);
    const discovery=poi.price===undefined;root.scaling.setAll(discovery?.88:1);root.rotation.y=discovery?(poi.uid%3-1)*.12:0;
@@ -80,26 +76,19 @@ export class TreasureChests {
    if(discovery)clone(wearSource,'chest-scuffs');
    const hinge=new TransformNode(`chest-hinge-${poi.uid}`,scene);hinge.parent=root;hinge.position.set(0,.98,.77);
    const top=clone(lidSource,'chest-lid',hinge),bands=clone(lidTrimSource,'chest-lid-binding',hinge);top.position.z=bands.position.z=-.77;
-   const lock=clone(lockSource,'chest-lock'),marker=clone(ring,'marker-ring');marker.position.y=.07;
-   if(discovery){const halo=clone(glow,'discovery-glow');halo.position.y=.035;}
+   const lock=clone(lockSource,'chest-lock');
    lock.setEnabled(!discovery);
-   this.views.set(poi.uid,{root,hinge,wood:[body,top],lock,ring:marker});
+   this.views.set(poi.uid,{root,hinge,wood:[body,top],lock});
   }
  }
  private material(name:string,color:string,alpha=1){
   const m=new StandardMaterial(name,this.scene);m.diffuseColor=Color3.FromHexString(color);m.emissiveColor=m.diffuseColor.scale(.08);m.specularColor=new Color3(.1,.09,.07);m.alpha=alpha;m.backFaceCulling=false;this.materials.push(m);return m;
  }
- private glow(material:StandardMaterial){
-  const mesh=new Mesh('discovery glow source',this.scene),positions=[0,0,0],colors=[1,1,1,.65],indices:number[]=[];
-  for(let i=0;i<=32;i++){const a=i*Math.PI/16;positions.push(Math.cos(a)*2.5,0,Math.sin(a)*2.5);colors.push(1,1,1,0);if(i)indices.push(0,i,i+1);}
-  const data=new VertexData();data.positions=positions;data.indices=indices;data.colors=colors;data.applyToMesh(mesh);mesh.hasVertexAlpha=true;mesh.material=material;mesh.isVisible=false;mesh.isPickable=false;return mesh;
- }
  update(pois:POI[],elapsed:number){
   for(const poi of pois){const v=this.views.get(poi.uid);if(!v)continue;
    const paid=poi.price!==undefined;v.root.setEnabled(siteAvailable(poi,elapsed)&&(paid||!poi.used));
    v.hinge.rotation.x=poi.used?Math.PI*.64:0;v.lock.setEnabled(paid&&!poi.used);
-   if(paid){const rarity=chestRarity({stats:{elapsed}},poi);for(const mesh of v.wood)mesh.material=this.woods.get(rarity)!;v.ring.material=this.rings.get(rarity)!;}
-   v.ring.visibility=poi.used?.3:1;
+   if(paid){const rarity=chestRarity({stats:{elapsed}},poi);for(const mesh of v.wood)mesh.material=this.woods.get(rarity)!;}
   }
  }
  dispose(){for(const v of this.views.values())v.root.dispose();this.views.clear();for(const m of this.sources)m.dispose();for(const m of this.composites)m.dispose();for(const m of this.materials)m.dispose();this.sources=[];this.materials=[];this.composites=[];}

@@ -1,8 +1,6 @@
 import {Scene,Sprite,SpriteManager,Texture,DynamicTexture,Color4,MeshBuilder,StandardMaterial,Color3,Vector3,Quaternion,Axis,Mesh,VertexData,type InstancedMesh} from '@babylonjs/core';
 import type {PartyMember,Enemy,Variant,Player} from '../types.ts';
-import {getMovementTrait} from '../../data/movementTraits.ts';
 import {isBurrowed} from '../systems/movement.ts';
-import {drawRunUpAtlas,RUNUP_ATLAS} from './runup.ts';
 import {getSpecies,type AttackKind} from '../../data/kanto.ts';
 import {getAttackProfile} from '../../data/attacks.ts';
 import type {SpecialKind} from '../../data/specials.ts';
@@ -18,7 +16,7 @@ interface AnimatedAsset extends SheetAsset {referenceHeight:number;anchors:numbe
 interface AvatarData {
  x:number;z:number;facing:number;animation:AnimationName;size:number;
  /** Gameplay actors sample travel; the stationary developer gallery previews source timing. */
- trackTravel?:boolean;airborne?:boolean;flying?:boolean;running?:boolean;burrowed?:boolean;
+ trackTravel?:boolean;airborne?:boolean;flying?:boolean;burrowed?:boolean;
  attackTimer?:number;attackDuration?:number;attackKind?:AttackKind;attackSpecial?:SpecialKind;attackStyle?:AttackStyle;enemyRole?:EnemyAttackRole;windup?:Enemy['windup'];
 }
 const DESIGN_MAX_SPRITES=230;
@@ -32,7 +30,6 @@ export class AssetLibrary {
  private fallbacks=new Map<number,SpriteManager>();private fallbackSizes=new Map<number,{width:number;height:number;bounds:AtlasBounds}>();
  private shadowTemplate:Mesh|undefined;
  private headrooms=new Map<number,number>();
- private runSheets=new Map<number,AnimatedAsset>();
  private up=Vector3.Up();private right=Vector3.Right();
  private scene:Scene;
  readonly reducedMotion=typeof window!=='undefined'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -102,7 +99,6 @@ export class AssetLibrary {
   throw Error(`${meta.name} animation unavailable for #${id}`);
  }
  async get(id:number,anim:AnimationName):Promise<AnimatedAsset> {
-  if(anim==='run'&&getMovementTrait(id).kind==='runup')return this.runSheet(id);
   const metadata=await this.metadata(id),referenceMeta=metadata.Idle??metadata.Walk??metadata.Attack;
   const reference=referenceMeta?this.sheet(id,referenceMeta).catch(()=>undefined):Promise.resolve(undefined);
   for(const name of new Set([anim[0].toUpperCase()+anim.slice(1),'Idle','Walk'])) {
@@ -123,16 +119,6 @@ export class AssetLibrary {
    }catch(error){if(this.disposed)throw error;}
   }
   throw Error(`No usable animation for #${id}`);
- }
- private runSheet(id:number):AnimatedAsset {
-  const existing=this.runSheets.get(id);if(existing)return existing;
-  const {cell,frames,rows,durations}=RUNUP_ATLAS,width=cell*frames,height=cell*rows;
-  const texture=new DynamicTexture(`quadruped-run-${id}`,{width,height},this.scene,false,Texture.NEAREST_SAMPLINGMODE);
-  const ctx=texture.getContext() as unknown as CanvasRenderingContext2D;drawRunUpAtlas(ctx,id);texture.update(false);
-  const meta:AnimationMeta={name:'Run',width:cell,height:cell,durations:[...durations]},bounds=measureAtlas(meta,width,height,ctx.getImageData(0,0,width,height).data);
-  const manager=new SpriteManager(`quadruped-run-${id}`,'',DESIGN_MAX_SPRITES,{width:cell,height:cell},this.scene,.01,Texture.NEAREST_SAMPLINGMODE);manager.texture=texture;
-  const asset:AnimatedAsset={manager,meta,columns:frames,rows,bounds,source:'original/quadruped-run',referenceHeight:bounds.visibleHeight*1.08,anchors:bounds.bottoms,attackMotion:false};
-  this.runSheets.set(id,asset);return asset;
  }
  getFallback(id:number):SpriteManager {
   const existing=this.fallbacks.get(id);if(existing)return existing;
@@ -183,14 +169,14 @@ export class AssetLibrary {
  dispose() {
   if(this.disposed)return;this.disposed=true;this.stop.abort();
   for(const m of this.managers.values())void m.then(a=>a.manager.dispose()).catch(()=>{});
-  this.managers.clear();this.meta.clear();this.headrooms.clear();for(const asset of this.runSheets.values())asset.manager.dispose();this.runSheets.clear();for(const m of this.fallbacks.values())m.dispose();this.fallbacks.clear();this.fallbackSizes.clear();this.shadowTemplate?.dispose();this.shadowTemplate=undefined;
+  this.managers.clear();this.meta.clear();this.headrooms.clear();for(const m of this.fallbacks.values())m.dispose();this.fallbacks.clear();this.fallbackSizes.clear();this.shadowTemplate?.dispose();this.shadowTemplate=undefined;
  }
  isDisposed(){return this.disposed;}
 }
 export class Avatar {
  private sprite:Sprite;private current:AnimationName='idle';private idleTime=0;private walkTime=0;private previewTime=0;private requestId=0;
  private locomotion=new Locomotion();private visualFacing=0;
- private ready:Partial<Record<AnimationName,AnimatedAsset>>={};private periods={idle:3600,walk:3600,run:.5};
+ private ready:Partial<Record<AnimationName,AnimatedAsset>>={};private periods={idle:3600,walk:3600};
  private asset:AnimatedAsset|undefined;private gone=false;private row=0;private frame=0;private attackProgress=0;
  private pose:AttackPose=attackPose(0,'melee');private style:AttackStyle='melee';
  private posePhase:'idle'|'windup'|'attack'='idle';private windupStyle:AttackStyle|undefined;
@@ -201,9 +187,8 @@ export class Avatar {
   this.sprite=new Sprite(`pokemon-${speciesId}`,this.library.getFallback(speciesId));this.sprite.width=2.5;this.sprite.height=2.5;
   this.tint();this.requestAnimation('idle');
   // Shared, cached sheets make the first step/swing available without waiting
-  // for a state change. Run-up species also share one quadruped running sheet.
+  // for a state change.
   for(const kind of ['walk','attack'] as const)void this.library.get(speciesId,kind).then(asset=>{if(!this.gone&&!this.library.isDisposed())this.ready[kind]=asset;}).catch(()=>{});
-  if(getMovementTrait(speciesId).kind==='runup')void this.library.get(speciesId,'run').then(asset=>{if(!this.gone&&!this.library.isDisposed())this.ready.run=asset;}).catch(()=>{});
  }
  private tint(){const [r,g,b]=getVariant(this.variant).tint;this.sprite.color=new Color4(r,g,b,this.opacity);}
  setOpacity(value:number){this.opacity=value;this.tint();}
@@ -228,14 +213,14 @@ export class Avatar {
  update(data:AvatarData,dt:number,cameraAngle:number,groundY:number) {
   if(this.gone)return;this.lastData=data;this.cameraAngle=cameraAngle;this.groundY=groundY;
   this.locomotion.update(data.x,data.z,data.facing,dt);
-  const selected=data.animation==='attack'?'attack':data.running&&!data.airborne?'run':data.flying?'walk':data.trackTravel?(data.airborne&&this.current!=='attack'?this.current:this.locomotion.moving?'walk':'idle'):data.animation;
+  const selected=data.animation==='attack'?'attack':data.flying?'walk':data.trackTravel?(data.airborne&&this.current!=='attack'?this.current:this.locomotion.moving?'walk':'idle'):data.animation;
   if(selected!==this.current){this.current=selected;this.requestAnimation(selected);}
   // Attack sheets follow authoritative one-shot progress; only looping idle/walk
   // playback speeds up for more agitated variants.
   const a=this.asset,delta=Math.max(0,dt),hovering=NATIVE_HOVER_WALK_SPECIES.has(this.speciesId);
   // Keep independent loop phases across stops, turns and attacks. Airborne feet
   // hold their last frame; native flying motion is already authored in its sheet.
-  if((selected==='walk'||selected==='run')&&(!data.airborne||hovering||data.flying))this.walkTime=(this.walkTime+delta*(data.trackTravel&&!hovering&&!data.flying?this.locomotion.rate:getVariant(this.variant).animationSpeed))%this.periods[selected];
+  if(selected==='walk'&&(!data.airborne||hovering||data.flying))this.walkTime=(this.walkTime+delta*(data.trackTravel&&!hovering&&!data.flying?this.locomotion.rate:getVariant(this.variant).animationSpeed))%this.periods.walk;
   if(selected==='idle'&&(!data.airborne||hovering))this.idleTime=(this.idleTime+delta*getVariant(this.variant).animationSpeed)%this.periods.idle;
   if(selected==='attack'&&data.attackTimer===undefined)this.previewTime=(this.previewTime+delta*getVariant(this.variant).animationSpeed)%(a?a.meta.durations.reduce((sum,n)=>sum+n,0)/60:3600);
   // Simulation owns attack time. A sheet arriving mid-swing joins at that point;
@@ -258,7 +243,7 @@ export class Avatar {
   this.pose=weight?{forward:sample.forward*weight,lift:sample.lift*weight,scaleX:1+(sample.scaleX-1)*weight,scaleY:1+(sample.scaleY-1)*weight,lean:sample.lean*weight}:attackPose(0,this.style);
   this.visualFacing=data.trackTravel&&!attacking?this.locomotion.facing:data.facing;
   this.row=a?.rows===1?0:data.trackTravel&&!attacking?locomotionDirection(this.visualFacing,cameraAngle,this.row):spriteDirection(this.visualFacing,cameraAngle);
-  this.frame=a?attacking&&a.attackMotion?(data.windup?0:oneShotFrame(a.meta.durations,this.attackProgress)):animationFrame(a.meta.durations,selected==='walk'||selected==='run'?this.walkTime:selected==='attack'?this.previewTime:this.idleTime):0;
+  this.frame=a?attacking&&a.attackMotion?(data.windup?0:oneShotFrame(a.meta.durations,this.attackProgress)):animationFrame(a.meta.durations,selected==='walk'?this.walkTime:selected==='attack'?this.previewTime:this.idleTime):0;
   this.sprite.cellIndex=a?this.row*a.columns+this.frame:0;
   this.sprite.isVisible=!data.burrowed;
   const fallback=this.library.fallbackLayout(this.speciesId),referenceHeight=a?.referenceHeight??fallback.bounds.visibleHeight;
@@ -419,7 +404,7 @@ export class CharacterVisuals {
     evolution.old.update({...actor,animation:'idle',attackTimer:0,size:actor===leader?2.8+getSpecies(evolution.from).stage*.18:2.35+getSpecies(evolution.from).stage*.18},0,cameraAngle,groundY);
     evolution.old.setOpacity(1-evolution.blend);v.avatar.setOpacity(evolution.blend);
    }
-   v.avatar.update(evolution?{...actor,animation:'idle',attackTimer:0,size}:{...actor,size,trackTravel:true,airborne:actor===leader&&playerHeight>.001,flying:actor===leader&&playerFlying,running:actor===leader&&(player?.movement?.boost??0)>0,burrowed:actor===leader&&!!player&&isBurrowed(player)},dt,cameraAngle,groundY);
+   v.avatar.update(evolution?{...actor,animation:'idle',attackTimer:0,size}:{...actor,size,trackTravel:true,airborne:actor===leader&&playerHeight>.001,flying:actor===leader&&playerFlying,burrowed:actor===leader&&!!player&&isBurrowed(player)},dt,cameraAngle,groundY);
    if(evolution?.blend===1)this.finishEvolution(actor.uid);
    this.placeShadow(v.shadow,actor.x,actor.z,y,size,ground);
    v.shadow.setEnabled(!(actor===leader&&player&&isBurrowed(player)));

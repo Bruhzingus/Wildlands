@@ -27,11 +27,13 @@ import {addProjectile,stepProjectiles} from './combat/projectiles.ts';
 import {getEliteAreaMove,resolveCommittedEnemyProfile} from '../data/enemyAttacks.ts';
 import {canStartEnemyMove,enemyMovementIntent,chooseEnemyAttack,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
 import {getEnemyTier} from '../data/enemyTiers.ts';
-import {getBuildModifiers,dispatchBuildEvent,type BuildEvent,type BuildAction} from './systems/builds.ts';
+import {getBuildModifiers,dispatchBuildEvent,metronomeDamageMultiplier,type BuildEvent,type BuildAction} from './systems/builds.ts';
 import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,rerollChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
 import {averagePartyLevel,enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
+import {createBerryTrees,updateBerryTrees} from './systems/berries.ts';
+import {BERRIES,BERRY_BUFF_SECONDS,BERRY_ORDER,type BerryId} from '../data/berries.ts';
 import type {Drop,Enemy,LearnedMove,PartyMember,POI,RewardSource,RunState,TerrainFeature,UpgradeChoice,Variant} from './types.ts';
 export interface MoveInput {mx:number;mz:number;aimX?:number;aimZ?:number;jump:boolean;jumpHeld?:boolean;dodge:boolean;special:boolean;interact:boolean;}
 export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;moveName?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;environmentId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';effectiveness?:'super'|'resisted';variant?:Variant;speciesId?:number;evolution?:EvolutionReceipt};
@@ -52,7 +54,7 @@ export class Simulation {
   this.obstacles=new ObstacleField(environment.obstacles);
   this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:96*starterHealth,maxHp:96*starterHealth,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
    party:[starter],enemies:[],projectiles:[],drops:[],pois,stats:{elapsed:0,kills:0,recruits:0,evolutions:0,level:1,xp:0,xpToNext:xpThreshold(1),damageDealt:0,damageTaken:0,faints:0,bossKilled:false,highestCombo:0},
-   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',rerolls:PROGRESSION.rerolls.starting,rerollGrants:0,pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],terrainFeatures:environment.features,...configuration};
+   items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',rerolls:PROGRESSION.rerolls.starting,rerollGrants:0,pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],terrainFeatures:environment.features,berryTrees:createBerryTrees(environment.props,seed),berryBuffs:{},...configuration};
   for(let i=0;i<3;i++){
    const pos=enemySpawnPosition(this.state.player,this.rng),encounter=mapEncounter(configuration.mapId);
    const pool=encounter.favoredSpecies.length?encounter.favoredSpecies.filter(id=>getSpecies(id).stage===1):[10,13,16,19,21,29,43];
@@ -76,7 +78,9 @@ export class Simulation {
   s.upgradeChoices=choices;s.rerolls=(s.rerolls??0)-1;return true;
  }
  pause(){if(this.state.phase==='playing'||this.state.phase==='boss')this.state.phase='paused';else if(this.state.phase==='paused')this.state.phase=this.activePhase();}
- choose(choiceId:string):boolean{const s=this.state; if(s.phase!=='choice')return false;
+ private rewardsDeferred=false;
+ resumeDeferredRewards(){if(!this.rewardsDeferred)return;this.rewardsDeferred=false;if(this.isActive())this.openNextLevelUp();}
+ choose(choiceId:string,deferEvolutionRewards=false):boolean{const s=this.state; if(s.phase!=='choice')return false;
   const c=s.upgradeChoices.find(c=>c.id===choiceId);if(!c)return false;
   const before=c.kind==='evolve'?structuredClone(s.party.find(member=>member.uid===c.speciesId)):undefined;
   const healthBefore=before?.uid===s.party[0].uid?s.player.maxHp:before?.maxHp;
@@ -90,11 +94,14 @@ export class Simulation {
   this.emit({kind:c.kind==='evolve'?'evolve':'log',label:result.event,...(before&&evolved?{evolution:evolutionReceipt(before,evolved,healthBefore,evolved===s.party[0]?s.player.maxHp:evolved.maxHp),sourceId:evolved.uid,speciesId:evolved.speciesId}: {})});
   if(result.applied&&(c.kind==='recruit'||c.kind==='evolve'))this.buildEvent({kind:c.kind==='recruit'?'onRecruit':'onEvolve',sourceId:result.sourceUid});
   s.upgradeChoices=[];delete s.levelUpMemberId;delete s.choiceSource;s.phase=this.activePhase();
-  this.queueLevelUps();this.openNextLevelUp();return true;
+  this.queueLevelUps();
+  if(deferEvolutionRewards&&c.kind==='evolve')this.rewardsDeferred=true;
+  else this.openNextLevelUp();
+  return true;
  }
  continueEndless(){const s=this.state;if(s.result==='victory'){s.result=null;s.endless=true;s.endlessStartedAt=s.stats.elapsed;s.nextBossAt=s.stats.elapsed+420;s.phase='playing';updateDirector(s);this.emit({kind:'log',label:'Endless mode: recover and prepare for the next legendary chapter.'});}}
  enterChoice(choices:UpgradeChoice[],title?:string,source?:RewardSource){const s=this.state;s.upgradeChoices=choices;s.choiceTitle=title||s.choiceTitle;
-  s.choiceSource=source??(choices.every(c=>c.kind==='item')?'cache':choices.every(c=>c.kind==='stat')?'squad':choices.every(c=>c.kind==='recruit')?'recruit':'level');
+  s.choiceSource=source??(choices.every(c=>c.kind==='item')?'cache':choices.every(c=>c.kind==='stat'&&c.speciesId===undefined)?'squad':choices.every(c=>c.kind==='recruit')?'recruit':'level');
   s.phase='choice';this.emit({kind:'level'});
  }
  /** Every living member receives full shared XP; personal XP targets one owner. */
@@ -107,7 +114,7 @@ export class Simulation {
    if(member.level>=PROGRESSION.leveling.maxLevel)continue;
    const modifiers=getBuildModifiers(s,member);
    const catchup=memberUid===undefined&&member!==s.party[0]&&member.level<s.party[0].level?modifiers.xpCatchup:0;
-   member.xp=(member.xp??0)+amount*(1+modifiers.xp)*(1+catchup);
+   member.xp=(member.xp??0)+amount*(1+modifiers.xp)*(1+catchup)*(1+.5*(this.berryStacks('pinap')+this.berryStacks('silver-pinap')));
    member.xpToNext=xpThreshold(member.level);
   }
   this.syncLeaderXP();
@@ -130,6 +137,7 @@ export class Simulation {
   this.syncLeaderXP();
  }
  private openNextLevelUp():boolean {
+  if(this.rewardsDeferred)return false;
   const s=this.state,queue=s.pendingLevelUps??=[];
   // Scheduled recruitment and squad rewards never consume an earned milestone.
   if(canRecruit(s)){
@@ -158,6 +166,7 @@ export class Simulation {
   const previousPositions=new Map(s.party.map(member=>[member.uid,{x:member.x,z:member.z}]));previousPositions.set(s.party[0].uid,{x:s.player.x,z:s.player.z});
   this.movePlayer(dt,input);
   if(this.finishDefeat()||!this.isActive()||s.result!==null)return;
+  this.updateBerries();
   this.updateTerrainFeatures();
   if(this.finishDefeat()||s.result!==null)return;
   this.updateExploration();
@@ -208,10 +217,10 @@ export class Simulation {
   if(trait.kind!=='burrow')delete p.burrowTime;
   else if(p.burrowTime!==undefined)p.burrowTime=Math.max(0,p.burrowTime-dt);
   const poisonDamage=isBurrowed(p)?0:Math.min(dt,p.poisonTime)*getVariant('poisoned').contactPoison!.damagePerSecond;p.poisonTime=Math.max(0,p.poisonTime-dt);p.hp-=poisonDamage;s.stats.damageTaken+=poisonDamage;
-  const dodgeMod=getBuildModifiers(s),maxCharges=1+Math.floor(dodgeMod.staminaCapacity);
+  const dodgeMod=getBuildModifiers(s),maxCharges=1+Math.floor(dodgeMod.staminaCapacity),dodgeRecharge=Math.max(.01,DESIGN.dodgeCooldown*(trait.staminaRechargeMultiplier??1)*(1-dodgeMod.staminaRechargeReduction)/(1+dodgeMod.stamina));
   p.dodgeCharges=Math.min(maxCharges,p.dodgeCharges??(p.dodgeCooldown>0?0:maxCharges));
   p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);
-  if(p.dodgeCooldown===0&&p.dodgeCharges<maxCharges){p.dodgeCharges++;if(p.dodgeCharges<maxCharges)p.dodgeCooldown=Math.max(.01,DESIGN.dodgeCooldown*(1-dodgeMod.staminaRechargeReduction)/(1+dodgeMod.stamina));}
+  if(p.dodgeCooldown===0&&p.dodgeCharges<maxCharges){p.dodgeCharges++;if(p.dodgeCharges<maxCharges)p.dodgeCooldown=dodgeRecharge;}
   p.specialCooldown=Math.max(0,p.specialCooldown-dt);
   if(p.hp<=0)return;
   const mx=Number.isFinite(input.mx)?input.mx:0,mz=Number.isFinite(input.mz)?input.mz:0;
@@ -219,7 +228,7 @@ export class Simulation {
   let abraTeleported=false;
   if(tap.dodge&&p.dodgeCharges>0&&!isBurrowed(p)){
    this.dodgeDirection={x:len?nx:Math.sin(p.facing),z:len?nz:Math.cos(p.facing)};
-   p.dodgeTime=s.party[0].speciesId===63?0:DESIGN.dodgeSeconds;p.dodgeCharges--;if(p.dodgeCooldown===0)p.dodgeCooldown=Math.max(.01,DESIGN.dodgeCooldown*(1-dodgeMod.staminaRechargeReduction)/(1+dodgeMod.stamina));p.iframes=Math.max(p.iframes,.34);
+   p.dodgeTime=s.party[0].speciesId===63?0:DESIGN.dodgeSeconds;p.dodgeCharges--;if(p.dodgeCooldown===0)p.dodgeCooldown=dodgeRecharge;p.iframes=Math.max(p.iframes,.34);
    if(trait.kind==='burrow'){p.burrowTime=MOVEMENT_TRAITS.burrowSeconds;p.dodgeTime=0;p.y=0;p.vy=0;}
    const origin={x:p.x,z:p.z};
    if(s.party[0].speciesId===63){
@@ -252,7 +261,7 @@ export class Simulation {
    p.vy-=DESIGN.gravity*dt;p.y=Math.max(0,p.y+p.vy*dt);if(p.y===0)p.vy=0;
   }
   if(p.y===0&&movement){movement.flightUsed=false;movement.flightEligible=false;movement.flying=false;}
-  if(tap.special&&p.specialCooldown===0&&!burrowing){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste);s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
+  if(tap.special&&p.specialCooldown===0&&!burrowing){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste)*Math.max(.2,1-.2*this.berryStacks('leppa'));s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
   if(s.result!==null)return;
   const interaction=s.pois.find(a=>siteAvailable(a,s.stats.elapsed)&&!a.used&&distance2(p,a)<DESIGN.interactionRadius);
   const beacon=(s.terrainFeatures||[]).find(feature=>feature.kind==='ruin-beacon'&&feature.state==='ready'&&distance2(p,feature)<DESIGN.interactionRadius+1.2);
@@ -486,7 +495,8 @@ export class Simulation {
   if(e.dead||this.state.result!==null)return;
   const resolved=damageIsFinal?Math.max(0,Number.isFinite(amount)?amount:0):elementalDamage(amount,type,e,matchup);
   const effectiveness=matchup&&!damageIsFinal?typeEffectiveness(type,getSpecies(e.speciesId).types):'neutral';
-  let damage=Math.min(e.hp,resolved*hitCount);
+  const metronome=allowProcs?metronomeDamageMultiplier(this.state,e.uid,hitCount):1;
+  let damage=Math.min(e.hp,resolved*hitCount*metronome);
   // A huge packet may earn a stage immediately, but cannot erase an unreadable
   // chapter. There is no transition lockout: the next hit can still land.
   if(e.isBoss){const next=this.activeBoss().stages[(e.bossStage??0)+1];const floor=next?e.maxHp*next.threshold:undefined;
@@ -517,8 +527,11 @@ export class Simulation {
   const gain=e.shrineGuardian?variantRewardXP({...e,elite:false})*(e.shrineXPScale??2):variantRewardXP(e);
   this.gainXP(gain*.52);
   this.spawnDrop({x:e.x,z:e.z,value:gain*.48,kind:'xp'});
-  if(e.elite||this.lootRng.next()<ECONOMY.coinChance)this.spawnDrop({x:e.x,z:e.z,kind:'coin',value:e.elite?ECONOMY.eliteCoins:e.variant==='normal'?ECONOMY.normalCoins:ECONOMY.variantCoins});
-  if(this.lootRng.next()<(e.elite?ECONOMY.eliteItemDropChance:ECONOMY.itemDropChance)){
+  // Shrine guardians are one encounter, even when the shrine summons a group.
+  // Their XP is earned per guardian, but coin/item loot is the single completion
+  // prize below, after every guardian is defeated.
+  if(!e.shrineGuardian&&(e.elite||this.lootRng.next()<ECONOMY.coinChance))this.spawnDrop({x:e.x,z:e.z,kind:'coin',value:e.elite?ECONOMY.eliteCoins:e.variant==='normal'?ECONOMY.normalCoins:ECONOMY.variantCoins});
+  if(!e.shrineGuardian&&this.lootRng.next()<(e.elite?ECONOMY.eliteItemDropChance:ECONOMY.itemDropChance)){
    const groundItems=new Set(s.drops.flatMap(drop=>drop.kind==='item'&&drop.itemId?[relicFamily(drop.itemId)]:[]));
    const item=weightedUpgradeChoices(availableItemChoices(s).filter(item=>!groundItems.has(relicFamily(item.id))),1,this.lootRng,s.buffs.luck||0)[0];
    if(item)this.spawnDrop({x:e.x,z:e.z,kind:'item',value:1,itemId:item.id});
@@ -577,10 +590,31 @@ export class Simulation {
   }
   s.drops=s.drops.filter(d=>d.age<(d.kind==='item'?120:45));
  }
+ private updateBerries(){
+  const s=this.state,trees=s.berryTrees??[];
+  this.updateBerryBuffs();
+  updateBerryTrees(trees,s.stats.elapsed,s.player,this.lootRng);
+  for(const tree of trees)for(const berry of tree.berries){
+   if(berry.collected||Math.hypot(berry.x-s.player.x,berry.z-s.player.z)>1.55)continue;
+   berry.collected=true;
+   const kind=tree.berry,healing=s.challenge!=='famine';
+   if(kind==='silver-pinap')this.gainXP(25);
+   if(healing||!(kind==='oran'||kind==='sitrus'))this.addBerryBuff(kind);
+   if(kind==='leppa')s.player.specialCooldown*=.8;
+   this.emit({kind:'interact',x:berry.x,z:berry.z,color:BERRIES[kind].color,label:`${BERRIES[kind].name}: ${BERRIES[kind].description}${!healing&&(kind==='oran'||kind==='sitrus')?' Famine blocks healing.':''}`});
+  }
+ }
+ private updateBerryBuffs(){
+  const s=this.state,buffs=s.berryBuffs??={};
+  for(const kind of BERRY_ORDER)if(buffs[kind])buffs[kind]=buffs[kind]!.filter(expiresAt=>expiresAt>s.stats.elapsed);
+ }
+ private addBerryBuff(kind:BerryId){const s=this.state,buffs=s.berryBuffs??={};(buffs[kind]??=[]).push(s.stats.elapsed+BERRY_BUFF_SECONDS);}
+ private berryStacks(kind:BerryId){return (this.state.berryBuffs?.[kind]??[]).filter(expiresAt=>expiresAt>this.state.stats.elapsed).length;}
  private updateRegeneration(dt:number){
   const s=this.state,mod=getBuildModifiers(s);
   if(s.challenge==='famine')return;
-  if(s.player.hp>0)s.player.hp=Math.min(s.player.maxHp,s.player.hp+(mod.regeneration+s.player.maxHp*mod.regenerationPercent)*dt);
+  const berryRecovery=this.berryStacks('oran')*10/BERRY_BUFF_SECONDS+s.player.maxHp*this.berryStacks('sitrus')*.25/BERRY_BUFF_SECONDS;
+  if(s.player.hp>0)s.player.hp=Math.min(s.player.maxHp,s.player.hp+(mod.regeneration+s.player.maxHp*mod.regenerationPercent+berryRecovery)*dt);
   for(const member of s.party){const recovery=getBuildModifiers(s,member);if(member.hp>0)member.hp=Math.min(member.maxHp,member.hp+(recovery.partyRegeneration+member.maxHp*recovery.partyRegenerationPercent)*dt);}
  }
  private buildEvent(event:BuildEvent){
@@ -622,6 +656,7 @@ export class Simulation {
    }
    case 'xp':this.gainXP(action.amount);return;
    case 'specialCharge':s.player.specialCooldown=Math.max(0,s.player.specialCooldown-action.amount);return;
+   case 'specialCooldownPercent':s.player.specialCooldown*=Math.max(0,1-action.amount);return;
   }
  }
  private hurtCompanion(member:PartyMember,amount:number,poison=false,sourceId?:number){
@@ -660,7 +695,7 @@ export class Simulation {
   this.buildEvent({kind:'onSpecial',sourceId:member.uid,element});
   if(s.result!==null)return;
   castSpecial({state:s,member,profile,element,
-   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
+   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
    move:(dx,dz)=>this.obstacles.move(s.player,dx,dz),
    hit:(enemy,damage,type,sourceId,status)=>this.damageEnemy(enemy,damage,type,sourceId,status),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
@@ -761,9 +796,9 @@ export class Simulation {
    s.coins=(s.coins??0)-cost;if(paid){s.chestPurchases=(s.chestPurchases??0)+1;poi.uses=(poi.uses??0)+1;poi.respawnAt=s.stats.elapsed+CHEST_TIERS[rarity].respawn;}
    poi.used=true;this.enterChoice(options,paid?`${rarity.toUpperCase()} chest — choose your reward (${cost} coins)`:'Treasure cache — choose an item (one use)',source);
   }
-  if(poi.kind==='elite'||poi.kind==='shrine'){
+  if(poi.kind==='shrine'){
    s.enemies=s.enemies.filter(enemy=>!enemy.dead);
-   const count=poi.kind==='shrine'?shrineForPOI(poi).count:1;
+   const count=shrineForPOI(poi).count;
    if(s.enemies.length+count>DESIGN.maxEnemies-(s.bossSpawned?0:1)){this.emit({kind:'log',label:'Too many enemies nearby. Clear a path first.'});return;}
   }
   poi.used=true;
@@ -793,16 +828,12 @@ export class Simulation {
     for(let i=0;i<3;i++){const ring={uid:s.idCounter++,sourceId:-poi.uid,x:poi.x,z:poi.z,radius:1,previousRadius:1,maxRadius:definition.radius,speed:3.2+i*.35,width:1.1,damage:0,hit:new Set<number>(),color:'#d2b5ff'};s.psychicRings!.push(ring);poi.challenge.ringIds!.push(ring.uid);}
     this.emit({kind:'interact',label:`Tier ${tier} ${definition.title}: ${definition.invitation} ${definition.duration}s, ${definition.radius}m boundary. ${definition.reward}.`,x:poi.x,z:poi.z,color:'#d2b5ff'});
    }
-  }else{
-   const id=this.rng.pick(mapEncounter(s.mapId).guardians);const e=createGuardian(s,this.rng,id,poi.x+4,poi.z+4);s.enemies.push(e);this.emit({kind:'interact',label:`Elite ${getSpecies(id).name} appeared!`,x:poi.x,z:poi.z,color:'#ffc775'});
   }
   const rare=poi.rareTriggered||poi.kind==='shrine'?null:rareEventFor(s.seed,poi);
   if(rare){
    poi.rareTriggered=true;
-   if(!(rare.kind==='wild-bloom'&&s.challenge==='famine'))this.emit({kind:'log',label:rare.label});
-   if(rare.kind==='wild-bloom'){
-    if(s.challenge!=='famine'){s.player.hp=Math.min(s.player.maxHp,s.player.hp+25);for(const member of s.party)member.hp=Math.min(member.maxHp,member.hp+25);}
-   }else if(rare.kind==='ancient-echo'){s.buffs.luck=(s.buffs.luck||0)+.03;s.player.specialCooldown=0;}
+   this.emit({kind:'log',label:rare.label});
+   if(rare.kind==='ancient-echo'){s.buffs.luck=(s.buffs.luck||0)+.03;s.player.specialCooldown=0;}
    else for(let i=0;i<2;i++){
     const enemy=spawnRandomEnemy(s,this.rng,{capacity:s.director?.enemyBudget||DESIGN.maxEnemies,variantWeights:{rocket:1},speciesTier:s.director?.speciesTier,allowRare:false});
     recordDirectorSpawn(s,!!enemy);if(enemy)s.enemies.push(enemy);

@@ -4,6 +4,23 @@ import {mkdir} from 'node:fs/promises';
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
 const activeVisuals=`g=>g.scene.meshes.filter(m=>m.name.startsWith('combat-special-')&&m.isEnabled()&&m.isVisible).map(m=>({name:m.name,x:m.position.x,z:m.position.z,scale:[m.scaling.x,m.scaling.y,m.scaling.z],vertices:m.getTotalVertices(),ready:m.material.isReady(m)}))`;
 
+test('Play stays visible on the title screen and starts the chosen partner',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/?dev=1');
+ await expect(page.locator('.game-version')).toHaveText('v0.3.0');
+ await expect(page.locator('.game-version')).toBeInViewport();
+ const play=page.locator('#play-btn');
+ await expect(play).toBeInViewport();
+ await expect(play).toHaveText('Play as Bulbasaur');
+ await page.locator('[data-starter="4"]').focus();
+ await expect(play).toHaveText('Play as Charmander');
+ await play.click();
+ await expect.poll(()=>game(page,'g=>g.sim?.state.party[0].speciesId')).toBe(4);
+ await expect(page.locator('#overlay')).toBeHidden();
+ await expect.poll(()=>game(page,'g=>g.sim?.state.phase')).toBe('playing');
+ expect(errors).toEqual([]);
+});
+
 test('starter choices explain different attacks and the HUD names the equipped Q ability',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/?dev=1');

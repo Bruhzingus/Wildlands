@@ -6,27 +6,28 @@ Regenerate with `node --experimental-strip-types scripts/generate-upgrade-catalo
 
 In the game, choose **Browse all upgrades** from the title or pause menu for a scrollable version of these groups, with search, filters, sorting, rarity colours and expandable progression details.
 
-Source fingerprint (SHA-256): `d4e7ed351fc4a82433ea2a282874108ddfa9dd9fdc2a6bab7975b429bdb27a56`. Counts: **9 training families / 34 rarity variants; 48 offerable relics; 14 retired relics; 151 signature moves; 41 learned moves; 72 evolution choices; 74 recruitable species; 12 synergies.**
+Source fingerprint (SHA-256): `c90f2c6c67b8b08e49a825b5435eba7c75261748d0597e05d0c9061ed13ed864`. Counts: **10 training families / 39 rarity variants; 59 offerable relics; 14 retired relics; 151 signature moves; 41 learned moves; 72 evolution choices; 74 recruitable species; 12 synergies.**
 
 Start with the training and relic tables. They contain the discrete upgrades most useful to mark **keep / change / remove**. Later sections enumerate every species move, learning pool and evolution. Infinite ranks are represented by exact rules and sampled ranks; an infinite list of rows would be misleading.
 
-**Rarity and rank are separate.** Training has Common/Rare/Epic/Legendary values. Every offerable relic also has a Legendary variant. Base relics retain their authored rarity; Legendary variants share their family and unlock. Move training has an unlimited numerical rank but a restricted offer rarity. Evolution is Epic; recruitment and learning are Rare. Q improvements accompany leader signature training, rather than a separate Q-upgrade card. Synergies are automatic composition bonuses, not cards.
+**Rarity and rank are separate.** Training has authored Common/Uncommon/Rare/Epic/Legendary curves where available. Most relic families have a base and Legendary variant; authored families can instead expose their listed rarity curve. Variants share a family and unlock. Move training has an unlimited numerical rank but a restricted offer rarity. Evolution is Epic; recruitment and learning are Rare. Q improvements accompany leader signature training, rather than a separate Q-upgrade card. Synergies are automatic composition bonuses, not cards.
 
 ## 1. All training upgrades at every rarity
 
-Each selection advances that training family by one rank. Rarity changes the exact bonus shown in the table, not how many training ranks are recorded. Stat bonuses are global; HP Up changes the leader and every party member.
+Each selection advances that training family by one rank. Rarity changes the exact bonus shown in the table, not how many training ranks are recorded. Milestone stat bonuses and ranks belong only to the Pok?mon that leveled up. Relics and shrine training affect the whole squad. Personal HP Up preserves that Pok?mon?s HP fraction; shared HP Up preserves every member?s HP fraction. Leader movement, stamina and Q training only appear on leader milestones.
 
-| Upgrade / ID | Common | Rare | Epic | Legendary | Current stacking / scope |
-| --- | --- | --- | --- | --- | --- |
-| Swords Dance (power) | +8% attack damage, including learned moves. | +15% attack damage, including learned moves. | +25% attack damage, including learned moves. | +40% attack damage, including learned moves. | Additive squad damage bonus; also learned moves. |
-| Tailwind (haste) | +8% attack speed for every move. Attacks fire more often. | +15% attack speed for every move. Attacks fire more often. | +25% attack speed for every move. Attacks fire more often. | +40% attack speed for every move. Attacks fire more often. | Additive squad attack speed; actual intervals continue shrinking. Damage per hit is unchanged. |
-| Agility (speed) | +8% leader movement speed. Stamina recharge takes 5% less time. Stacks multiplicatively. | +12% leader movement speed. Stamina recharge takes 10% less time. Stacks multiplicatively. | +20% leader movement speed. Stamina recharge takes 15% less time. Stacks multiplicatively. | +35% leader movement speed. Stamina recharge takes 20% less time. Stacks multiplicatively. | Additive leader movement speed; stamina recharge time reductions multiply remaining time (5/10/15/20%). |
-| HP Up (health) | +10% of base maximum HP for every squad member. Keeps current health percentages. | +20% of base maximum HP for every squad member. Keeps current health percentages. | +30% of base maximum HP for every squad member. Keeps current health percentages. | +50% of base maximum HP for every squad member. Keeps current health percentages. | Additive base-max-HP bonus to leader and all party members; preserves HP fraction. |
-| Endure (stamina) | Not available | Not available | +1 maximum stamina (dodge charge). | +3 maximum stamina (dodge charges). | Epic only: +1 maximum dodge charge. Legendary: +3 maximum dodge charges. No Common, Uncommon or Rare version. |
-| Calm Mind (special) | +25% special ability recharge speed. | +50% special ability recharge speed. | +75% special ability recharge speed. | +100% special ability recharge speed. | Q cooldown divided by 1 + total special recharge bonus. |
-| Focus Energy (crit) | +4% critical strike chance. Each full 100% guarantees another critical tier. | +8% critical strike chance. Each full 100% guarantees another critical tier. | +12% critical strike chance. Each full 100% guarantees another critical tier. | +16% critical strike chance. Each full 100% guarantees another critical tier. | Adds critical chance in percentage points. Each full 100% guarantees another critical tier. |
-| Deflection (deflection) | +3% chance to deflect attacks completely. Maximum 50%. | +5% chance to deflect attacks completely. Maximum 50%. | +9% chance to deflect attacks completely. Maximum 50%. | +15% chance to deflect attacks completely. Maximum 50%. | Adds 3/5/9/15 percentage points by rarity, capped at 50%. Stops appearing at the cap. |
-| Expanding Force (radius) | +12.6% attack reach and area radius for every move. | +25.2% attack reach and area radius for every move. | +37.8% attack reach and area radius for every move. | +50.4% attack reach and area radius for every move. | Additive reach/area-radius bonus. |
+| Upgrade / ID | Common | Uncommon | Rare | Epic | Legendary | Current stacking / scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| Swords Dance (power) | +8% attack damage, including learned moves. | Not available | +15% attack damage, including learned moves. | +25% attack damage, including learned moves. | +40% attack damage, including learned moves. | Additive damage bonus for the trained Pok?mon; also learned moves. Shrine training applies squad-wide. |
+| Tailwind (haste) | +8% attack speed for every move. Attacks fire more often. | Not available | +15% attack speed for every move. Attacks fire more often. | +25% attack speed for every move. Attacks fire more often. | +40% attack speed for every move. Attacks fire more often. | Additive attack speed for the trained Pok?mon; shrine training applies squad-wide. Actual intervals continue shrinking. Damage per hit is unchanged. |
+| Agility (speed) | +8% leader movement speed. Stamina recharge takes 5% less time. Stacks multiplicatively. | Not available | +12% leader movement speed. Stamina recharge takes 10% less time. Stacks multiplicatively. | +20% leader movement speed. Stamina recharge takes 15% less time. Stacks multiplicatively. | +35% leader movement speed. Stamina recharge takes 20% less time. Stacks multiplicatively. | Additive leader movement speed; stamina recharge time reductions multiply remaining time (5/10/15/20%). |
+| HP Up (health) | +10% of base maximum HP for every squad member. Keeps current health percentages. | Not available | +20% of base maximum HP for every squad member. Keeps current health percentages. | +30% of base maximum HP for every squad member. Keeps current health percentages. | +50% of base maximum HP for every squad member. Keeps current health percentages. | Base-max-HP bonus for the trained Pok?mon; shrine training affects all members. Personal and shared bonuses multiply; preserves HP fraction. |
+| Endure (stamina) | Not available | Not available | Not available | +1 maximum stamina (dodge charge). | +3 maximum stamina (dodge charges). | Epic only: +1 maximum dodge charge. Legendary: +3 maximum dodge charges. No Common, Uncommon or Rare version. |
+| Calm Mind (special) | +25% special ability recharge speed. | Not available | +50% special ability recharge speed. | +75% special ability recharge speed. | +100% special ability recharge speed. | Q cooldown divided by 1 + total special recharge bonus. |
+| Wise Glasses (wise-glasses) | +10% damage for your special ability. Only appears when your special can deal damage. | +20% damage for your special ability. Only appears when your special can deal damage. | +30% damage for your special ability. Only appears when your special can deal damage. | +50% damage for your special ability. Only appears when your special can deal damage. | +100% damage for your special ability. Only appears when your special can deal damage. | Adds only to damaging Q casts. It is unavailable for a non-damaging Q. |
+| Focus Energy (crit) | +4% critical strike chance. Each full 100% guarantees another critical tier. | Not available | +8% critical strike chance. Each full 100% guarantees another critical tier. | +12% critical strike chance. Each full 100% guarantees another critical tier. | +16% critical strike chance. Each full 100% guarantees another critical tier. | Adds critical chance in percentage points. Each full 100% guarantees another critical tier. |
+| Deflection (deflection) | +3% chance to deflect attacks completely. Maximum 50%. | Not available | +5% chance to deflect attacks completely. Maximum 50%. | +9% chance to deflect attacks completely. Maximum 50%. | +15% chance to deflect attacks completely. Maximum 50%. | Adds 3/5/9/15 percentage points by rarity, capped at 50%. Stops appearing at the cap. |
+| Expanding Force (radius) | +12.6% attack reach and area radius for every move. | Not available | +25.2% attack reach and area radius for every move. | +37.8% attack reach and area radius for every move. | +50.4% attack reach and area radius for every move. | Additive reach/area-radius bonus. |
 
 Every species starts with 0.5 to 3 defense, inversely scaled to its base attack power: clamp(3.5 - power / 12, 0.5, 3), rounded to two decimals. Defensive relics/synergies increase this threshold by a percentage. Iron Defense training is removed from new rewards; legacy armor and reduction bonuses still increase defense. Deflection adds 3/5/9/15 percentage points by rarity, caps at 50%, and blocks damage and on-hit poison. Team Battery requires at least 3 living members to acquire and adds one dodge charge per current living party member, including the leader; its Legendary version adds two. Charges recover one at a time using the existing dodge recovery stat.
 
@@ -44,6 +45,7 @@ HP Up uses `(1 + new total HP bonus) / (1 + previous total HP bonus)` on each pu
 | HP Up | +10% raw | +20% raw | +30% raw | +50% raw | +100% raw | +200% raw | +500% raw | +1000% raw |
 | Endure | Not available | Not available | Not available | Not available | Not available | Not available | Not available | Not available |
 | Calm Mind | +25% raw | +50% raw | +75% raw | +125% raw | +250% raw | +500% raw | +1250% raw | +2500% raw |
+| Wise Glasses | +10% raw | +20% raw | +30% raw | +50% raw | +100% raw | +200% raw | +500% raw | +1000% raw |
 | Focus Energy | +4% raw | +8% raw | +12% raw | +20% raw | +40% raw | +80% raw | +200% raw | +400% raw |
 | Deflection | 3% chance | 6% chance | 9% chance | 15% chance | 30% chance | 50% chance | 50% chance | 50% chance |
 | Expanding Force | +12.6% raw | +25.2% raw | +37.8% raw | +63% raw | +126% raw | +252% raw | +630% raw | +1260% raw |
@@ -52,11 +54,11 @@ Percentage stat increases add against the base stat: `100 * (1 + 0.05 + 0.10) = 
 
 ## 2. Every offerable relic: base and Legendary availability
 
-Relics are repeatable. Each stackable copy adds its stated bonuses, including combinations of base and Legendary copies. Iron Ball also stacks: positive damage adds per copy and each slowdown multiplies remaining attack rate. Triggered damage, healing, recharge and drawbacks scale with the copy count; repeated status relics combine their proc chances as 1 - (1 - chance)^copies. A family appears only once per offer, to preserve variety. Both versions share the base unlock. Legendary versions double positive bonuses and triggered strength. Offers exclude mechanics with no benefit to the current build or challenge.
+Relics are repeatable. Each stackable copy adds its stated bonuses, including combinations of rarity variants in the same family. Iron Ball also stacks: positive damage adds per copy and each slowdown multiplies remaining attack rate. Triggered damage, healing, recharge and drawbacks scale with the copy count; repeated status relics combine their proc chances as 1 - (1 - chance)^copies. A family appears only once per offer, to preserve variety. Standard base/Legendary pairs share their base unlock and Legendary versions double positive bonuses and triggered strength; authored rarity curves state their exact values. Offers exclude mechanics with no benefit to the current build or challenge.
 
 | Relic / ID | Common | Uncommon | Rare | Epic | Legendary | Unlock / compatibility |
 | --- | --- | --- | --- | --- | --- | --- |
-| Metronome (echo-bell) | Not available | Not available | Not available | Every 5th squad attack repeats at 65% damage. Repeats cannot trigger more item effects. | Not available | Relic satchel: Carry 8 different relics in one run. |
+| Echo Bell (echo-bell) | Not available | Not available | Not available | Every 5th squad attack repeats at 65% damage. Repeats cannot trigger more item effects. | Not available | Relic satchel: Carry 8 different relics in one run. |
 | Loaded Dice (multi-lens) | Not available | Not available | Not available | Bolt, beam and lob attacks fire +1 projectile. | Not available | Base pool; current-build eligibility applies |
 | Zap Plate (static-orb) | Not available | Not available | Critical hits arc for 25% of hit damage through up to 2 enemies within 4.7m. 0.15s cooldown. | Not available | Not available | Base pool; current-build eligibility applies |
 | Leftovers (leftovers) | Not available | Not available | Each squad member restores 0.8% of their own max HP each second. | Not available | Not available | Base pool; current-build eligibility applies |
@@ -80,7 +82,18 @@ Relics are repeatable. Each stackable copy adds its stated bonuses, including co
 | Binding Band (binding-thread) | Not available | Not available | +40% duration for poison, burn, slow, soaked and stun from your squad. | Not available | Not available | Base pool; current-build eligibility applies |
 | Team Battery (team-battery) | Not available | Not available | +1 maximum stamina (dodge charge) per current party member, including the leader. Requires at least 3 living members to acquire. | Not available | Not available | Base pool; current-build eligibility applies |
 | Big Root (healing-bead) | Every 12 attacks from each member restore 1.5% of the leader's max HP. Each member has their own attack counter. | Not available | Not available | Not available | Not available | Base pool; current-build eligibility applies |
-| Legendary Metronome (echo-bell-legendary) | Not available | Not available | Not available | Not available | Every 5th squad attack repeats at 130% damage. Repeats cannot trigger more item effects. | Relic satchel: Carry 8 different relics in one run. |
+| Power Herb (power-herb) | Not available | Not available | Every 3rd squad attack reduces your current special cooldown by 3%. | Not available | Not available | Base pool; current-build eligibility applies |
+| Metronome (metronome-ramp) | Not available | Not available | Not available | Not available | Consecutive squad hits on the same enemy deal +10% damage per prior uninterrupted hit. | Base pool; current-build eligibility applies |
+| Lucky Egg (lucky-egg-xp) | +3% XP earned from drops and defeats. | Not available | Not available | Not available | Not available | Base pool; current-build eligibility applies |
+| Lucky Egg (lucky-egg-xp-rare) | Not available | Not available | +6% XP earned from drops and defeats. | Not available | Not available | Base pool; current-build eligibility applies |
+| Lucky Egg (lucky-egg-xp-epic) | Not available | Not available | Not available | +9% XP earned from drops and defeats. | Not available | Base pool; current-build eligibility applies |
+| Lucky Egg (lucky-egg-xp-legendary) | Not available | Not available | Not available | Not available | +20% XP earned from drops and defeats. | Base pool; current-build eligibility applies |
+| Rare Candy (rare-candy) | Every living party PokÃ©mon gains 1 level. | Not available | Not available | Not available | Not available | Base pool; current-build eligibility applies |
+| Rare Candy (rare-candy-rare) | Not available | Not available | Every living party PokÃ©mon gains 2 levels. | Not available | Not available | Base pool; current-build eligibility applies |
+| Rare Candy (rare-candy-epic) | Not available | Not available | Not available | Every living party PokÃ©mon gains 3 levels. | Not available | Base pool; current-build eligibility applies |
+| Rare Candy (rare-candy-legendary) | Not available | Not available | Not available | Not available | Every living party PokÃ©mon gains 5 levels. | Base pool; current-build eligibility applies |
+| Power Herb (power-herb-epic) | Not available | Not available | Not available | Every 3rd squad attack reduces your current special cooldown by 8%. | Not available | Base pool; current-build eligibility applies |
+| Legendary Echo Bell (echo-bell-legendary) | Not available | Not available | Not available | Not available | Every 5th squad attack repeats at 130% damage. Repeats cannot trigger more item effects. | Relic satchel: Carry 8 different relics in one run. |
 | Legendary Loaded Dice (multi-lens-legendary) | Not available | Not available | Not available | Not available | Bolt, beam and lob attacks fire +2 projectiles. | Base pool; current-build eligibility applies |
 | Legendary Zap Plate (static-orb-legendary) | Not available | Not available | Not available | Not available | Critical hits arc for 50% of hit damage through up to 2 enemies within 4.7m. 0.15s cooldown. | Base pool; current-build eligibility applies |
 | Legendary Leftovers (leftovers-legendary) | Not available | Not available | Not available | Not available | Each squad member restores 1.6% of their own max HP each second. | Base pool; current-build eligibility applies |
@@ -111,7 +124,7 @@ This technical reference makes hidden cooldowns, counters and scaling reviewable
 
 | Relic | Owner / stacking | Modifiers | Triggered rules |
 | --- | --- | --- | --- |
-| Metronome | squad; repeatable | None | onAttack, every 5; {"kind":"echo","damageScale":0.65} |
+| Echo Bell | squad; repeatable | None | onAttack, every 5; {"kind":"echo","damageScale":0.65} |
 | Loaded Dice | squad; repeatable | projectiles: +1 | None |
 | Zap Plate | squad; repeatable | None | onCrit, 0.15s cooldown; {"kind":"chain","damageScale":0.25,"jumps":2,"range":4.7,"element":"electric"} |
 | Leftovers | squad; repeatable | regenerationPercent: +0.008; partyRegenerationPercent: +0.008 | None |
@@ -135,7 +148,18 @@ This technical reference makes hidden cooldowns, counters and scaling reviewable
 | Binding Band | squad; repeatable | duration: +0.4 | None |
 | Team Battery | squad; unique | staminaCapacity: +1 × party size | None |
 | Big Root | squad; repeatable | None | onAttack, every 12, source counter; {"kind":"heal","amount":0,"maxHpFraction":0.015,"target":"leader"} |
-| Legendary Metronome | squad; repeatable | None | onAttack, every 5; {"kind":"echo","damageScale":1.3} |
+| Power Herb | squad; repeatable | None | onAttack, every 3; {"kind":"specialCooldownPercent","amount":0.03} |
+| Metronome | squad; repeatable | None | None |
+| Lucky Egg | squad; repeatable | xp: +0.03 | None |
+| Lucky Egg | squad; repeatable | xp: +0.06 | None |
+| Lucky Egg | squad; repeatable | xp: +0.09 | None |
+| Lucky Egg | squad; repeatable | xp: +0.2 | None |
+| Rare Candy | squad; repeatable | None | None |
+| Rare Candy | squad; repeatable | None | None |
+| Rare Candy | squad; repeatable | None | None |
+| Rare Candy | squad; repeatable | None | None |
+| Power Herb | squad; repeatable | None | onAttack, every 3; {"kind":"specialCooldownPercent","amount":0.08} |
+| Legendary Echo Bell | squad; repeatable | None | onAttack, every 5; {"kind":"echo","damageScale":1.3} |
 | Legendary Loaded Dice | squad; repeatable | projectiles: +2 | None |
 | Legendary Zap Plate | squad; repeatable | None | onCrit, 0.15s cooldown; {"kind":"chain","damageScale":0.5,"jumps":2,"range":4.7,"element":"electric"} |
 | Legendary Leftovers | squad; repeatable | regenerationPercent: +0.016; partyRegenerationPercent: +0.016 | None |
@@ -587,7 +611,7 @@ This is the available move catalogue for that form, before personal-level filter
 
 Q is improved implicitly by training the current leader’s signature rank. It has no independent Common/Rare/Epic card. Families are grouped by kind and name; evolution and rank can change values, so each representative is named. Swapping a form can therefore change the profile even when the special family stays the same.
 
-All damaging Q casts begin from `(32 + 2×(r−1)) × (1+0.02×(L−1)) × (1+P)`, then apply the profile/family damageScale and pattern timing. Therefore a rank can improve Q damage even when no extra pulse/projectile/width milestone occurs. Recharge is `profile.cooldown / (1+specialHaste)`; the current base is 16s. Q radius/range use the radius modifier and duration uses the duration modifier. Team Sanctuary heals `20 + 3r` squad HP rather than using the damage formula.
+All damaging Q casts begin from `(32 + 2×(r−1)) × (1+0.02×(L−1)) × (1+P) × (1+W)`, where `P` is squad damage and `W` is Wise Glasses damage, then apply the profile/family damageScale and pattern timing. Therefore a rank can improve Q damage even when no extra pulse/projectile/width milestone occurs. Recharge is `profile.cooldown / (1+specialHaste)`; the current base is 16s. Q radius/range use the radius modifier and duration uses the duration modifier. Team Sanctuary heals `20 + 3r` squad HP rather than using the damage formula.
 
 | Special / kind / aim | Species | Representative R1 values | R1→2 | R4→5 | R9→10 |
 | --- | --- | --- | --- | --- | --- |
@@ -614,7 +638,7 @@ All damaging Q casts begin from `(32 + 2×(r−1)) × (1+0.02×(L−1)) × (1+P)
 | Haunting Hex; curse; placement | Gastly, Haunter, Gengar | Gastly: {"range":20,"radius":4.5,"duration":1,"pulses":1,"projectiles":0,"damageScale":2.6,"cooldown":16,"angle":1,"knockback":0,"kind":"curse","name":"Haunting Hex","description":"Mark a distant cluster, then detonate the curse after a delay and leave them poisoned."} | Q Haunting Hex: stronger curse. | Q Haunting Hex: +0.5m width, stronger curse. | Q Haunting Hex: stronger curse. |
 | Focused Lance; lance; directional | Drowzee, Hypno, Mr. Mime, Jynx, Lapras, Porygon, Articuno, Dratini, Dragonair, Dragonite, Mewtwo | Drowzee: {"range":25,"radius":1.2,"duration":0,"pulses":1,"projectiles":0,"damageScale":2.8,"cooldown":16,"angle":1,"knockback":0,"kind":"lance","name":"Focused Lance","description":"Fire a wide piercing lance through a distant enemy line."} | Q Focused Lance: +0.6m reach. | Q Focused Lance: +0.3m width, +0.6m reach. | Q Focused Lance: +0.6m reach. |
 | Team Sanctuary; mend; automatic | Chansey | Chansey: {"range":16,"radius":5,"duration":0,"pulses":1,"projectiles":0,"damageScale":0,"cooldown":16,"angle":1,"knockback":0,"kind":"mend","name":"Team Sanctuary","description":"Restore the squad and briefly guard every living partner."} | Q Team Sanctuary: +3 squad healing. | Q Team Sanctuary: +3 squad healing. | Q Team Sanctuary: +3 squad healing. |
-| Flail; flurry; directional | Magikarp | Magikarp: {"range":4.5,"radius":2,"duration":0.45,"pulses":2,"projectiles":0,"damageScale":0.28,"cooldown":16,"angle":1.2,"knockback":0,"kind":"flurry","name":"Flail","description":"Thrash at nearby enemies with short body strikes.","element":"normal"} |  | Q Flail: +0.4m reach. | Q Flail: +1 combo hit. |
+| Flail; flurry; directional | Magikarp | Magikarp: {"range":6.3,"radius":2,"duration":0.45,"pulses":2,"projectiles":0,"damageScale":0.28,"cooldown":16,"angle":1.2,"knockback":0,"kind":"flurry","name":"Flail","description":"Strike nearby enemies; damage rises linearly up to 3× as Magikarp loses HP.","element":"normal"} |  | Q Flail: +0.4m reach. | Q Flail: +1 combo hit. |
 | Hyper Beam; lance; directional | Gyarados | Gyarados: {"range":25,"radius":1.3,"duration":0,"pulses":1,"projectiles":0,"damageScale":3.584,"cooldown":16,"angle":1,"knockback":0,"kind":"lance","name":"Hyper Beam","description":"Fire a powerful straight beam through the enemy line.","element":"normal"} | Q Hyper Beam: +0.6m reach. | Q Hyper Beam: +0.3m width, +0.6m reach. | Q Hyper Beam: +0.6m reach. |
 | Quick Attack; quickstep; directional | Eevee | Eevee: {"range":9,"radius":1.5,"duration":0,"pulses":1,"projectiles":0,"damageScale":1.3,"cooldown":16,"angle":1,"knockback":0,"kind":"quickstep","name":"Quick Attack","description":"Dash quickly through enemies in a straight line.","element":"normal"} |  |  | Q Quick Attack: +1.0m reach. |
 | Tidal Rush; surf; directional | Vaporeon | Vaporeon: {"range":25,"radius":4,"duration":1.2,"pulses":1,"projectiles":0,"damageScale":2.576,"cooldown":16,"angle":1,"knockback":4,"kind":"surf","name":"Tidal Rush","description":"Sweep a long corridor with a traveling wave that soaks and pushes foes."} | Q Tidal Rush: +0.7m reach. | Q Tidal Rush: +0.5m width, +0.7m reach, stronger push. | Q Tidal Rush: +0.7m reach. |
@@ -724,9 +748,9 @@ Movement traits apply to the controlled leader. They are innate species properti
 
 | Species | Movement technique | Actual behavior |
 | --- | --- | --- |
-| Pikachu | Run-up +25% | Run straight for 1s to run on all fours with up to +25% movement speed. Turning, stopping, jumping or dodging resets the boost. |
-| Raichu | Run-up +18% | Run straight for 1s to run on all fours with up to +18% movement speed. Turning, stopping, jumping or dodging resets the boost. |
-| Jolteon | Run-up +18% | Run straight for 1s to run on all fours with up to +18% movement speed. Turning, stopping, jumping or dodging resets the boost. |
+| Pikachu | Run-up +25% | Run straight for 1s to build up to +25% movement speed. Turning, stopping, jumping or dodging resets the boost. |
+| Raichu | Run-up +18% | Run straight for 1s to build up to +18% movement speed. Turning, stopping, jumping or dodging resets the boost. |
+| Jolteon | Run-up +18% | Run straight for 1s to build up to +18% movement speed. Turning, stopping, jumping or dodging resets the boost. |
 | Butterfree | Short flight (1.5s) | Hold Space after jumping to fly for up to 1.5s over scenery and ground foes. Release to descend; 4s recharge. Ranged attacks still hit. |
 | Pidgey | Short flight (2s) | Hold Space after jumping to fly for up to 2s over scenery and ground foes. Release to descend; 4s recharge. Ranged attacks still hit. |
 | Pidgeotto | Short flight (2s) | Hold Space after jumping to fly for up to 2s over scenery and ground foes. Release to descend; 4s recharge. Ranged attacks still hit. |
@@ -883,6 +907,7 @@ N3 removed modifier and proc ceilings that made percentage upgrades stop helping
 | staminaCapacity | No upper cap |
 | critDamagePercent | No upper cap |
 | power | No upper cap |
+| specialPower | No upper cap |
 | haste | No upper cap |
 | speed | No upper cap |
 | armor | No upper cap |

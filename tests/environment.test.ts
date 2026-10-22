@@ -4,12 +4,12 @@ import {worldProfile} from '../src/data/maps.ts';
 import {WORLD,LANDMARKS} from '../src/data/world.ts';
 import {biomeAt,boundaryStrength,createEnvironment,createPOIs,explorationRoute,ObstacleField,rareEventFor,terrainHeight} from '../src/game/systems/environment.ts';
 
-test('seeded exploration sites retain every optional kind, safe spawn and separation across biomes',()=>{
+test('seeded exploration sites use statue shrines, safe spawn and separation across biomes',()=>{
  for(let seed=1;seed<=250;seed++){
   const profile=worldProfile(seed),pois=createPOIs(seed);assert.deepEqual(pois,createPOIs(seed));
   assert.deepEqual(pois.map(p=>p.uid),Array.from({length:21},(_,i)=>20+i));
-  assert.ok(pois.filter(p=>p.kind==='cache').length>=6);assert.ok(pois.filter(p=>p.kind==='healing').length>=3);
-  assert.ok(pois.filter(p=>p.kind==='shrine').length>=2);assert.ok(pois.filter(p=>p.kind==='elite').length>=4);
+  assert.ok(pois.filter(p=>p.kind==='cache').length>=8);assert.equal(pois.filter(p=>p.kind==='healing').length,0);
+  assert.ok(pois.filter(p=>p.kind==='shrine').length>=7);assert.ok(pois.every(p=>p.kind!=='elite'));
   assert.equal(new Set(pois.map(p=>biomeAt(p.x,p.z,profile))).size,4);
   for(const [index,poi] of pois.entries()){
    assert.equal(poi.used,false);assert.ok(Math.hypot(poi.x,poi.z)>=27);assert.ok(Math.max(Math.abs(poi.x),Math.abs(poi.z))<=101*WORLD.scale);
@@ -97,9 +97,8 @@ test('rare exploration hooks are seeded, optional and independent of visitation 
  for(let seed=1;seed<=500;seed++)for(const poi of createPOIs(seed)){
   const before=structuredClone(poi),event=rareEventFor(seed,poi);
   assert.deepEqual(rareEventFor(seed,poi),event);assert.deepEqual(poi,before);
-  if(poi.kind==='elite'){assert.equal(event,null);continue;}
   eligible++;if(event){events++;kinds.add(event.kind);}
  }
  assert.ok(events/eligible>.03&&events/eligible<.14,`Observed optional site event rate: ${events}/${eligible}`);
- assert.deepEqual(kinds,new Set(['cache-ambush','wild-bloom','ancient-echo']));
+ assert.deepEqual(kinds,new Set(['cache-ambush','ancient-echo']));
 });

@@ -2,7 +2,7 @@ import type {Element} from './kanto.ts';
 import type {UpgradeChoice} from '../game/types.ts';
 
 /** Percentage bonuses add against the base stat; flat amounts retain their units. */
-export type BuildStat='staminaRechargeReduction'|'defense'|'deflection'|'staminaCapacity'|'critDamagePercent'|'power'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'xpCatchup'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
+export type BuildStat='staminaRechargeReduction'|'defense'|'deflection'|'staminaCapacity'|'critDamagePercent'|'power'|'specialPower'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'xpCatchup'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
 export interface StatModifier {
  stat:BuildStat;amount:number;scale?:'party';evolution?:'unevolved'|'evolved';healthBelow?:number;
 }
@@ -16,7 +16,8 @@ export type EffectAction=
  |{kind:'selfDamage';amount:number}
  |{kind:'status';status:BuildStatus;duration:number}
  |{kind:'xp';amount:number}
- |{kind:'specialCharge';amount:number};
+ |{kind:'specialCharge';amount:number}
+ |{kind:'specialCooldownPercent';amount:number};
 export interface EffectRule {
  event:BuildEventKind;action:EffectAction;chance?:number;every?:number;cooldown?:number;
  /** Source counters belong to one attacker; squad counters combine all attacks. */
@@ -30,13 +31,17 @@ export interface ItemDefinition {
  /** Retired entries remain resolvable for existing runs, but never appear as new rewards. */
  offerable?:boolean;minimumParty?:number;
  modifiers?:readonly StatModifier[];effects?:readonly EffectRule[];
+ /** A percentage added for each uninterrupted squad hit on one enemy. */
+ consecutiveTargetDamage?:number;
+ /** Full levels granted to every living party member when this relic is acquired. */
+ levelGain?:number;
 }
 type ItemInput=Omit<ItemDefinition,'ownership'|'stacking'|'maxStacks'> & Partial<Pick<ItemDefinition,'ownership'|'stacking'|'maxStacks'>>;
 const item=(definition:ItemInput):ItemDefinition=>({ownership:'squad',stacking:'stack',maxStacks:Infinity,...definition});
 
 /** One catalogue drives offers, the effect interpreter and the pause build summary. */
 const BASE_ITEM_DEFINITIONS:readonly ItemDefinition[]=[
- item({id:'echo-bell',title:'Metronome',description:'Every 5th squad attack repeats at 65% damage. Repeats cannot trigger more item effects.',rarity:'epic',effects:[{event:'onAttack',every:5,action:{kind:'echo',damageScale:.65}}]}),
+ item({id:'echo-bell',title:'Echo Bell',description:'Every 5th squad attack repeats at 65% damage. Repeats cannot trigger more item effects.',rarity:'epic',effects:[{event:'onAttack',every:5,action:{kind:'echo',damageScale:.65}}]}),
  item({id:'multi-lens',title:'Loaded Dice',description:'Bolt, beam and lob attacks fire +1 projectile.',rarity:'epic',modifiers:[{stat:'projectiles',amount:1}]}),
  item({id:'static-orb',title:'Zap Plate',description:'Critical hits arc for 25% of hit damage through up to 2 enemies within 4.7m. 0.15s cooldown.',rarity:'rare',effects:[{event:'onCrit',cooldown:.15,action:{kind:'chain',damageScale:.25,jumps:2,range:4.7,element:'electric'}}]}),
  item({id:'leftovers',title:'Leftovers',description:'Each squad member restores 0.8% of their own max HP each second.',rarity:'rare',modifiers:[{stat:'regenerationPercent',amount:.008},{stat:'partyRegenerationPercent',amount:.008}]}),
@@ -73,6 +78,21 @@ const BASE_ITEM_DEFINITIONS:readonly ItemDefinition[]=[
  item({id:'binding-thread',title:'Binding Band',description:'+40% duration for poison, burn, slow, soaked and stun from your squad.',rarity:'rare',modifiers:[{stat:'duration',amount:.4}]}),
  item({id:'team-battery',title:'Team Battery',description:'+1 maximum stamina (dodge charge) per current party member, including the leader. Requires at least 3 living members to acquire.',rarity:'rare',minimumParty:3,stacking:'unique',maxStacks:1,modifiers:[{stat:'staminaCapacity',amount:1,scale:'party'}]}),
  item({id:'healing-bead',title:'Big Root',description:'Every 12 attacks from each member restore 1.5% of the leader\'s max HP. Each member has their own attack counter.',rarity:'common',effects:[{event:'onAttack',every:12,counter:'source',action:{kind:'heal',amount:0,maxHpFraction:.015,target:'leader'}}]}),
+ item({id:'power-herb',baseId:'power-herb',title:'Power Herb',description:'Every 3rd squad attack reduces your current special cooldown by 3%.',rarity:'rare',effects:[{event:'onAttack',every:3,action:{kind:'specialCooldownPercent',amount:.03}}]}),
+];
+
+/** Families with authored rarity curves instead of the normal base/Legendary pair. */
+const AUTHORED_RARITY_VARIANTS:readonly ItemDefinition[]=[
+ item({id:'metronome-ramp',baseId:'metronome-ramp',title:'Metronome',description:'Consecutive squad hits on the same enemy deal +10% damage per prior uninterrupted hit.',rarity:'legendary',consecutiveTargetDamage:.1}),
+ item({id:'lucky-egg-xp',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+3% XP earned from drops and defeats.',rarity:'common',modifiers:[{stat:'xp',amount:.03}]}),
+ item({id:'lucky-egg-xp-rare',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+6% XP earned from drops and defeats.',rarity:'rare',modifiers:[{stat:'xp',amount:.06}]}),
+ item({id:'lucky-egg-xp-epic',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+9% XP earned from drops and defeats.',rarity:'epic',modifiers:[{stat:'xp',amount:.09}]}),
+ item({id:'lucky-egg-xp-legendary',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+20% XP earned from drops and defeats.',rarity:'legendary',modifiers:[{stat:'xp',amount:.2}]}),
+ item({id:'rare-candy',baseId:'rare-candy',title:'Rare Candy',description:'Every living party PokÃ©mon gains 1 level.',rarity:'common',levelGain:1}),
+ item({id:'rare-candy-rare',baseId:'rare-candy',title:'Rare Candy',description:'Every living party PokÃ©mon gains 2 levels.',rarity:'rare',levelGain:2}),
+ item({id:'rare-candy-epic',baseId:'rare-candy',title:'Rare Candy',description:'Every living party PokÃ©mon gains 3 levels.',rarity:'epic',levelGain:3}),
+ item({id:'rare-candy-legendary',baseId:'rare-candy',title:'Rare Candy',description:'Every living party PokÃ©mon gains 5 levels.',rarity:'legendary',levelGain:5}),
+ item({id:'power-herb-epic',baseId:'power-herb',title:'Power Herb',description:'Every 3rd squad attack reduces your current special cooldown by 8%.',rarity:'epic',effects:[{event:'onAttack',every:3,action:{kind:'specialCooldownPercent',amount:.08}}]}),
 ];
 
 const LEGENDARY_DESCRIPTIONS:Record<string,string>={
@@ -109,14 +129,14 @@ function legendaryAction(action:EffectAction):EffectAction {
   case 'chain':case 'area':return {...action,damage:action.damage===undefined?undefined:action.damage*2,damageScale:action.damageScale===undefined?undefined:action.damageScale*2};
   case 'heal':return {...action,amount:action.amount*2,maxHpFraction:action.maxHpFraction===undefined?undefined:action.maxHpFraction*2};
   case 'status':return {...action,duration:action.duration*2};
-  case 'xp':case 'specialCharge':return {...action,amount:action.amount*2};
+  case 'xp':case 'specialCharge':case 'specialCooldownPercent':return {...action,amount:action.amount*2};
   case 'selfDamage':return {...action};
  }
 }
 
 /** Same triggers and drawbacks; twice the positive bonus or triggered strength. */
-export const ITEM_DEFINITIONS:readonly ItemDefinition[]=[...BASE_ITEM_DEFINITIONS,
- ...BASE_ITEM_DEFINITIONS.filter(base=>base.offerable!==false||base.id==='long-barrel').map(base=>({...base,
+export const ITEM_DEFINITIONS:readonly ItemDefinition[]=[...BASE_ITEM_DEFINITIONS,...AUTHORED_RARITY_VARIANTS,
+ ...BASE_ITEM_DEFINITIONS.filter(base=>!base.baseId&&(base.offerable!==false||base.id==='long-barrel')).map(base=>({...base,
   id:`${base.id}-legendary`,baseId:base.id,title:`Legendary ${base.title}`,rarity:'legendary' as const,
   description:LEGENDARY_DESCRIPTIONS[base.id],
   modifiers:base.modifiers?.map(modifier=>({...modifier,amount:modifier.amount>0?modifier.amount*2:modifier.amount})),

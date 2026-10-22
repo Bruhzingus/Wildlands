@@ -29,7 +29,7 @@ test('nearby previews, species sculptures, tier dust and hazard warnings agree w
   const g=(window as any).__WILDLANDS__,site=g.sim.state.pois[0];return g.scene.getMeshByName(`shrine-hazard-${site.uid}-0`)?.isEnabled();
  })).toBe(true);
  await expect.poll(()=>page.evaluate(()=>{
-  const g=(window as any).__WILDLANDS__,site=g.sim.state.pois[0];return g.scene.getMeshByName(`marker-ring-${site.uid}`).scaling.x;
- })).toBe(9);
+  const g=(window as any).__WILDLANDS__,site=g.sim.state.pois[0];return {active:!!site.challenge,statue:!!g.scene.getMeshByName(`shrine-statue-${site.uid}`)};
+ })).toEqual({active:true,statue:true});
  expect(errors).toEqual([]);
 });

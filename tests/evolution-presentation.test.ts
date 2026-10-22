@@ -37,3 +37,15 @@ test('stale or fainted evolution cannot start a presentation or resurrect a memb
  assert.equal(sim.choose('evolve-1-5'),false);assert.equal(s.party[0].hp,0);assert.equal(s.party[0].speciesId,4);
  assert.equal(events.filter(event=>event.evolution).length,0);assert.equal(s.stats.evolutions,0);
 });
+
+test('evolution presentation leaves combat running and opens queued rewards afterward',()=>{
+ const sim=new Simulation(4,8),s=sim.state;
+ s.recruitCount=5;s.stats.elapsed=600;s.party[0].level=30;s.party[0].joinedAt=0;
+ s.player.iframes=100;s.pendingSquadRewards=1;
+ const choice:UpgradeChoice={id:`evolve-${s.party[0].uid}-5`,kind:'evolve',speciesId:s.party[0].uid,sourceSpeciesId:4,targetId:5,title:'Evolution',description:'',rarity:'epic'};
+ sim.enterChoice([choice]);assert.equal(sim.choose(choice.id,true),true);
+ assert.equal(s.phase,'playing');assert.equal(s.pendingSquadRewards,1);
+ const elapsed=s.stats.elapsed;sim.update(.04,idle);
+ assert.ok(s.stats.elapsed>elapsed);assert.equal(s.phase,'playing');
+ sim.resumeDeferredRewards();assert.equal(s.phase,'choice');assert.equal(s.pendingSquadRewards,0);
+});

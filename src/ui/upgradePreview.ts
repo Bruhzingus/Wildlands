@@ -28,18 +28,20 @@ export function upgradeStatPreview(state:RunState,choice:UpgradeChoice):StatPrev
  }
  if(choice.kind!=='stat'&&choice.kind!=='item')return [];
  const projected:RunState={...state,buffs:{...state.buffs},trainingRanks:{...state.trainingRanks},
-  player:{...state.player},party:state.party.map(member=>({...member})),items:[...state.items],itemStacks:{...state.itemStacks}};
+  player:{...state.player},party:state.party.map(member=>({...member,trainingBuffs:{...member.trainingBuffs},trainingRanks:{...member.trainingRanks}})),items:[...state.items],itemStacks:{...state.itemStacks}};
  if(!applyChoice(projected,choice).applied)return [];
- const before=getBuildModifiers(state),after=getBuildModifiers(projected),rows:StatPreview[]=[];
+ const owner=choice.kind==='stat'?choice.speciesId:undefined;
+ const personal=state.party.find(member=>member.uid===owner),projectedPersonal=projected.party.find(member=>member.uid===owner);
+ const before=getBuildModifiers(state,owner),after=getBuildModifiers(projected,owner),rows:StatPreview[]=[];
  if(choice.kind==='item')rows.push({label:'Copies',before:String(itemStacks(state,choice.id)),after:String(itemStacks(projected,choice.id))});
- if(choice.stat==='health')rows.push({label:'Max HP bonus',before:formatPercent(state.buffs.health||0),after:formatPercent(projected.buffs.health||0)});
+ if(choice.stat==='health')rows.push({label:'Max HP bonus',before:formatPercent((1+(state.buffs.health||0))*(1+(personal?.trainingBuffs?.health||0))-1),after:formatPercent((1+(projected.buffs.health||0))*(1+(projectedPersonal?.trainingBuffs?.health||0))-1)});
  for(const [key,label] of Object.entries(labels)){
   const stat=key as BuildStat;
   if(Math.abs(before[stat]-after[stat])<1e-12)continue;
   const format=stat==='critDamage'?(value:number)=>`${Number(value.toFixed(3))}×`:flat.has(stat)?(value:number)=>String(Number(value.toFixed(2))):formatPercent;
   rows.push({label:label!,before:format(before[stat]),after:format(after[stat])});
  }
- const leader=state.party[0],rate=(interval:number)=>`${Number((1/interval).toFixed(2))} / sec`,seconds=(value:number)=>`${Number(value.toFixed(2))}s`;
+ const leader=personal??state.party[0],rate=(interval:number)=>`${Number((1/interval).toFixed(2))} / sec`,seconds=(value:number)=>`${Number(value.toFixed(2))}s`;
  if(after.haste!==before.haste&&leader){
   const profile=getAttackProfile(leader.speciesId,leader.attackLevel);
   rows.push({label:`${getSpecies(leader.speciesId).moveName} rate`,before:rate(attackInterval(profile.cooldown,before.haste,leader.attackLevel)),after:rate(attackInterval(profile.cooldown,after.haste,leader.attackLevel))});
@@ -47,6 +49,6 @@ export function upgradeStatPreview(state:RunState,choice:UpgradeChoice):StatPrev
  }
  if(after.stamina!==before.stamina||after.staminaRechargeReduction!==before.staminaRechargeReduction)rows.push({label:'Dodge cooldown',before:seconds(Math.max(.01,DESIGN.dodgeCooldown*(1-before.staminaRechargeReduction)/(1+before.stamina))),after:seconds(Math.max(.01,DESIGN.dodgeCooldown*(1-after.staminaRechargeReduction)/(1+after.stamina)))});
  if(after.specialHaste!==before.specialHaste&&leader){const special=getSpecialProfile(leader.speciesId,leader.attackLevel);rows.push({label:'Q cooldown',before:seconds(special.cooldown/(1+before.specialHaste)),after:seconds(special.cooldown/(1+after.specialHaste))});}
- if(choice.stat==='health')rows.push({label:'Leader max HP',before:String(Number(state.player.maxHp.toFixed(1))),after:String(Number(projected.player.maxHp.toFixed(1)))});
+ if(choice.stat==='health')rows.push({label:personal?'Pokémon max HP':'Leader max HP',before:String(Number((personal??state.player).maxHp.toFixed(1))),after:String(Number((projectedPersonal??projected.player).maxHp.toFixed(1)))});
  return rows;
 }

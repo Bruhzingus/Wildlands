@@ -45,17 +45,18 @@ export const TRAINING_UPGRADES:readonly TrainingUpgrade[] = [
  {id:'health',stat:'health',amount:.1,amounts:{common:.1,rare:.2,epic:.3,legendary:.5},title:'HP Up',description:'+10% of base maximum HP for every squad member. Keeps current health percentages.',rarity:'common'},
  {id:'stamina',stat:'staminaCapacity',amount:1,amounts:{epic:1,legendary:3},title:'Endure',description:'+1 maximum stamina (dodge charge).',rarity:'epic'},
  {id:'special',stat:'specialHaste',amount:.25,title:'Calm Mind',description:'+25% special ability recharge speed.',rarity:'common'},
+ {id:'wise-glasses',stat:'specialPower',amount:.1,amounts:{common:.1,uncommon:.2,rare:.3,epic:.5,legendary:1},title:'Wise Glasses',description:'+10% damage for your special ability. Only appears when your special can deal damage.',rarity:'common'},
  {id:'crit',stat:'crit',amount:.04,title:'Focus Energy',description:'+4% critical strike chance. Each full 100% guarantees another critical tier.',rarity:'common'},
  {id:'deflection',stat:'deflection',amount:.03,amounts:{common:.03,rare:.05,epic:.09,legendary:.15},title:'Deflection',description:'+3% chance to deflect attacks completely. Maximum 50%.',rarity:'common'},
  {id:'radius',stat:'radius',amount:.126,title:'Expanding Force',description:'+12.6% attack reach and area radius for every move.',rarity:'common'},
 ];
 
-export const TRAINING_RARITY_MULTIPLIERS={common:1,rare:2,epic:3,legendary:4} as const;
+export const TRAINING_RARITY_MULTIPLIERS={common:1,uncommon:1.5,rare:2,epic:3,legendary:4} as const;
 
 /** Explicit curves and availability are shared by offers, validation and catalogues. */
 export function trainingVariants(upgrade:TrainingUpgrade):Array<{rarity:UpgradeChoice['rarity'];amount:number;rechargeReduction:number}> {
  return (Object.keys(TRAINING_RARITY_MULTIPLIERS) as Array<keyof typeof TRAINING_RARITY_MULTIPLIERS>).flatMap(rarity=>{
-  const amount=upgrade.amounts?upgrade.amounts[rarity]:upgrade.amount*TRAINING_RARITY_MULTIPLIERS[rarity];
+  const amount=upgrade.amounts?upgrade.amounts[rarity]:rarity==='uncommon'?undefined:upgrade.amount*TRAINING_RARITY_MULTIPLIERS[rarity];
   return amount===undefined?[]:[{rarity,amount:Number(amount.toFixed(4)),rechargeReduction:upgrade.rechargeReduction?.[rarity]??0}];
  });
 }

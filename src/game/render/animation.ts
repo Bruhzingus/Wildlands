@@ -3,7 +3,7 @@ import type {AttackKind} from '../../data/kanto.ts';
 import type {EnemyAttackRole} from '../../data/enemyAttacks.ts';
 import type {SpecialKind} from '../../data/specials.ts';
 
-export type AnimationName = 'idle' | 'walk' | 'attack' | 'run';
+export type AnimationName = 'idle' | 'walk' | 'attack';
 export type AttackStyle = keyof typeof ATTACK_POSES;
 export interface AttackPose {forward:number;lift:number;scaleX:number;scaleY:number;lean:number;}
 
