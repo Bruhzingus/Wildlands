@@ -7,6 +7,7 @@ import {DESIGN,DIFFICULTY,LATE_ENEMY_SCALING,ordinaryThreatScale} from '../../da
 import {getVariant,SPAWN_VARIANTS,variantThreat,variantWeights} from '../../data/variants.ts';
 import type {Enemy,Player,RunState,Variant,Vec2} from '../types.ts';
 import {getBuildModifiers} from './builds.ts';
+import {shrineDefinition,shrineXPMultiplier} from '../../data/shrines.ts';
 
 export function averagePartyLevel(state:RunState):number {
  const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0);
@@ -52,23 +53,26 @@ export function createEnemy(state:RunState,rng:RNG,speciesId:number,variant:Vari
  const damageScale=(boss?1.35:ordinaryThreatScale(state.stats.elapsed)*(elite?DIFFICULTY.eliteDamage:1))*progression.damage*challengeRules(state.challenge).damageScale*late.damage;
  return {uid:state.idCounter++,speciesId,variant,combatTier,attackIndex:0,x,z,hp,maxHp:hp,speed:(2.8+t*.035)*profile.speed*mod.speed*challengeRules(state.challenge).speedScale,damage:(6+profile.strength*1.2+t*.3)*profile.damage*mod.damage*damageScale*(tuning?.damageMultiplier??1),size:boss?4.4:profile.size*(elite?1.22:1)*(tuning?.sizeMultiplier??1),hitCooldown:0,attackCooldown:rng.between(.3,1.9),poisonTime:0,burnTime:0,slowTime:0,soakedTime:0,stunTime:0,elite,dead:false,isBoss:boss,facing:Math.atan2(state.player.x-x,state.player.z-z),animation:'idle',attackTimer:0};
 }
-/** Optional landmark fights scale with the run's growing party and move budget. */
+/** Shrines have fixed tier budgets; elite landmarks scale with the run. */
 export function createGuardian(state:RunState,rng:RNG,speciesId:number,x:number,z:number,shrine=false,tier=1):Enemy {
- const hardShrine=shrine&&tier>=4;
- const variant=hardShrine&&getEnemyTier(speciesId)===3?'rocket':'normal';
- const guardianTier=hardShrine?4:Math.max(3,getEnemyTier(speciesId)) as EnemyTier;
- const guardian=createEnemy(state,rng,speciesId,variant,x,z,true,false,guardianTier);
+ if(shrine){
+  const definition=shrineDefinition(tier),combatTier=Math.min(4,getEnemyTier(speciesId)) as EnemyTier;
+  const guardian=createEnemy(state,rng,speciesId,'normal',x,z,true,false,combatTier);
+  guardian.hp=guardian.maxHp=definition.health/definition.count;
+  guardian.damage=definition.damage*challengeRules(state.challenge).damageScale;
+  guardian.speed=3.15*getEnemySpeciesProfile(speciesId).speed*challengeRules(state.challenge).speedScale;
+  guardian.attackCooldown=.9;guardian.hardShrine=tier>=13;
+  guardian.shrineGuardian=true;guardian.landmarkGuardian=true;
+  guardian.shrineXPScale=shrineXPMultiplier(definition,state.party[0].level);
+  return guardian;
+ }
+ const guardianTier=Math.max(3,getEnemyTier(speciesId)) as EnemyTier;
+ const guardian=createEnemy(state,rng,speciesId,'normal',x,z,true,false,guardianTier);
  const late=lateEnemyScale(state.stats.elapsed,speciesId,guardianTier);
- guardian.hardShrine=hardShrine;
+ guardian.hardShrine=false;
  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,(DIFFICULTY.guardianBaseHp+averagePartyLevel(state)*DIFFICULTY.guardianHpPerLevel+state.stats.elapsed*DIFFICULTY.guardianHpPerSecond)*late.health);
  guardian.damage*=DIFFICULTY.guardianDamage;guardian.attackCooldown=.7;
- if(shrine){
-  const living=state.party.filter((member,index)=>(index===0?state.player.hp:member.hp)>0).length;
-  guardian.hp=guardian.maxHp=Math.max(guardian.maxHp,(1800+averagePartyLevel(state)*240+state.stats.elapsed*2)*late.health)*(1+.22*(living-1))*(1+.22*(tier-1));
-  // A real threat even before the ordinary enemy damage ramp begins.
-  guardian.damage=Math.max(guardian.damage,(24+averagePartyLevel(state)*.55)*challengeRules(state.challenge).damageScale*late.damage)*(1+.14*(tier-1));
- }
- guardian.shrineGuardian=shrine;guardian.landmarkGuardian=true;return guardian;
+ guardian.shrineGuardian=false;guardian.landmarkGuardian=true;return guardian;
 }
 export function enemySpawnPosition(player:Pick<Player,'x'|'z'|'facing'>,rng:RNG,minDistance=24,maxDistance=34):Vec2{
  const bound=DESIGN.mapRadius-4;

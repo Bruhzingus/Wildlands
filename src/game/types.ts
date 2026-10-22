@@ -13,7 +13,7 @@ export interface Enemy{
  facing:number;animation:'idle'|'walk'|'attack';attackTimer:number;attackDuration?:number;hitCooldown:number;attackCooldown:number;
  poisonTime:number;burnTime:number;slowTime:number;soakedTime:number;stunTime:number;elite:boolean;dead:boolean;isBoss:boolean;
  windup?:EnemyWindup;bossCycle?:number;bossStage?:number;shrineGuardian?:boolean;challengeSiteId?:number;landmarkGuardian?:boolean;
- combatTier?:import('../data/enemyTiers.ts').EnemyTier;attackIndex?:number;hardShrine?:boolean;lastAttackRole?:import('../data/enemyAttacks.ts').EnemyAttackRole;
+ combatTier?:import('../data/enemyTiers.ts').EnemyTier;attackIndex?:number;hardShrine?:boolean;lastAttackRole?:import('../data/enemyAttacks.ts').EnemyAttackRole;shrineXPScale?:number;
 }
 export interface PsychicRing{uid:number;sourceId:number;x:number;z:number;radius:number;previousRadius:number;maxRadius:number;speed:number;width:number;damage:number;hit:Set<number>;color?:string;}
 export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:number;vx:number;vz:number;ttl:number;damage:number;size:number;kind:AttackKind;type:Element;penetration:number;hit:Set<number>;friendly:boolean;sourceId:number;targetId?:number;poisonChance:number;silhouette?:import('../data/attacks.ts').ProjectileShape;radius?:number;crit?:boolean;status?:CombatStatus;allowProcs?:boolean;blastX?:number;blastZ?:number;moveName?:string;duration?:number;
@@ -24,14 +24,14 @@ export interface Projectile{uid:number;x:number;z:number;prevX:number;prevZ:numb
 }
 export interface Drop{uid:number;x:number;z:number;value:number;age:number;kind:'xp'|'heal'|'coin'|'item';itemId?:string;}
 export type LootRarity='common'|'rare'|'epic';
-export interface ShrineChallenge {id:import('../data/optionalChallenges.ts').OptionalChallengeId;guardianId?:number;endsAt:number;tier:number;progress?:number;nextPressureAt?:number;ringIds?:number[];}
-export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;rarity?:LootRarity;uses?:number;respawnAt?:number;rareTriggered?:boolean;name?:string;availableAt?:number;announced?:boolean;changeLabel?:string;challengeKind?:import('../data/optionalChallenges.ts').OptionalChallengeId;challenge?:ShrineChallenge;}
+export interface ShrineChallenge {id:import('../data/optionalChallenges.ts').OptionalChallengeId;guardianId?:number;guardianIds?:number[];startedAt?:number;endsAt:number;tier:number;progress?:number;nextPressureAt?:number;ringIds?:number[];}
+export interface POI{uid:number;x:number;z:number;kind:'cache'|'shrine'|'elite'|'healing';used:boolean;price?:number;rarity?:LootRarity;uses?:number;respawnAt?:number;rareTriggered?:boolean;name?:string;availableAt?:number;announced?:boolean;changeLabel?:string;challengeKind?:import('../data/optionalChallenges.ts').OptionalChallengeId;shrineTier?:number;promoteShrineOnRestock?:boolean;challenge?:ShrineChallenge;}
 export type RewardSource='level'|'cache'|'squad'|'shop'|'recruit';
 export type ChoiceKind='recruit'|'evolve'|'attack'|'learn'|'stat'|'item';
 export type UpgradeRarity=LootRarity|'uncommon'|'legendary';
 export interface UpgradeChoice{id:string;kind:ChoiceKind;title:string;description:string;rarity:UpgradeRarity;speciesId?:number; stat?:string; amount?:number;targetId?:number;category?:string;rank?:number;maxRank?:number;sourceSpeciesId?:number;moveId?:string;}
 export interface MovementState{speciesId:number;straightTime:number;heading:number;boost:number;holdTime:number;flightRemaining:number;flightCooldown:number;flightEligible:boolean;flightUsed:boolean;flying:boolean;}
-export interface Player{x:number;z:number;y:number;vy:number;facing:number;aimFacing?:number;hp:number;maxHp:number;iframes:number;poisonTime:number;dodgeTime:number;dodgeCooldown:number;dodgeCharges?:number;specialCooldown:number;specialCharge:number;movement?:MovementState;}
+export interface Player{x:number;z:number;y:number;vy:number;facing:number;aimFacing?:number;hp:number;maxHp:number;iframes:number;poisonTime:number;dodgeTime:number;dodgeCooldown:number;dodgeCharges?:number;burrowTime?:number;specialCooldown:number;specialCharge:number;movement?:MovementState;}
 export interface RunStats{kills:number;recruits:number;evolutions:number;level:number;xp:number;xpToNext:number;elapsed:number;damageDealt:number;damageTaken:number;faints:number;bossKilled:boolean;bossesDefeated?:number;highestCombo:number;}
 /** Seeded, simulation-owned map interactions. Renderers only mirror this state. */
 export interface TerrainFeature{uid:number;kind:'bramble'|'ruin-beacon';x:number;z:number;radius:number;state:'ready'|'arming'|'spent';armedUntil?:number;}

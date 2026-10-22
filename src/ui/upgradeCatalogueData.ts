@@ -114,7 +114,7 @@ export function createUpgradeCatalogue():readonly CatalogueEntry[]{
   const target=getSpecies(targetId),rule=evolutionRule(source.id,targetId)!;
   entries.push({id:`evolution:${source.id}:${targetId}`,group:'evolutions',title:`${source.name} → ${target.name}`,subtitle:`Evolution · ${target.moveName}`,description:evolutionRequirement(source.id,targetId),
    rarities:['epic'],elements:target.types,level:rule.level,
-   stats:[stat('Max HP',`+${pct(PROGRESSION.evolution.healthGain)}`),stat('Permanent attack',`+${pct(PROGRESSION.evolution.powerGain)}`),stat('All known moves',`+${PROGRESSION.evolution.moveRankGain} rank`)],
+   stats:[stat('Max HP',`+${pct(target.health/source.health-1)}`),stat('Permanent attack',`+${pct(PROGRESSION.evolution.powerGain)}`),stat('All known moves',`+${PROGRESSION.evolution.moveRankGain} rank`)],
    details:[detail('Preserved','Keeps personal level, XP, trained moves and current health fraction.'),detail('Movement when leading',`${movementTraitLabel(source.id)} → ${movementTraitLabel(targetId)}`),detail('Matching move','A learned move matching the new signature merges into the signature at the higher existing rank plus one, freeing its learned slot. No unrelated move is granted.') ]});
  }
  for(const species of RECRUIT_POOL)entries.push({id:`recruit:${species.id}`,group:'recruitment',title:`Recruit ${species.name}`,subtitle:`First-stage teammate · ${species.moveName}`,description:species.evolvesTo.length?`Evolution options: ${names(species.evolvesTo)}.`:'Single-stage mastery: unlimited move training with extra ranks from personal level 5.',

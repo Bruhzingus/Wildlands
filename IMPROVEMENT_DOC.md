@@ -9,6 +9,14 @@ native hovering motion, attack priority and reduced-motion behavior are retained
 Contact shadows follow terrain slopes. See [the N1 handoff](docs/N1_IMPLEMENTATION_REPORT.md)
 for matching before/after clips, verification and native-sheet limitations.
 
+**Owner movement extension (October 22, 2026): implemented.** N1 now also includes
+innate leader movement traits: straight-line Run-up for Pikachu/Raichu/Jolteon,
+brief hold-Space flight for Pidgey/Zubat families and Butterfree, and Magikarp's
+higher Splash leap. These deliberately extend the original presentation-only
+scope at the owner's request. Magikarp and Zubat are finite starter unlocks from
+existing accomplishments. Cards, HUD, evolution previews and the catalogue
+explain the traits and their tradeoffs. See the updated N1 handoff for tuning.
+
 **N3 upgrade rework (October 21, 2026): implemented.** Attack speed now keeps
 shortening actual cast intervals; it no longer turns into stronger hits/healing.
 Iron Defense is removed. The current inventory has nine training families / 34 rarity variants, including Deflection from the concurrent defense work.
@@ -99,6 +107,14 @@ Regenerate with `node --experimental-strip-types scripts/generate-upgrade-catalo
 ## 1. Things that need to be worked on
 
 ### N1 — Improve Pokémon movement presentation
+
+**October 22 owner extension:** Add a small set of lore-inspired movement
+techniques, using movement utility to help differentiate weaker or simpler
+attack/special kits. Requested examples are a speed boost after running straight
+for more than a second and brief hold-jump flight over foes/scenery. Existing
+Abra teleport remains. The original handoff below documents the visual scope;
+the explicit owner extension also authorizes the leader mechanics now recorded
+in [the N1 report](docs/N1_IMPLEMENTATION_REPORT.md).
 
 **Priority and purpose:** High. Movement is one of the owner's two most unfinished-looking areas, and is visible throughout every run. **Dependencies:** Coordinate with N5 performance and N2 shared visual state.
 

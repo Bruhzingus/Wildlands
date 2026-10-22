@@ -50,7 +50,7 @@ test('paid chests keep offering training after collecting every relic',()=>{
 
 test('elite rewards train the squad separately and cannot consume an earned personal milestone',()=>{
  const {sim,s}=arena();s.stats.elapsed=200;
- const elite=createGuardian(s,sim.rng,26,8,0,true);s.enemies=[elite];
+ const elite=createGuardian(s,sim.rng,26,8,0);s.enemies=[elite];
  (sim as any).damageEnemy(elite,100000,'normal',1);
  sim.update(.04,idle);assert.equal(s.choiceSource,'squad');assert.equal(s.phase,'choice');
  assert.ok(s.upgradeChoices.every(choice=>choice.kind==='stat'));assert.equal(s.levelUpMemberId,undefined);

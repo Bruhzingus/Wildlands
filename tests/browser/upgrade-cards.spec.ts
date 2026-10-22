@@ -225,9 +225,15 @@ test('relics, new moves and training have distinct frames and subtle artwork ani
   const relic=availableItemChoices(s).find((choice:any)=>choice.id==='leftovers');
   if(!training||!move||!relic)throw Error('Missing representative card family');
   g.sim.enterChoice([training,relic,move],'Choose your next upgrade','squad');
+  g.ui.update(s);
  });
  await expect(page.locator('.choice-card')).toHaveCount(3);
  await expect(page.locator('.choice-kind')).toHaveText(['TRAINING','RELIC','NEW MOVE']);
+ const disc=page.locator('.card-new-move .move-disc');
+ await expect(disc).toHaveCount(1);
+ const discType=await disc.getAttribute('data-move-type');
+ const discColor=await disc.evaluate(node=>getComputedStyle(node.querySelector('.disc-face')!).fill);
+ expect(discType).toBeTruthy();expect(discColor).not.toBe('rgb(216, 233, 227)');
  await expect(page.locator('.rarity-label')).toHaveText(['RARE','RARE','RARE']);
  const designs=await page.locator('.choice-card').evaluateAll(cards=>cards.map(card=>{
   const art=card.querySelector('.choice-art')!,style=getComputedStyle(card);

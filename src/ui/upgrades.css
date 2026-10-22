@@ -316,6 +316,13 @@
 .card-new-move .choice-art::before {width:96px;height:96px;border:3px solid #a7fff180;border-left-color:transparent;border-right-color:transparent;border-radius:50%;animation:move-orbit 12s linear infinite}
 .card-new-move .choice-art::after {inset:-70% -50%;background:linear-gradient(110deg,transparent 44%,#b8fff12b 49%,transparent 54%);animation:move-sweep 5s ease-in-out infinite}
 .card-new-move .upgrade-glyph {color:#bcfff2}
+.card-new-move .move-disc {filter:drop-shadow(3px 4px 0 #091d22aa)}
+.move-disc .disc-rim {fill:#d8e9e3;stroke:#18313b;stroke-width:2}
+.move-disc .disc-face {fill:var(--move-type);stroke:#f3fff8;stroke-width:1.5}
+.move-disc .disc-band {fill:#102b36;opacity:.84}
+.move-disc .disc-hub {fill:#f5f8ed;stroke:#193440;stroke-width:2}
+.move-disc .disc-hole {fill:#163641}
+.move-disc .disc-glint {fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;opacity:.8}
 .card-new-move .choice-title {background:#163641;color:#d3fff4;border-left:6px solid #86ded7}
 .card-new-move .choice-owner {color:#1b5d69}
 .card-new-move .choice-footer {background:#d0e8e5;border-top:2px solid #6ea9aa}

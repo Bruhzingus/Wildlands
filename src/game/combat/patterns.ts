@@ -84,6 +84,11 @@ function executeSignature(context:PatternContext,damage:number,color:string):boo
   const dx=enemy.x-origin.x,dz=enemy.z-origin.z,length=Math.hypot(dx,dz)||1;
   enemy.x+=dx/length*amount;enemy.z+=dz/length*amount;
  };
+ if(pattern==='tackle'){
+  const victim=enemies.find(enemy=>enemy.uid===target.uid&&!enemy.dead);
+  if(victim){context.hit(victim,damage);visual('tackle',member,victim,.6);}
+  return true;
+ }
  if(pattern==='vine'||pattern==='thread'||pattern==='sand-wave'||pattern==='pounce'){
   const visited=new Set<number>(),lanes=pattern==='pounce'?1:count;
   for(let lane=0;lane<lanes;lane++){

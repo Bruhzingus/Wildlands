@@ -259,7 +259,7 @@ export class Game{
   if(playing)Vector3.LerpToRef(this.camera.target,target,1-Math.exp(-9*dt),this.camera.target);
   const cameraAngle=-this.camera.alpha-Math.PI/2;
   const presentationDt=playing&&!impactFrame.freeze&&!this.feedback.inspect().freeze?dt:0;
-  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y,this.evolution&&!document.hidden?dt:0,!!state.player.movement?.flying);
+  this.visuals?.sync(state.party,state.enemies,presentationDt,cameraAngle,(x,z)=>this.world!.height(x,z),state.player.y,this.evolution&&!document.hidden?dt:0,!!state.player.movement?.flying,state.player);
   this.healthBars?.sync(state,presentationDt,(x,z)=>this.world!.height(x,z));
   this.fx?.update(state,presentationDt);
   document.querySelector<HTMLElement>('#damage-flash')!.style.opacity=now<this.flashUntil?'.38':'0';

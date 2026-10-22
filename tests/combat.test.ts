@@ -211,7 +211,7 @@ test('movement, regeneration and XP use passive modifiers while recruit and evol
  fast.sim.choose(choice.id);assert.equal(fast.s.party.length,2);assert.equal(fast.s.player.hp,beforeHP+24);assert.ok(fast.s.stats.xp>beforeXP);
  fast.s.party[0].speciesId=1;fast.s.party[0].level=5;fast.s.player.specialCooldown=12;
  fast.sim.enterChoice([{id:'evolve-1-2',kind:'evolve',speciesId:1,targetId:2,sourceSpeciesId:1,title:'Evolve',description:'',rarity:'epic'}]);
- const hp=fast.s.player.hp;fast.sim.choose('evolve-1-2');assert.equal(fast.s.party[0].speciesId,2);assert.equal(fast.s.player.specialCooldown,4);assert.equal(fast.s.player.hp,hp*1.25+30);
+ const hp=fast.s.player.hp;fast.sim.choose('evolve-1-2');assert.equal(fast.s.party[0].speciesId,2);assert.equal(fast.s.player.specialCooldown,4);assert.equal(fast.s.player.hp,Math.min(fast.s.player.maxHp,hp*1.25+30));
 });
 
 test('an invalidated choice refreshes valid offers while the run stays paused',()=>{

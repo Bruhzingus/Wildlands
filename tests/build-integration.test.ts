@@ -28,7 +28,7 @@ test('selecting a real evolution fires growth effects once and immediately updat
  assert.equal(getBuildModifiers(s).power,.45);
  const choice:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([choice]);simulation.choose(choice.id);
- assert.equal(s.party[0].speciesId,2);assert.equal(s.stats.evolutions,1);assert.equal(s.player.hp,55);assert.equal(s.player.maxHp,150);
+ assert.equal(s.party[0].speciesId,2);assert.equal(s.stats.evolutions,1);assert.equal(s.player.hp,55);assert.equal(s.player.maxHp,120);
  assert.equal(s.party[0].hp,63.75);assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.elapsed,170);
  assert.equal(getBuildModifiers(s).power,.7,'middle-stage members retain their legacy conditional bonus plus evolution power');
  const before={hp:s.player.hp,cooldown:s.player.specialCooldown,evolutions:s.stats.evolutions};
@@ -52,16 +52,16 @@ test('busy combat cannot suppress guaranteed recruit and evolution rewards durin
  s.stats.elapsed=170;s.party[0].level=5;s.player.specialCooldown=12;exhaustOffensiveBudget(simulation);
  const evolution:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([evolution]);simulation.choose(evolution.id);
- assert.equal(s.player.hp,122.5);assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.evolutions,1);
+ assert.equal(s.player.hp,Math.min(s.player.maxHp,74*1.25+30));assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.evolutions,1);
  assert.ok(s.build!.actionsInWindow>=12,'resource rewards remain exact during busy combat');
  assert.equal(dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onHit',targetId:s.enemies[0].uid}).length,3,'legitimate hit procs are no longer dropped by a global quota');
 });
 
 test('an exhausted effect budget cannot waive the Life Orb HP cost on a real automatic attack',()=>{
  const simulation=new Simulation(1,905),s=simulation.state;s.items=['life-orb','kings-rock','frost-charm','toxic-barb'];
- s.stats.elapsed=165;s.player.hp=100;s.buffs.armor=12;s.enemies=[s.enemies[0]];Object.assign(s.enemies[0],{x:3,z:0,speed:0,hitCooldown:100});s.party[0].cooldown=0;
+ s.stats.elapsed=165;s.player.hp=s.player.maxHp;s.buffs.armor=12;s.enemies=[s.enemies[0]];Object.assign(s.enemies[0],{x:3,z:0,speed:0,hitCooldown:100});s.party[0].cooldown=0;
  for(let i=0;i<24;i++)dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onAttack',sourceId:1,targetId:s.enemies[0].uid});
  exhaustOffensiveBudget(simulation);simulation.update(.01,idle);
- assert.equal(s.player.hp,98);assert.equal(s.stats.damageTaken,2);assert.ok(s.build!.actionsInWindow>=12);
+ assert.equal(s.player.hp,s.player.maxHp-2);assert.equal(s.stats.damageTaken,2);assert.ok(s.build!.actionsInWindow>=12);
  assert.ok(s.stats.damageDealt>0,'the vine attack still executes after paying its exact HP cost');
 });

@@ -44,20 +44,26 @@ export const HEALTH_BARS = {
 /** Rendering caps are independent of combat damage, projectile and effect rules. */
 export const COMBAT_VISUALS = {maxEffects:80,maxWindups:16,maxBossRings:8,maxPoolInstances:520,maxPoolPerKind:48,chainSeconds:.18,hitSeconds:.18,areaSeconds:.32} as const;
 export const TYPE_MULTIPLIERS:Record<string,Record<string,number>>={
- fire:{grass:1.5,bug:1.5,ice:1.5,water:.75,rock:.75,fire:.75},
- water:{fire:1.5,ground:1.5,rock:1.5,water:.75,grass:.75},
- grass:{water:1.5,ground:1.5,rock:1.5,fire:.75,grass:.75,bug:.75},
- electric:{water:1.5,flying:1.5,ground:.5,electric:.75},
- fighting:{normal:1.4,rock:1.5,ice:1.5,ghost:.6,psychic:.8},
- ground:{fire:1.5,electric:1.5,poison:1.4,rock:1.5,flying:.5},
- psychic:{fighting:1.5,poison:1.5,psychic:.75},
- ice:{grass:1.5,ground:1.5,flying:1.5,dragon:1.5,fire:.75,water:.75},
- bug:{grass:1.4,psychic:1.4,fire:.7,flying:.7},
- ghost:{psychic:1.5,ghost:1.5,normal:.6},
- rock:{fire:1.4,ice:1.4,flying:1.4,bug:1.4,fighting:.8},
- poison:{grass:1.5,poison:.8,ground:.75},
- dragon:{dragon:1.5},flying:{grass:1.4,fighting:1.4,bug:1.4},
+ // Arcade matchups deliberately remain nonzero, including canonical immunities.
+ // A favorable hit is conspicuous; an unfavorable one still always damages.
+ fire:{grass:1.7,bug:1.7,ice:1.7,water:.65,rock:.65,fire:.65},
+ water:{fire:1.7,ground:1.7,rock:1.7,water:.65,grass:.65},
+ grass:{water:1.7,ground:1.7,rock:1.7,fire:.65,grass:.65,bug:.65},
+ electric:{water:1.7,flying:1.7,ground:.55,electric:.65},
+ fighting:{normal:1.6,rock:1.7,ice:1.7,ghost:.55,psychic:.65},
+ ground:{fire:1.7,electric:1.7,poison:1.6,rock:1.7,flying:.55},
+ psychic:{fighting:1.7,poison:1.7,psychic:.65},
+ ice:{grass:1.7,ground:1.7,flying:1.7,dragon:1.7,fire:.65,water:.65},
+ bug:{grass:1.6,psychic:1.6,fire:.6,flying:.6},
+ ghost:{psychic:1.7,ghost:1.7,normal:.55},
+ rock:{fire:1.6,ice:1.6,flying:1.6,bug:1.6,fighting:.65},
+ poison:{grass:1.7,poison:.65,ground:.6},
+ dragon:{dragon:1.7},flying:{grass:1.6,fighting:1.6,bug:1.6},
 };
 export function typeMultiplier(attacker:string,defenders:readonly string[]):number {
  return Math.min(2,Math.max(.45,defenders.reduce((m,t)=>m*(TYPE_MULTIPLIERS[attacker]?.[t]||1),1)));
+}
+export function typeEffectiveness(attacker:string,defenders:readonly string[]):'super'|'resisted'|'neutral'{
+ const multiplier=typeMultiplier(attacker,defenders);
+ return multiplier>1?'super':multiplier<1?'resisted':'neutral';
 }

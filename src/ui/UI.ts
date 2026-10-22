@@ -25,8 +25,8 @@ import {describeAttackMechanic} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
 import {getMovementTrait,movementTraitLabel,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
 import {PROGRESSION,nextMilestone} from '../data/progression.ts';
-import {CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
-import {optionalChallenge} from '../data/optionalChallenges.ts';
+import {CHEST_TIERS,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
+import {SHRINE_RULES,shrineContents,shrineForPOI,shrineLevelAllowed} from '../data/shrines.ts';
 import {formatPercent,upgradeStatPreview} from './upgradePreview.ts';
 import {rerollChoices,xpThreshold} from '../game/systems/progression.ts';
 import {UpgradeCatalogue} from './UpgradeCatalogue.ts';
@@ -269,6 +269,7 @@ export class UI {
   traitStatus.classList.toggle('hidden',trait.kind==='normal');traitStatus.dataset.trait=trait.kind;traitStatus.title=trait.description;
   const traitText=trait.kind==='runup'?(movement?.boost?`${trait.name.toUpperCase()} +${Math.round(movement.boost*100)}% SPEED`:`RUN STRAIGHT ${Math.min(MOVEMENT_TRAITS.runupDelay,movement?.straightTime??0).toFixed(1)} / ${MOVEMENT_TRAITS.runupDelay.toFixed(1)}s`)
    :trait.kind==='flight'?(movement?.flying?`FLYING ${movement.flightRemaining.toFixed(1)}s`:movement?.flightCooldown?`FLIGHT RECHARGE ${movement.flightCooldown.toFixed(1)}s`:p.y>0&&!movement?.flightEligible?'FLIGHT / LAND FOR TAKEOFF':`HOLD SPACE / FLY ${trait.airtime}s`)
+   :trait.kind==='burrow'?((p.burrowTime??0)>0?`BURROWED ${(p.burrowTime??0).toFixed(1)}s / PROTECTED`:'SHIFT / BURROW DASH')
    :trait.kind==='leap'?'SPACE / SPLASH LEAP':trait.kind==='teleport'?'SHIFT / TELEPORT':'';
   if(traitStatus.textContent!==traitText)traitStatus.textContent=traitText;
   const ready=q('#ability-ready');const readyLabel=stats.elapsed<this.readyUntil?this.readyNotice:'';if(ready.textContent!==readyLabel)ready.textContent=readyLabel;
@@ -292,15 +293,15 @@ export class UI {
    unit.setAttribute('aria-label',`${summary.replace(/\n/g,', ')}, ${Math.ceil(hp)} of ${Math.ceil(maxHp)} HP${low?', critical health':''}`);
   });
   this.refreshPartyAlert(s);
-  const near=s.pois.find(poi=>siteAvailable(poi,stats.elapsed)&&(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge);
+  const near=s.pois.find(poi=>siteAvailable(poi,stats.elapsed)&&(!poi.used||poi.respawnAt!==undefined)&&distance2(p,poi)<DESIGN.interactionRadius)??s.pois.find(poi=>poi.challenge)??s.pois.find(poi=>poi.kind==='shrine'&&siteAvailable(poi,stats.elapsed)&&distance2(p,poi)<SHRINE_RULES.previewRadius);
   const interaction=q('#interaction');interaction.classList.toggle('hidden',!near);
-  if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,seconds=Math.ceil((near.challenge?.endsAt??near.respawnAt??0)-s.stats.elapsed),signature=`${near.uid}/${cost}/${affordable}/${seconds}/${near.used}/${shrineTier(s,near)}`;
+  if(near){const cost=chestCost(s,near),affordable=(s.coins??0)>=cost,seconds=Math.ceil((near.challenge?.endsAt??near.respawnAt??0)-s.stats.elapsed),definition=shrineForPOI(near),allowed=near.kind!=='shrine'||shrineLevelAllowed(s.party[0].level,definition),inReach=distance2(p,near)<DESIGN.interactionRadius,remaining=s.enemies.filter(enemy=>!enemy.dead&&enemy.challengeSiteId===near.uid).length,signature=`${near.uid}/${cost}/${affordable}/${seconds}/${near.used}/${shrineTier(s,near)}/${allowed}/${inReach}/${remaining}`;
    if(interaction.dataset.poi!==signature){interaction.dataset.poi=signature;
-    const label=near.challenge?`SHRINE TRIAL: ${seconds}s · Stay within ${SHRINE.radius}m · ${Math.ceil(distance2(p,near))}m away`
+    const label=near.challenge?`${esc(shrineContents(definition))}<small>${remaining} left · ${seconds}s · Stay within ${definition.radius}m</small>`
      :near.used?`${near.kind==='shrine'?'Shrine recharges':'Chest restocks'} in ${seconds}s`
      :near.kind==='cache'&&near.price!==undefined?`${chestRarity(s,near).toUpperCase()} chest · ${affordable?'Choose relic':'Need'} ${cost} coins`
-    :({cache:'Open discovery cache · One use',shrine:`Tier ${shrineTier(s,near)} ${optionalChallenge(near.challengeKind??'guardian').title} · DANGER: Lv ${SHRINE.recommendedLevel}+ squad recommended · ${optionalChallenge(near.challengeKind??'guardian').objective}, ${optionalChallenge(near.challengeKind??'guardian').duration}s, ${optionalChallenge(near.challengeKind??'guardian').radius}m boundary · ${optionalChallenge(near.challengeKind??'guardian').reward}`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
-    interaction.innerHTML=`${near.used?'':'<span class="kbd">E</span> '}${near.name?`${esc(near.name)} · `:''}${label}`;interaction.classList.toggle('unaffordable',!affordable&&!near.used);
+    :({cache:'Open discovery cache · One use',shrine:`${esc(shrineContents(definition))}<small>Tier ${definition.tier} · Recommended Lv ${definition.level} · ${definition.radius}m arena${allowed?'':' · Must be within 10 levels'}</small>`,elite:'Challenge elite',healing:'Recover HP'})[near.kind];
+    interaction.innerHTML=`${near.used||!allowed||!inReach?'':'<span class="kbd">E</span> '}<span class="poi-copy">${near.name?`${esc(near.name)} · `:''}${label}</span>`;interaction.classList.toggle('unaffordable',(!affordable||!allowed)&&!near.used);
    }
   }
   this.drawMap(s);

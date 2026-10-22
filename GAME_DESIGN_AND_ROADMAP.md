@@ -41,6 +41,13 @@ shadows follow the shared terrain; native hovering sheets retain their timing.
 Controls, follower formation and simulation outcomes are preserved. See
 [the N1 handoff](docs/N1_IMPLEMENTATION_REPORT.md) for evidence and limits.
 
+**October 22 owner extension:** N1 additionally includes innate leader movement
+techniques to distinguish kits: Run-up, finite hold-Space flight, Splash leap,
+and the existing Abra teleport. Magikarp and Zubat are available through existing
+finite achievements. Movement changes are visible in starter cards, the HUD,
+pause, evolution previews and the catalogue. These mechanics were explicitly
+requested after the initial presentation-only N1 implementation.
+
 **N3 upgrade rework (October 21, 2026):** Attack speed keeps increasing actual
 cast rate; haste no longer adds hit/heal strength. Iron Defense is removed.
 Numeric relic bonuses and their drawbacks stack, including normal/Legendary
@@ -198,7 +205,9 @@ Ordinary encounters use overlapping strength pools and a moving weighted threat 
 
 Tier-3 enemies are minibosses with substantial added durability and two alternating attacks. Tier-4 encounters receive a larger durability increase, and require a deliberate fight even for a developed party. Time-based health floors and bounded party scaling support this distinction; displayed HP depends on the species, variant, elapsed time and party investment rather than one fixed promised value. Mewtwo has a further major health and damage increase beyond tier-4 enemies.
 
-Tier-4 attack progression also depends on strength: an enemy with authored strength at least 8 may carry three attacks from 14:00. A strength of at least 9.5 unlocks four attacks from 18:00 in endless. Very hard repeat shrines can grant four attacks to strength-8 or stronger tier-4 guardians before that clock gate. Earlier shrine encounters use normal tier-3 guardians; shrine difficulty tier 4 and above can deliberately select tier-4 guardians before ordinary spawns allow them. Attacks cycle through readable windups rather than firing all unlocked moves simultaneously.
+Tier-4 attack progression also depends on strength: an enemy with authored strength at least 8 may carry three attacks from 14:00. A strength of at least 9.5 unlocks four attacks from 18:00 in endless. Shrine tiers 13–15 can grant four attacks to strength-8 or stronger legendary guardians before that clock gate. Earlier shrine guardians retain their natural combat rank; shrine Mewtwo uses rank 4 without becoming a scheduled boss. Attacks cycle through readable windups rather than firing all unlocked moves simultaneously.
+
+Shrines have [15 authored species tiers](docs/SHRINE_TIERS.md), with stone Pokémon sculptures, coloured magic dust, recommended levels 5–90, varied guardian counts and arena sizes, and telegraphed poison, fire and slow ground. Nearby previews show the actual encounter. The leader must be within 10 levels of its recommendation. Opening fights target 20–35 seconds with specials; later fights target 15–45 seconds depending on the build and matchup. Guardians award 2–3× equivalent wild XP, adjusted by ±2.5% per level of difference, capped at ±25%.
 
 Naturally stronger ordinary species award more XP to preserve personal progression with fewer arrivals. Tier-3 minibosses and tier-4 elites receive a further shared XP multiplier to compensate for their durability; explicitly promoted shrine guardians use their actual combat tier. Weak opening rewards and scheduled boss rewards retain their established values; species, tier, faction and elite bonuses apply once to the shared instant/drop reward total.
 

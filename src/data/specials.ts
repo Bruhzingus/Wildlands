@@ -20,6 +20,7 @@ const families:readonly [readonly number[],SpecialTuning][]=[
  [[4,5,6],{kind:'flamethrower',name:'Flamethrower',description:'Breathe a sustained cone of fire toward the nearest enemy; reposition to sweep it.',range:13,radius:0,angle:1.05,duration:2,pulses:8,damageScale:.35}],
  [[7,8,9],{kind:'surf',name:'Surf',description:'Send a wide traveling wave through the enemy line, soaking and pushing each foe once.',range:23,radius:3.5,duration:1.2,pulses:1,damageScale:2.2,knockback:4}],
  [[10,11,12],{kind:'web',name:'Electroweb',description:'Fan out piercing electric threads that damage and slow enemies along separate lanes.',element:'electric',range:17,radius:0,projectiles:5,damageScale:1.1}],
+ [[41,42],{kind:'flurry',name:'Wing Attack',description:'Beat forward with close wing strikes against enemies ahead.',range:5.5,angle:1.3,duration:.5,pulses:2,damageScale:.75,element:'flying'}],
  [[16,17,18],{kind:'whirlwind',name:'Whirlwind',description:'Launch a widening cyclone that carries enemies away from your route.',range:19,radius:2.4,duration:1.8,pulses:1,damageScale:1.6,knockback:6}],
  [[25,26],{kind:'thunder',name:'Thunder Circuit',description:'Call successive remote lightning strikes on different enemies, briefly stunning each.',range:24,radius:1.3,duration:1.2,pulses:6,damageScale:1.05}],
  [[27,28],{kind:'fissure',name:'Fissure',description:'Rupture the ground in a sequence toward distant foes; later ruptures hit harder.',range:20,radius:2,duration:1,pulses:5,damageScale:.9}],
@@ -30,7 +31,9 @@ const families:readonly [readonly number[],SpecialTuning][]=[
  [[63,64,65],{kind:'teleport',name:'Teleport Lance',description:'Fire a piercing psychic lance toward your aim, then teleport to its endpoint.',range:19,radius:1.3,damageScale:2.8}],
  [[66,67,68],{kind:'flurry',name:'Close Combat',description:'Unleash three heavy forward strikes; the final blow launches enemies away.',range:7,radius:0,angle:1.7,duration:.65,pulses:3,damageScale:1.1,knockback:4}],
  [[92,93,94],{kind:'curse',name:'Haunting Hex',description:'Mark a distant cluster, then detonate the curse after a delay and leave them poisoned.',range:20,radius:4.5,duration:1,pulses:1,damageScale:2.6}],
- [[133],{kind:'quickstep',name:'Swift Step',description:'Dash through a target, striking your path, then release stars that seek separate enemies.',range:9,radius:1.5,projectiles:3,damageScale:1.1}],
+ [[129],{kind:'flurry',name:'Flail',description:'Thrash at nearby enemies with short body strikes.',range:4.5,angle:1.2,duration:.45,pulses:2,damageScale:.28,element:'normal'}],
+ [[130],{kind:'lance',name:'Hyper Beam',description:'Fire a powerful straight beam through the enemy line.',range:25,radius:1.3,damageScale:3.2,element:'normal'}],
+ [[133],{kind:'quickstep',name:'Quick Attack',description:'Dash quickly through enemies in a straight line.',range:9,radius:1.5,projectiles:0,damageScale:1.3,element:'normal'}],
  [[134],{kind:'surf',name:'Tidal Rush',description:'Sweep a long corridor with a traveling wave that soaks and pushes foes.',range:25,radius:4,duration:1.2,damageScale:2.3,knockback:4}],
  [[135],{kind:'thunder',name:'Thunder Circuit',description:'Strike separate distant enemies in a rapid lightning circuit.',range:26,radius:1.4,duration:1,pulses:7,damageScale:1.05}],
  [[136],{kind:'foxfire',name:'Blazing Guard',description:'Orbit with a ring of seeking fire that burns enemies crossing its path.',radius:3.8,duration:4,projectiles:6,damageScale:1.1}],
@@ -58,7 +61,7 @@ export function getSpecialProfile(speciesId:number,rank=1):SpecialProfile {
   case 'flamethrower':profile.range+=(r-1)*.45;profile.angle+=Math.floor((r-1)/3)*.14;profile.pulses+=Math.floor((r-1)/3)*2;break;
   case 'surf':case 'whirlwind':profile.radius+=Math.floor((r-1)/2)*.45;profile.range+=(r-1)*.7;profile.knockback+=Math.floor((r-1)/4);break;
   case 'thunder':profile.pulses+=Math.floor((r-1)/2);profile.range+=(r-1)*.5;break;
-  case 'quickstep':profile.projectiles+=Math.floor((r-1)/2);profile.range+=Math.floor((r-1)/3);break;
+  case 'quickstep':profile.range+=Math.floor((r-1)/3);break;
   case 'web':case 'payday':case 'volley':profile.projectiles+=Math.floor((r-1)/3)*2;break;
   case 'foxfire':profile.projectiles+=Math.floor((r-1)/2);profile.duration+=Math.floor((r-1)/3);break;
   case 'fissure':profile.pulses+=Math.floor((r-1)/3);profile.range+=(r-1)*.6;break;

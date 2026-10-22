@@ -56,12 +56,12 @@ test('starter special upgrades grow different mechanics and describe the actual 
  assert.ok(last(4).angle>first(4).angle&&last(4).range>first(4).range);
  assert.ok(last(7).radius>first(7).radius&&last(7).knockback>first(7).knockback);
  assert.ok(last(25).pulses>first(25).pulses);assert.equal(last(25).projectiles,0);
- assert.ok(last(133).projectiles>first(133).projectiles);assert.equal(last(133).pulses,1);
+ assert.ok(last(133).range>first(133).range);assert.equal(last(133).projectiles,0);
  assert.match(describeSpecialUpgrade(1,1,12),/pulse.*duration/);
  assert.match(describeSpecialUpgrade(4,1,12),/wider flame cone/);
  assert.match(describeSpecialUpgrade(7,1,12),/stronger push/);
  assert.match(describeSpecialUpgrade(25,1,12),/lightning strike/);
- assert.match(describeSpecialUpgrade(133,1,12),/projectile/);
+ assert.match(describeSpecialUpgrade(133,1,12),/reach/);
 });
 
 test('Bramble Garden repeatedly damages its remote footprint after the player leaves it',()=>{
@@ -214,12 +214,11 @@ test('self-centered foxfire distributes its orbit around the leader independentl
  assert.ok(ahead.some(p=>p.z>0)&&ahead.some(p=>p.z<0),'The orbit protects both sides of the leader');
 });
 
-test('Swift Step follows a swept obstacle-safe path and sends seeking stars at separate targets',()=>{
+test('Quick Attack follows a swept obstacle-safe path without firing projectiles',()=>{
  const {sim,s}=arena(133),target=foe(sim,0,7);foe(sim,8,7);foe(sim,-8,7);
  sim.update(.02,{...idle,special:true});
  assert.ok(s.player.z>3);assert.ok(target.hp<target.maxHp,'The dash path itself must damage a crossed enemy');
- assert.ok(s.projectiles.length>=3);assert.ok(s.projectiles.every(projectile=>projectile.friendly&&projectile.targetId!==undefined));
- assert.ok(new Set(s.projectiles.map(projectile=>projectile.targetId)).size>=2);
+ assert.equal(s.projectiles.length,0);
  const blocked=arena(133),rock=createEnvironment(blocked.s.seed,blocked.s.pois).obstacles.find(obstacle=>obstacle.kind==='circle'&&obstacle.radius>.8)!;
  assert.equal(rock.kind,'circle');if(rock.kind!=='circle')return;
  blocked.s.player.x=rock.x-rock.radius-DESIGN.playerRadius-.2;blocked.s.player.z=rock.z;

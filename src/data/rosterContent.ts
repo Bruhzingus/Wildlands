@@ -65,7 +65,7 @@ const rows=`
 56|skirmisher|slash|Karate Chop|14
 57|skirmisher|slash|Close Combat|23
 58|skirmisher|slash|Bite|14
-59|area|burst|Heat Wave|26
+59|skirmisher|slash|Fire Fang|26
 60|ranged|bolt|Bubble Beam|12
 61|ranged|bolt|Muddy Water|17
 62|ranged|bolt|Dynamic Punch|24
@@ -135,7 +135,7 @@ const rows=`
 126|area|burst|Lava Plume|22
 127|skirmisher|slash|Guillotine|21
 128|skirmisher|slash|Take Down|21
-129|ranged|bolt|Tackle|14
+129|skirmisher|slash|Tackle|14
 130|piercing|beam|Hyper Beam|25
 131|piercing|beam|Ice Beam|22
 132|ranged|bolt|Struggle|20
@@ -199,7 +199,7 @@ const starterFamilies:readonly [readonly number[],AttackTuning][]=[
  [[52,53],{pattern:'ricochet',kind:'bolt',range:16,speed:23,projectiles:1,bounces:1,bounceRange:5.5,turnRate:0,cooldown:.9,damageScale:.95,silhouette:'needle',
   description:'Coins ricochet between different enemies after impact. Training adds bounces and a second coin.',
   growth:{damage:3.6,range:.32,radius:0},milestones:[{rank:2,description:'Coins bounce twice',bounces:2},{rank:5,description:'Four ricochet bounces',bounces:4,bounceRange:7},{rank:8,description:'Twin ricochet coins',projectiles:2}]}],
- [[58,59],{pattern:'pounce',kind:'slash',range:9,radius:2.2,width:2.2,projectiles:1,strikes:1,cooldown:1.15,damageScale:1.05,knockback:1.8,status:{burn:.35},
+ [[58,59],{pattern:'pounce',kind:'slash',range:9,radius:2.2,width:2.2,projectiles:1,strikes:1,cooldown:1.15,damageScale:1.05,knockback:1.8,
   description:'A lunging bite sweeps the path to its target and shoves enemies forward. Training adds a follow-up bite.',
   growth:{damage:4.5,range:.32,radius:.05},milestones:[{rank:3,description:'Longer, forceful pounce',knockback:3,width:2.7},{rank:6,description:'Follow-up bite on the target',strikes:2}]}],
  [[63,64,65],{pattern:'psychic-cross',kind:'beam',range:18,speed:30,projectiles:2,pierce:3,width:.32,cooldown:1.35,damageScale:.7,silhouette:'beam',turnRate:0,
@@ -220,11 +220,15 @@ const starterSignatures=Object.fromEntries(starterFamilies.flatMap(([ids,tuning]
 export const SPECIES_ATTACK_PARAMETERS:Readonly<Record<number,AttackTuning>>={
  1:{radius:2.3},3:{radius:3.9,cooldown:1.1},4:{speed:21,status:{burn:.28}},6:{radius:4.7,damageScale:1.08},
  7:{speed:18},10:{status:{slow:.35}},11:{status:{slow:.4}},12:{radius:3.2,damageScale:1,status:{slow:.35}},15:{cooldown:.59},
- 38:{radius:4.6,damageScale:.98},41:{description:'A close forward bite sweeps nearby foes. Short flight creates room to approach and retreat.'},59:{damageScale:.98},65:{pierce:6},
+ 38:{radius:4.6,damageScale:.98},65:{pierce:6},
  76:{radius:4.8},82:{chains:4},94:{radius:5,status:{poison:.22}},
- 113:{cooldown:1.9},123:{range:6,radius:5.1,cooldown:.57},129:{speed:21,description:'A simple homing shot targets one foe at a time; Splash leap provides repositioning rather than extra attack coverage.'},130:{pierce:5,damageScale:1.22},131:{pierce:5,status:{slow:.4}},
+ 113:{cooldown:1.9},123:{range:6,radius:5.1,cooldown:.57},130:{pierce:5,damageScale:1.22,element:'normal'},131:{pierce:5,status:{slow:.4}},
  135:{chains:4,chainRange:5.6},136:{damageScale:.97},143:{radius:5.4},149:{pierce:6,projectiles:2},150:{pierce:7},
  ...starterSignatures,
+ 41:{element:'normal',description:'A close Bite strikes enemies ahead without a poison burst.'},
+ 58:{...starterSignatures[58],element:'normal',status:{burn:0}},
+ 59:{...starterSignatures[59],damageScale:.98,status:{burn:.35},description:'A flaming fang lunges through enemies, biting and sometimes burning them.'},
+ 129:{pattern:'tackle',kind:'slash',element:'normal',range:2.7,radius:1.5,cooldown:1.25,damageScale:.5,description:'A weak close-range body tackle hits the foe directly. Splash leap helps Magikarp reach or escape enemies.'},
  9:{...starterSignatures[9],projectiles:3,pierce:1,milestones:starterSignatures[9].milestones?.map(step=>({...step,...(step.projectiles?{projectiles:step.projectiles+2,description:`${step.projectiles+2}-bubble hydro stream`}:{} )}))},
  25:{chains:3,chainRange:4.7,status:{stun:.08},description:'Lightning jumps between nearby enemies. Training adds longer chains and stronger stuns.',growth:{damage:3.8,range:.3,chainsEvery:0},milestones:[{rank:3,description:'Four-target chain',chains:4},{rank:5,description:'Longer arcs can stun',chainRange:6,status:{stun:.22}},{rank:7,description:'Six-target chain',chains:6,status:{stun:.4}}]},
  26:{chains:4,chainRange:5.3,status:{stun:.12},description:'Lightning jumps between nearby enemies. Training adds longer chains and stronger stuns.',growth:{damage:3.8,range:.3,chainsEvery:0},milestones:[{rank:3,description:'Five-target chain',chains:5},{rank:5,description:'Longer arcs can stun',chainRange:6.5,status:{stun:.28}},{rank:7,description:'Seven-target chain',chains:7,status:{stun:.45}}]},

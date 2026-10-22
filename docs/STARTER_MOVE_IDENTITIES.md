@@ -1,6 +1,6 @@
 # Starter move identities
 
-The fifteen selectable starter families now use different targeting, geometry, projectile behavior and rank milestones. Evolved forms keep the family mechanic; Eevee's elemental branches adopt their new element's kit. The canonical species catalogue remains unchanged; `getAttackProfile` supplies the actual combat profile and presentation reads that profile.
+The seventeen selectable starter families now use different targeting, geometry, projectile behavior and rank milestones. Evolved forms keep the family mechanic; Eevee's elemental branches adopt their new element's kit. The canonical species catalogue remains unchanged; `getAttackProfile` supplies the actual combat profile and presentation reads that profile.
 
 | Starter | Automatic attack | Q special | Rank growth |
 | --- | --- | --- | --- |
@@ -8,6 +8,7 @@ The fifteen selectable starter families now use different targeting, geometry, p
 | Charmander | A fan of straight flames | Sustained, aimed Flamethrower cone; movement repositions the breath | More flames and piercing; wider, longer breath with more hits |
 | Squirtle | Slow bubbles with soaking impact splashes | A traveling Surf front pushes and soaks each crossed enemy once | More bubbles and larger splashes; wider wave, longer travel, stronger push |
 | Caterpie | A binding silk line | Piercing Silk Snare fan | More bound targets and stun; more special threads |
+| Zubat | A close Bite sweep | Forward Wing Attack strikes | Wider Q reach and more hits |
 | Pidgey | Wide gust projectiles push crowds | Traveling, widening Whirlwind | Split gust lanes and stronger push; broader cyclone |
 | Pikachu | Instant lightning chain through clustered foes | Thunder Circuit strikes separate remote enemies over time | More links, longer arcs and stun; more remote strikes |
 | Sandshrew | Broad, forward ground lanes | Fault Line ruptures sequentially along a direction | Flanking waves; more and farther special ruptures |
@@ -18,7 +19,10 @@ The fifteen selectable starter families now use different targeting, geometry, p
 | Abra | Opposing piercing lances cross at the target | Blink away from a threat and fire a lance back through it | More crossing lances and pierces; wider, longer special lance |
 | Machop | A close, forward multihit chop | Timed Close Combat strikes with a launching finisher | More combo hits and knockback; more timed special strikes |
 | Gastly | Wisps orbit their moving owner | A remote Haunting Hex marks a cluster before delayed damage | Wider orbit and more wisps; stronger, broader curse |
-| Eevee | Swift stars independently seek separate targets | Collision-aware Swift Step damages its path, then launches seeking stars | More stars and piercing; more special stars and dash reach |
+| Magikarp | A weak, close physical Tackle | Short-range Flail strikes | Tackle gains reach; Splash leap helps positioning |
+| Eevee | Swift stars independently seek separate targets | Collision-aware Quick Attack damages its straight dash path | More Swift stars and piercing; longer Quick Attack dash |
+
+Two-stage starters begin with slightly higher power, defense and HP than three-stage starters, unlock their evolution later, and finish between middle and final three-stage forms. Magikarp is the deliberately weak exception; Gyarados has the highest selectable evolved base power and uses Hyper Beam. Starting HP is 20% lower before family health factors, and first-stage ranged signatures deal 20% less damage.
 
 Primary milestones are authored in `src/data/rosterContent.ts`, executed by the shared pattern and projectile systems, and described on the actual upgrade cards. Special tuning and rank growth live in `src/data/specials.ts`; `src/game/combat/specials.ts` owns reusable casts and timed effects. Leader signature ranks also train Q, and leader upgrade cards describe its mechanical gains.
 

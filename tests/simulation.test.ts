@@ -5,7 +5,7 @@ import {KANTO,getSpecies,RECRUIT_POOL} from '../src/data/kanto.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {applyChoice,canRecruit,eligibleEvolutions,makeChoices} from '../src/game/systems/progression.ts';
 import {RNG} from '../src/utils/random.ts';
-import {typeMultiplier} from '../src/data/config.ts';
+import {typeEffectiveness,typeMultiplier} from '../src/data/config.ts';
 import {DESIGN} from '../src/data/config.ts';
 import {createEnvironment,ObstacleField} from '../src/game/systems/environment.ts';
 import {createEnemy,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
@@ -52,8 +52,11 @@ test('paused choice does not advance clock or enemy AI',()=>{
  sim.update(.033,idle);assert.equal(s.stats.elapsed,before);
 });
 test('damage types use simplified strengths; legendary boss spawns on schedule',()=>{
- assert.ok(typeMultiplier('water',['fire'])>1);
- assert.ok(typeMultiplier('electric',['ground'])<1);
+ assert.ok(typeMultiplier('water',['fire'])>=1.7);
+ assert.ok(typeMultiplier('electric',['ground'])<=.55);
+ assert.ok(typeMultiplier('electric',['ground'])>0,'canonical immunities must still deal damage');
+ assert.equal(typeEffectiveness('water',['fire']),'super');
+ assert.equal(typeEffectiveness('electric',['ground']),'resisted');
  const sim=new Simulation(1,83);sim.state.stats.elapsed=899.99;
  sim.update(.03,idle);assert.ok(sim.state.bossSpawned);assert.ok(sim.state.enemies.some(e=>e.isBoss&&e.speciesId===150));
 });
@@ -98,7 +101,7 @@ test('an inefficient moving orbit still levels and recruits with tapered persona
 });
 test('Eevee offers explicit branching evolutions when eligible',()=>{
  const sim=new Simulation(133,222),s=sim.state;s.stats.level=13;s.stats.elapsed=300;s.recruitCount=1;
- s.party[0].level=PROGRESSION.evolution.firstLevel;
+ s.party[0].level=PROGRESSION.evolution.twoStageLevel;
  let found=false;
  for(let seed=1;seed<=40;seed++){
   const opts=makeChoices(s,new RNG(seed));

@@ -1,13 +1,15 @@
 import {challengeRules} from '../data/challenges.ts';
 import {evolutionReceipt,type EvolutionReceipt} from './evolution.ts';
-import {prepareMovement,recordRunUp,stepFlight,airborneTraversal,canReachAirbornePlayer,jumpVelocity} from './systems/movement.ts';
+import {prepareMovement,recordRunUp,stepFlight,airborneTraversal,canReachAirbornePlayer,jumpVelocity,isBurrowed} from './systems/movement.ts';
+import {getMovementTrait,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
 import {getSpecies,ELEMENT_COLORS, type AttackKind,type Element} from '../data/kanto.ts';
-import {ATTACK_ANIMATION,DESIGN} from '../data/config.ts';
+import {ATTACK_ANIMATION,DESIGN,typeEffectiveness} from '../data/config.ts';
 import {BOSS_RULES} from '../data/director.ts';
 import {PROGRESSION,isMilestone,nextMilestone,levelPowerMultiplier} from '../data/progression.ts';
-import {ECONOMY,CHEST_TIERS,SHRINE,chestCost,chestRarity,shrineTier} from '../data/economy.ts';
+import {ECONOMY,CHEST_TIERS,SHRINE,chestCost,chestRarity,restockChestRarity,shrineTier} from '../data/economy.ts';
 import {bossEncounter,mapEncounter,scheduledBossEncounter,type BossEncounterDefinition} from '../data/encounters.ts';
 import {optionalChallenge} from '../data/optionalChallenges.ts';
+import {refreshShrineTier,shrineForPOI,shrineLevelAllowed,shrineContents,shrineHazardZones,SHRINE_RULES} from '../data/shrines.ts';
 import {siteAvailable} from '../data/maps.ts';
 import {getVariant,variantRewardXP} from '../data/variants.ts';
 import {RNG,distance2} from '../utils/random.ts';
@@ -32,7 +34,7 @@ import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
 import type {Drop,Enemy,LearnedMove,PartyMember,POI,RewardSource,RunState,TerrainFeature,UpgradeChoice,Variant} from './types.ts';
 export interface MoveInput {mx:number;mz:number;aimX?:number;aimZ?:number;jump:boolean;jumpHeld?:boolean;dodge:boolean;special:boolean;interact:boolean;}
-export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;moveName?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;environmentId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';variant?:Variant;speciesId?:number;evolution?:EvolutionReceipt};
+export type GameEvent={kind:'log'|'hit'|'attack'|'cast'|'jump'|'dash'|'special'|'level'|'death'|'faint'|'interact'|'boss'|'win'|'evolve'|'tell'|'chain'|'status'|'kill';x?:number;z?:number;label?:string;moveName?:string;color?:string;amount?:number;sourceId?:number;targetId?:number;environmentId?:number;toX?:number;toZ?:number;duration?:number;radius?:number;endRadius?:number;shape?:string;facing?:number;angle?:number;damageTo?:'enemy'|'player'|'companion';effectiveness?:'super'|'resisted';variant?:Variant;speciesId?:number;evolution?:EvolutionReceipt};
 export type EventListener=(ev:GameEvent)=>void;
 export type RunConfiguration=Pick<RunState,'challenge'|'mapId'|'recruitUnlocks'|'itemUnlocks'>;
 export class Simulation {
@@ -44,10 +46,11 @@ export class Simulation {
  constructor(starterId:number,seed=Math.floor(Date.now()%2147483647),configuration:RunConfiguration={}){
   this.rng=new RNG(seed);
   this.lootRng=new RNG(seed^0x5f3759df);
-  const starter:PartyMember={uid:1,speciesId:starterId,joinedAt:0,level:1,xp:0,xpToNext:xpThreshold(1),hp:165,maxHp:165,iframes:0,attackLevel:1,cooldown:.35,x:0,z:0,facing:0,animation:'idle',attackTimer:0};
+  const starterHealth=getSpecies(starterId).health;
+  const starter:PartyMember={uid:1,speciesId:starterId,joinedAt:0,level:1,xp:0,xpToNext:xpThreshold(1),hp:132*starterHealth,maxHp:132*starterHealth,iframes:0,attackLevel:1,cooldown:.35,x:0,z:0,facing:0,animation:'idle',attackTimer:0};
   const pois=createPOIs(seed,configuration.mapId),environment=createEnvironment(seed,pois,configuration.mapId);
   this.obstacles=new ObstacleField(environment.obstacles);
-  this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:120,maxHp:120,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
+  this.state={phase:'playing',result:null,seed,player:{x:0,z:0,y:0,vy:0,facing:0,hp:96*starterHealth,maxHp:96*starterHealth,iframes:0,poisonTime:0,dodgeTime:0,dodgeCooldown:0,specialCooldown:0,specialCharge:0},
    party:[starter],enemies:[],projectiles:[],drops:[],pois,stats:{elapsed:0,kills:0,recruits:0,evolutions:0,level:1,xp:0,xpToNext:xpThreshold(1),damageDealt:0,damageTaken:0,faints:0,bossKilled:false,highestCombo:0},
    items:[],buffs:{},recruitCount:0,pendingRecruit:false,upgradeChoices:[],choiceTitle:'',rerolls:PROGRESSION.rerolls.starting,rerollGrants:0,pendingLevelUps:[],pendingSquadRewards:0,lastSquadRewardAt:-999,coins:0,chestPurchases:0,bossSpawned:false,endless:false,lastEnemySpawn:0,eventLog:[],idCounter:40,lastSpecialAt:-999,psychicRings:[],terrainFeatures:environment.features,...configuration};
   for(let i=0;i<3;i++){
@@ -158,6 +161,8 @@ export class Simulation {
   this.updateTerrainFeatures();
   if(this.finishDefeat()||s.result!==null)return;
   this.updateExploration();
+  this.updateShrineHazards(dt);
+  if(this.finishDefeat())return;
   const previousDirector=s.director,director=updateDirector(s);
   if(previousDirector&&previousDirector.phaseId!==director.phaseId)this.emit({kind:'log',label:director.title});
   if(director.bossWarning&&!previousDirector?.bossWarning)this.emit({kind:'boss',label:scheduledBossEncounter(s.mapId,s.stats.bossesDefeated??0).warning});
@@ -199,7 +204,10 @@ export class Simulation {
   const tap={jump:input.jump&&!this.heldActions.jump,dodge:input.dodge&&!this.heldActions.dodge,special:input.special&&!this.heldActions.special,interact:input.interact&&!this.heldActions.interact};
   this.heldActions={jump:input.jump,dodge:input.dodge,special:input.special,interact:input.interact};
   p.iframes=Math.max(0,p.iframes-dt);
-  const poisonDamage=Math.min(dt,p.poisonTime)*getVariant('poisoned').contactPoison!.damagePerSecond;p.poisonTime=Math.max(0,p.poisonTime-dt);p.hp-=poisonDamage;s.stats.damageTaken+=poisonDamage;
+  const trait=getMovementTrait(s.party[0].speciesId);
+  if(trait.kind!=='burrow')delete p.burrowTime;
+  else if(p.burrowTime!==undefined)p.burrowTime=Math.max(0,p.burrowTime-dt);
+  const poisonDamage=isBurrowed(p)?0:Math.min(dt,p.poisonTime)*getVariant('poisoned').contactPoison!.damagePerSecond;p.poisonTime=Math.max(0,p.poisonTime-dt);p.hp-=poisonDamage;s.stats.damageTaken+=poisonDamage;
   const dodgeMod=getBuildModifiers(s),maxCharges=1+Math.floor(dodgeMod.staminaCapacity);
   p.dodgeCharges=Math.min(maxCharges,p.dodgeCharges??(p.dodgeCooldown>0?0:maxCharges));
   p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);
@@ -209,9 +217,10 @@ export class Simulation {
   const mx=Number.isFinite(input.mx)?input.mx:0,mz=Number.isFinite(input.mz)?input.mz:0;
   const len=Math.hypot(mx,mz),nx=len?mx/len:0,nz=len?mz/len:0;
   let abraTeleported=false;
-  if(tap.dodge&&p.dodgeCharges>0){
+  if(tap.dodge&&p.dodgeCharges>0&&!isBurrowed(p)){
    this.dodgeDirection={x:len?nx:Math.sin(p.facing),z:len?nz:Math.cos(p.facing)};
    p.dodgeTime=s.party[0].speciesId===63?0:DESIGN.dodgeSeconds;p.dodgeCharges--;if(p.dodgeCooldown===0)p.dodgeCooldown=Math.max(.01,DESIGN.dodgeCooldown*(1-dodgeMod.staminaRechargeReduction)/(1+dodgeMod.stamina));p.iframes=Math.max(p.iframes,.34);
+   if(trait.kind==='burrow'){p.burrowTime=MOVEMENT_TRAITS.burrowSeconds;p.dodgeTime=0;p.y=0;p.vy=0;}
    const origin={x:p.x,z:p.z};
    if(s.party[0].speciesId===63){
     // Abra crosses the dash distance in one frame, while the normal world collision still limits its landing spot.
@@ -219,34 +228,36 @@ export class Simulation {
     const destination=this.obstacles.move(p,this.dodgeDirection.x*distance,this.dodgeDirection.z*distance);
     p.x=destination.x;p.z=destination.z;abraTeleported=true;
    }
-   this.emit({kind:'dash',x:origin.x,z:origin.z,toX:abraTeleported?p.x:undefined,toZ:abraTeleported?p.z:undefined,shape:abraTeleported?'teleport':undefined,color:'#eef7c0',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});
+   this.emit({kind:'dash',x:origin.x,z:origin.z,toX:abraTeleported?p.x:undefined,toZ:abraTeleported?p.z:undefined,shape:isBurrowed(p)?'burrow':abraTeleported?'teleport':undefined,color:isBurrowed(p)?'#b99763':'#eef7c0',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});
   }
   const dodge=p.dodgeTime>0;p.dodgeTime=Math.max(0,p.dodgeTime-dt);
   const movement=prepareMovement(p,s.party[0].speciesId,nx,nz,len,dt,dodge||abraTeleported||tap.jump);
   const above=airborneTraversal(p,s.party[0].speciesId);
-  const speed=DESIGN.playerSpeed*(1+getBuildModifiers(s).speed)*(1+(movement?.boost??0))*(above?1:this.terrainSpeedFactor(p));
+  const shrineSlow=s.pois.some(poi=>shrineHazardZones(poi,s.stats.elapsed).some(zone=>zone.kind==='slow'&&!zone.warning&&distance2(p,zone)<=zone.radius));
+  const speed=DESIGN.playerSpeed*(1+getBuildModifiers(s).speed)*(1+(movement?.boost??0))*(above?1:this.terrainSpeedFactor(p)*(shrineSlow?.65:1));
   const targetX=nx*speed*Math.min(1,len),targetZ=nz*speed*Math.min(1,len),deltaX=targetX-this.velocity.x,deltaZ=targetZ-this.velocity.z;
   const delta=Math.hypot(deltaX,deltaZ),factor=delta?Math.min(1,(len?DESIGN.acceleration:DESIGN.deceleration)*dt/delta):1;
   this.velocity.x+=deltaX*factor;this.velocity.z+=deltaZ*factor;
-  const vx=dodge?this.dodgeDirection.x*DESIGN.dodgeSpeed:abraTeleported?0:this.velocity.x,vz=dodge?this.dodgeDirection.z*DESIGN.dodgeSpeed:abraTeleported?0:this.velocity.z;
+  const burrowing=isBurrowed(p),dashSpeed=burrowing?MOVEMENT_TRAITS.burrowSpeed:DESIGN.dodgeSpeed;
+  const vx=dodge||burrowing?this.dodgeDirection.x*dashSpeed:abraTeleported?0:this.velocity.x,vz=dodge||burrowing?this.dodgeDirection.z*dashSpeed:abraTeleported?0:this.velocity.z;
   const next=this.obstacles.move(p,vx*dt,vz*dt,DESIGN.playerRadius,above);
   this.walking=Math.hypot(next.x-p.x,next.z-p.z)>.001;
   recordRunUp(p,movement,next.x-p.x,next.z-p.z,dt,Math.hypot(vx,vz),len,dodge||abraTeleported||tap.jump);
   p.x=next.x;p.z=next.z;
-  if(dodge||abraTeleported)p.facing=Math.atan2(this.dodgeDirection.x,this.dodgeDirection.z);
+  if(dodge||burrowing||abraTeleported)p.facing=Math.atan2(this.dodgeDirection.x,this.dodgeDirection.z);
   else if(len>0)p.facing=Math.atan2(nx,nz);
-  const jumped=tap.jump&&p.y===0;
+  const jumped=tap.jump&&p.y===0&&!burrowing;
   if(jumped){p.vy=jumpVelocity(s.party[0].speciesId);this.emit({kind:'jump',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});}
   if(!stepFlight(p,movement,jumped,input.jumpHeld??input.jump,dt)){
    p.vy-=DESIGN.gravity*dt;p.y=Math.max(0,p.y+p.vy*dt);if(p.y===0)p.vy=0;
   }
   if(p.y===0&&movement){movement.flightUsed=false;movement.flightEligible=false;movement.flying=false;}
-  if(tap.special&&p.specialCooldown===0){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste);s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
+  if(tap.special&&p.specialCooldown===0&&!burrowing){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste);s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
   if(s.result!==null)return;
   const interaction=s.pois.find(a=>siteAvailable(a,s.stats.elapsed)&&!a.used&&distance2(p,a)<DESIGN.interactionRadius);
   const beacon=(s.terrainFeatures||[]).find(feature=>feature.kind==='ruin-beacon'&&feature.state==='ready'&&distance2(p,feature)<DESIGN.interactionRadius+1.2);
-  if(tap.interact&&beacon)this.armBeacon(beacon);
-  else if(tap.interact&&interaction)this.activatePOI(interaction);
+  if(tap.interact&&beacon&&!burrowing)this.armBeacon(beacon);
+  else if(tap.interact&&interaction&&!burrowing)this.activatePOI(interaction);
  }
  private terrainSpeedFactor(position:{x:number;z:number}){return (this.state.terrainFeatures||[]).some(feature=>feature.kind==='bramble'&&feature.state!=='spent'&&distance2(position,feature)<feature.radius)? .68:1;}
  private enemyTerrainSpeedFactor(enemy:Enemy){return !enemy.isBoss&&this.terrainSpeedFactor(enemy)<1?.54:1;}
@@ -384,6 +395,7 @@ export class Simulation {
  }
  private updateAttacks(dt:number){const s=this.state;
   for(const m of s.party){
+   if(m===s.party[0]&&isBurrowed(s.player))continue;
    this.updateLearnedMoves(m,dt);
    if(s.result!==null)return;
    const profile=getAttackProfile(m.speciesId,m.attackLevel),mod=getBuildModifiers(s,m);
@@ -446,7 +458,7 @@ export class Simulation {
  }
  private fireFromMember(m:PartyMember,target:AttackTarget,damageScale=1,depth=0,hitCount=1){
   const s=this.state;if(s.result!==null||target.dead)return;
-  const type=getSpecies(m.speciesId).types[0],profile=getAttackProfile(m.speciesId,m.attackLevel),mod=getBuildModifiers(s,m);
+  const profile=getAttackProfile(m.speciesId,m.attackLevel),type=profile.element??getSpecies(m.speciesId).types[0],mod=getBuildModifiers(s,m);
   const actions=depth===0?dispatchBuildEvent({state:s,rng:this.rng},{kind:'onAttack',sourceId:m.uid,targetId:target.uid>=0?target.uid:undefined,element:type,count:hitCount}):[];
   for(const action of actions){if(s.result!==null)return;if(action.kind!=='echo')this.applyBuildAction(action);}
   if(s.result!==null||target.dead)return;
@@ -473,6 +485,7 @@ export class Simulation {
  private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false,hitCount=1,tier=crit?1:0){
   if(e.dead||this.state.result!==null)return;
   const resolved=damageIsFinal?Math.max(0,Number.isFinite(amount)?amount:0):elementalDamage(amount,type,e,matchup);
+  const effectiveness=matchup&&!damageIsFinal?typeEffectiveness(type,getSpecies(e.speciesId).types):'neutral';
   let damage=Math.min(e.hp,resolved*hitCount);
   // A huge packet may earn a stage immediately, but cannot erase an unreadable
   // chapter. There is no transition lockout: the next hit can still land.
@@ -487,7 +500,7 @@ export class Simulation {
   const packetStatus=hitCount===1?status:Object.fromEntries(Object.entries(status).map(([key,chance])=>[key,1-Math.pow(1-chance,hitCount)]));
   const applied=Object.keys(status).length?applyStatusProcs(e,packetStatus,()=>this.rng.next(),1+getBuildModifiers(this.state,sourceId).duration):[];
   if(applied.length){if(sourceId!==undefined)this.statusOwners.set(e.uid,sourceId);this.emit({kind:'status',x:e.x,z:e.z,sourceId,targetId:e.uid,color:'#c5d8a5',shape:applied[0]});}
-  if(matchup)this.emit({kind:'hit',x:e.x,z:e.z,sourceId,targetId:e.uid,color:crit?'#ffe599':'#c0d4a4',amount:damage,damageTo:'enemy',shape:crit?'crit':'impact'});
+  if(matchup)this.emit({kind:'hit',x:e.x,z:e.z,sourceId,targetId:e.uid,color:crit?'#ffe599':'#c0d4a4',amount:damage,damageTo:'enemy',shape:crit?'crit':'impact',effectiveness:effectiveness==='neutral'?undefined:effectiveness});
   if(allowProcs){
    if(crit)this.buildEvent({kind:'onCrit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,critTier:tier});
    this.buildEvent({kind:'onHit',sourceId,targetId:e.uid,damage,element:type,count:hitCount});
@@ -495,13 +508,13 @@ export class Simulation {
   if(e.hp<=0)this.killEnemy(e,sourceId,allowProcs||!matchup);
  }
  private killEnemy(e:Enemy,sourceId?:number,allowProcs=true){if(e.dead)return;const s=this.state;
-  const trialSite=e.shrineGuardian?s.pois.find(poi=>poi.challenge?.guardianId===e.uid):undefined;
-  if(trialSite&&(s.stats.elapsed>=trialSite.challenge!.endsAt||distance2(s.player,trialSite)>SHRINE.radius)){
+  const trialSite=e.shrineGuardian?s.pois.find(poi=>poi.uid===e.challengeSiteId||poi.challenge?.guardianId===e.uid):undefined;
+  if(trialSite?.challenge&&(s.stats.elapsed>=trialSite.challenge.endsAt||distance2(s.player,trialSite)>shrineForPOI(trialSite).radius)){
    this.updateExploration();return;
   }
   e.dead=true;this.statusOwners.delete(e.uid);s.stats.kills++;
   this.emit({kind:'kill',variant:e.variant,speciesId:e.speciesId,targetId:e.uid,sourceId});
-  const gain=variantRewardXP(e);
+  const gain=e.shrineGuardian?variantRewardXP({...e,elite:false})*(e.shrineXPScale??2):variantRewardXP(e);
   this.gainXP(gain*.52);
   this.spawnDrop({x:e.x,z:e.z,value:gain*.48,kind:'xp'});
   if(e.elite||this.lootRng.next()<ECONOMY.coinChance)this.spawnDrop({x:e.x,z:e.z,kind:'coin',value:e.elite?ECONOMY.eliteCoins:e.variant==='normal'?ECONOMY.normalCoins:ECONOMY.variantCoins});
@@ -510,17 +523,12 @@ export class Simulation {
    const item=weightedUpgradeChoices(availableItemChoices(s).filter(item=>!groundItems.has(relicFamily(item.id))),1,this.lootRng,s.buffs.luck||0)[0];
    if(item)this.spawnDrop({x:e.x,z:e.z,kind:'item',value:1,itemId:item.id});
   }
-  if(e.elite&&(e.landmarkGuardian||e.isBoss||s.stats.elapsed-(s.lastSquadRewardAt??-999)>=ECONOMY.eliteRewardInterval)){
+  if(e.elite&&!e.shrineGuardian&&(e.landmarkGuardian||e.isBoss||s.stats.elapsed-(s.lastSquadRewardAt??-999)>=ECONOMY.eliteRewardInterval)){
    s.pendingSquadRewards=(s.pendingSquadRewards??0)+1;s.lastSquadRewardAt=s.stats.elapsed;
   }
   this.emit({kind:'hit',x:e.x,z:e.z,color:e.isBoss?'#d7b0ff':'#c0efb0'});
   if(e.shrineGuardian){
-   const site=s.pois.find(poi=>poi.challenge?.guardianId===e.uid);
-   // An active trial must still be in bounds and on time when the kill lands.
-   const won=!site||(s.stats.elapsed<site.challenge!.endsAt&&distance2(s.player,site)<=SHRINE.radius);
-   if(won){
-    if(site)this.completeShrine(site,'Guardian defeated');
-   }
+   if(trialSite?.challenge&&!s.enemies.some(enemy=>!enemy.dead&&enemy.challengeSiteId===trialSite.uid))this.completeShrine(trialSite,'Shrine cleared');
   }
   if(e.isBoss){
    const first=!s.stats.bossKilled;s.stats.bossesDefeated=(s.stats.bossesDefeated??0)+1;s.psychicRings=[];s.projectiles=s.projectiles.filter(projectile=>projectile.friendly);delete s.activeBossEncounterId;delete s.bossStage;
@@ -531,13 +539,13 @@ export class Simulation {
  }
  private completeShrine(site:POI,label:string){const s=this.state,tier=site.challenge?.tier??1;
   const summoned=s.enemies.filter(enemy=>enemy.challengeSiteId===site.uid);for(const enemy of summoned){enemy.dead=true;this.statusOwners.delete(enemy.uid);}
-  const sources=new Set(summoned.map(enemy=>enemy.uid));s.projectiles=s.projectiles.filter(projectile=>!sources.has(projectile.sourceId));
-  s.buffs.luck=Math.min(.4,(s.buffs.luck||0)+.04);s.player.specialCooldown=0;if(site.challenge?.id!=='guardian')s.pendingSquadRewards=(s.pendingSquadRewards??0)+1;
+  const sources=new Set(summoned.map(enemy=>enemy.uid));s.projectiles=s.projectiles.filter(projectile=>!sources.has(projectile.sourceId));s.psychicRings=s.psychicRings?.filter(ring=>!sources.has(ring.sourceId)&&ring.sourceId!==-site.uid);
+  s.buffs.luck=Math.min(.4,(s.buffs.luck||0)+.04);s.player.specialCooldown=0;s.pendingSquadRewards=(s.pendingSquadRewards??0)+1;s.lastSquadRewardAt=s.stats.elapsed;
   const groundItems=new Set(s.drops.flatMap(drop=>drop.kind==='item'&&drop.itemId?[relicFamily(drop.itemId)]:[]));
   const relic=weightedUpgradeChoices(availableItemChoices(s).filter(item=>!groundItems.has(relicFamily(item.id))&&(item.rarity==='legendary'||item.rarity===(tier>=3?'epic':'rare')||(tier<3&&item.rarity==='epic'))),1,this.lootRng,s.buffs.luck||0)[0];
   if(relic)this.spawnDrop({x:site.x,z:site.z,kind:'item',value:1,itemId:relic.id});else this.spawnDrop({x:site.x,z:site.z,kind:'coin',value:30*tier});
   if(!site.rareTriggered&&rareEventFor(s.seed,site)?.kind==='ancient-echo'){site.rareTriggered=true;s.buffs.luck=Math.min(.4,(s.buffs.luck||0)+.03);this.emit({kind:'log',label:rareEventFor(s.seed,site)!.label});}
-  site.uses=(site.uses??0)+1;site.respawnAt=s.stats.elapsed+SHRINE.respawn;delete site.challenge;
+  site.uses=(site.uses??0)+1;site.promoteShrineOnRestock=true;site.respawnAt=s.stats.elapsed+SHRINE.respawn;delete site.challenge;
   this.emit({kind:'interact',x:site.x,z:site.z,label:`${label}: relic, squad training, +4% luck and special ready!`,color:'#d2b5ff'});
  }
  private collectItem(itemId:string|undefined){
@@ -632,6 +640,7 @@ export class Simulation {
   this.emit({kind:'faint',sourceId:member.uid,speciesId:member.speciesId,amount:member.speciesId,label:`${getSpecies(member.speciesId).name} fainted and left your party!`});
  }
  private hurtPlayer(amount:number,poison:boolean,bypassInvuln=false,ignoreArmor=false,sourceId?:number){const p=this.state.player;
+  if(isBurrowed(p))return;
   if(p.iframes>0&&!bypassInvuln)return;
   const mod=getBuildModifiers(this.state);
   if(sourceId!==undefined&&!ignoreArmor&&mod.deflection>0&&this.rng.next()<mod.deflection){p.iframes=.67;this.emit({kind:'hit',x:p.x,z:p.z,amount:0,label:'Deflected',targetId:this.state.party[0].uid,damageTo:'player'});return;}
@@ -696,6 +705,17 @@ export class Simulation {
   }
   s.psychicRings=(s.psychicRings||[]).filter(ring=>ring.radius<ring.maxRadius);
  }
+ private updateShrineHazards(dt:number){const s=this.state,p=s.player;
+  for(const poi of s.pois){
+   const definition=shrineForPOI(poi);
+   for(const zone of shrineHazardZones(poi,s.stats.elapsed)){
+    if(zone.warning||zone.kind==='slow')continue;
+    const dps=(zone.kind==='fire'?7:4)+definition.tier*.3;
+    if(distance2(p,zone)<=zone.radius&&p.y<.9&&p.dodgeTime<=0&&!isBurrowed(p)){const damage=dps*dt;p.hp-=damage;s.stats.damageTaken+=damage;}
+    for(const member of s.party.slice(1))if(member.hp>0&&distance2(member,zone)<=zone.radius){member.hp-=dps*dt;if(member.hp<=0)this.faintCompanion(member);}
+   }
+  }
+ }
  private updateExploration(){const s=this.state;
   for(const poi of s.pois){
    if(!siteAvailable(poi,s.stats.elapsed))continue;
@@ -704,17 +724,20 @@ export class Simulation {
    const completed=trial&&(trial.id==='holdout'||trial.id==='ring-run')&&s.stats.elapsed>=trial.endsAt&&distance2(s.player,poi)<=optionalChallenge(trial.id).radius&&(trial.id==='holdout'||(trial.progress??0)>=3);
    if(completed)this.completeShrine(poi,trial.id==='holdout'?'Ward held':'All wards crossed');
    const activeTrial=poi.challenge;
-   if(activeTrial&&(s.stats.elapsed>=activeTrial.endsAt||distance2(s.player,poi)>optionalChallenge(activeTrial.id).radius)){
+   if(activeTrial&&(s.stats.elapsed>=activeTrial.endsAt||distance2(s.player,poi)>(activeTrial.id==='guardian'?shrineForPOI(poi).radius:optionalChallenge(activeTrial.id).radius))){
     const challengeEnemies=s.enemies.filter(enemy=>enemy.uid===activeTrial.guardianId||enemy.challengeSiteId===poi.uid);
     for(const enemy of challengeEnemies){enemy.dead=true;this.statusOwners.delete(enemy.uid);}
     const sources=new Set(challengeEnemies.map(enemy=>enemy.uid));s.projectiles=s.projectiles.filter(projectile=>!sources.has(projectile.sourceId));
-    s.psychicRings=s.psychicRings?.filter(ring=>ring.sourceId!==activeTrial.guardianId&&ring.sourceId!==-poi.uid);
-    delete poi.challenge;poi.respawnAt=s.stats.elapsed+SHRINE.retry;
+    s.psychicRings=s.psychicRings?.filter(ring=>!sources.has(ring.sourceId)&&ring.sourceId!==-poi.uid);
+    delete poi.challenge;delete poi.promoteShrineOnRestock;poi.respawnAt=s.stats.elapsed+SHRINE.retry;
     this.emit({kind:'interact',label:'Shrine failed: time expired or you left the trial. Retry in 60s.',x:poi.x,z:poi.z,color:'#ff947d'});
    }
    if(poi.used&&!poi.challenge&&poi.respawnAt!==undefined&&s.stats.elapsed>=poi.respawnAt){
+    if(poi.kind==='cache'&&poi.price!==undefined)poi.rarity=restockChestRarity(s.stats.elapsed,this.lootRng.next());
     poi.used=false;delete poi.respawnAt;
+    if(poi.promoteShrineOnRestock){refreshShrineTier(s,poi,true);delete poi.promoteShrineOnRestock;}
    }
+   if(!poi.used)refreshShrineTier(s,poi);
    if(activeTrial?.id==='holdout'&&s.stats.elapsed<activeTrial.endsAt&&s.stats.elapsed>=(activeTrial.nextPressureAt??Infinity)){
     if(s.enemies.filter(enemy=>!enemy.dead).length<Math.min(DESIGN.maxEnemies-1,(s.director?.enemyBudget||DESIGN.maxEnemies))){
      const id=this.rng.pick(mapEncounter(s.mapId).boss.summons),pos=enemySpawnPosition(s.player,this.rng,13,20);
@@ -725,6 +748,10 @@ export class Simulation {
  }
  private activatePOI(poi:POI){const s=this.state;
   if(poi.used||!siteAvailable(poi,s.stats.elapsed))return;
+  if(poi.kind==='shrine'){
+   if(poi.shrineTier===undefined)poi.shrineTier=1;
+   if(!shrineLevelAllowed(s.party[0].level,shrineForPOI(poi))){this.emit({kind:'log',label:`Recommended Lv ${shrineForPOI(poi).level}. You must be within 10 levels.`});return;}
+  }
   if(poi.kind==='cache'){
    const cost=chestCost(s,poi);
    if((s.coins??0)<cost){this.emit({kind:'log',label:`Supply chest costs ${cost} coins. You have ${s.coins??0}.`});return;}
@@ -736,7 +763,8 @@ export class Simulation {
   }
   if(poi.kind==='elite'||poi.kind==='shrine'){
    s.enemies=s.enemies.filter(enemy=>!enemy.dead);
-   if(s.enemies.length>=DESIGN.maxEnemies-(s.bossSpawned?0:1)){this.emit({kind:'log',label:'Too many enemies nearby. Clear a path first.'});return;}
+   const count=poi.kind==='shrine'?shrineForPOI(poi).count:1;
+   if(s.enemies.length+count>DESIGN.maxEnemies-(s.bossSpawned?0:1)){this.emit({kind:'log',label:'Too many enemies nearby. Clear a path first.'});return;}
   }
   poi.used=true;
   if(poi.kind==='cache'){
@@ -746,11 +774,16 @@ export class Simulation {
    else {s.player.hp=Math.min(s.player.maxHp,s.player.hp+42);for(const member of s.party){member.hp=Math.min(member.maxHp,member.hp+35);}this.emit({kind:'interact',label:'Restored 42 HP!',x:poi.x,z:poi.z,color:'#90ff9c'});}
   }else if(poi.kind==='shrine'){
    if(s.pois.some(site=>site.challenge)){poi.used=false;this.emit({kind:'log',label:'Finish your active shrine trial first.'});return;}
-   const definition=optionalChallenge(poi.challengeKind??'guardian'),tier=shrineTier(s,poi),endsAt=s.stats.elapsed+definition.duration;
+   const definition=optionalChallenge(poi.challengeKind??'guardian'),tier=shrineTier(s,poi),endsAt=s.stats.elapsed+(definition.id==='guardian'?SHRINE_RULES.timeLimit:definition.duration);
    if(definition.id==='guardian'){
-    const id=this.rng.pick(mapEncounter(s.mapId).guardians),guardian=createGuardian(s,this.rng,id,poi.x+7,poi.z,true,tier);
-    poi.challenge={id:definition.id,guardianId:guardian.uid,endsAt,tier};s.enemies.push(guardian);
-    this.emit({kind:'interact',label:`Tier ${tier} ${definition.title}: defeat ${getSpecies(id).name} in ${definition.duration}s. Stay within ${definition.radius}m. ${definition.reward}.`,x:poi.x,z:poi.z,color:'#d2b5ff'});
+    const encounter=shrineForPOI(poi),guardianIds:number[]=[];
+    for(let i=0;i<encounter.count;i++){
+     const angle=i*Math.PI*2/encounter.count;
+     const guardian=createGuardian(s,this.rng,encounter.speciesId,poi.x+Math.cos(angle)*7,poi.z+Math.sin(angle)*7,true,tier);
+     guardian.challengeSiteId=poi.uid;guardianIds.push(guardian.uid);s.enemies.push(guardian);
+    }
+    poi.challenge={id:definition.id,guardianId:guardianIds[0],guardianIds,startedAt:s.stats.elapsed,endsAt,tier};
+    this.emit({kind:'interact',label:`${shrineContents(encounter)}. Defeat all ${encounter.count} in ${SHRINE_RULES.timeLimit}s. Stay within ${encounter.radius}m.`,x:poi.x,z:poi.z,color:encounter.color});
    }else if(definition.id==='holdout'){
     poi.challenge={id:definition.id,endsAt,tier,nextPressureAt:s.stats.elapsed+8};
     for(let i=0;i<definition.pressure;i++){const pos=enemySpawnPosition(s.player,this.rng,12,19),add=createEnemy(s,this.rng,this.rng.pick(mapEncounter(s.mapId).boss.summons),'rabid',pos.x,pos.z);add.challengeSiteId=poi.uid;s.enemies.push(add);}

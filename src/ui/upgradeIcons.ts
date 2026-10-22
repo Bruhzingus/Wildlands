@@ -1,4 +1,4 @@
-import type {AttackKind} from '../data/kanto.ts';
+import {ELEMENT_COLORS,type AttackKind} from '../data/kanto.ts';
 import {getAttackProfile} from '../data/attacks.ts';
 import {getItemDefinition} from '../data/items.ts';
 import {getMoveDefinition} from '../data/moves.ts';
@@ -39,6 +39,11 @@ export function upgradeIconName(choice:UpgradeChoice):IconName {
 }
 
 export function upgradeIcon(choice:UpgradeChoice):string {
+ if(choice.kind==='learn'){
+  const move=getMoveDefinition(choice.moveId??'');
+  const element=move?.element??'normal';
+  return `<svg class="upgrade-icon move-disc" data-move-type="${element}" style="--move-type:${ELEMENT_COLORS[element]}" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle class="disc-rim" cx="32" cy="32" r="29"/><circle class="disc-face" cx="32" cy="32" r="25"/><path class="disc-band" d="M9 25h46v14H9z"/><circle class="disc-hub" cx="32" cy="32" r="8"/><circle class="disc-hole" cx="32" cy="32" r="3.5"/><path class="disc-glint" d="M17 18a23 23 0 0 1 16-7"/></svg>`;
+ }
  const name=upgradeIconName(choice);
  return `<svg class="upgrade-icon" data-icon="${name}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
 }

@@ -4,7 +4,7 @@ import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const run=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).locomotion),expression);
 const open=async(page:Page)=>{
  await page.goto(`/tests/browser/fixtures/locomotion.html${process.env.N1_BASELINE?'?baseline=1':''}`);
- await expect.poll(()=>page.evaluate(()=>!!(window as any).locomotion)).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>!!(window as any).locomotion),{timeout:60000,message:'Native sheets and the first WebGL frame are ready'}).toBe(true);
 };
 test.use({viewport:{width:960,height:600},video:{mode:'on',size:{width:960,height:600}}});
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {KANTO,getSpecies} from '../src/data/kanto.ts';
+import {EVOLUTION_CHAINS,KANTO,getSpecies} from '../src/data/kanto.ts';
 import {SPECIES_COMBAT,GATED_RECRUIT_SPECIES,LEGENDARY_SPECIES} from '../src/data/rosterContent.ts';
 import {validateRoster} from '../src/data/validateRoster.ts';
 import {evolutionRule,evolutionRequirement} from '../src/data/evolutions.ts';
@@ -20,6 +20,36 @@ test('all 151 original IDs, historical types, 72 evolution links and authored lo
  assert.equal(SPECIES_COMBAT.length,151);
 });
 
+test('two-stage families occupy the intended stat and evolution window',()=>{
+ const [squirtle,wartortle,blastoise,growlithe,arcanine,magikarp,gyarados]=[7,8,9,58,59,129,130].map(getSpecies);
+ for(const stat of ['power','defense','health'] as const){
+  assert.ok(growlithe[stat]>squirtle[stat],stat);
+  assert.ok(wartortle[stat]>growlithe[stat],stat);
+  assert.ok(arcanine[stat]>wartortle[stat],stat);
+  assert.ok(blastoise[stat]>arcanine[stat],stat);
+  assert.ok(magikarp[stat]<squirtle[stat],stat);
+  assert.ok(gyarados[stat]>blastoise[stat],stat);
+ }
+ const first=evolutionRule(7,8)!,twoStage=evolutionRule(58,59)!;
+ assert.ok(twoStage.level>first.level);
+ assert.ok(twoStage.maturitySeconds>first.maturitySeconds);
+ const ordinaryStarters=KANTO.filter(species=>species.stage===1&&species.id!==129);
+ assert.ok(ordinaryStarters.every(species=>magikarp.power<species.power&&magikarp.defense<species.defense&&magikarp.health<species.health));
+ const three=EVOLUTION_CHAINS.filter(chain=>chain.length===3).map(chain=>chain.map(getSpecies));
+ const two=EVOLUTION_CHAINS.filter(chain=>chain.length===2&&chain[0]!==129).map(chain=>chain.map(getSpecies));
+ const tiers=[three.map(chain=>chain[0]),two.map(chain=>chain[0]),three.map(chain=>chain[1]),two.map(chain=>chain[1]),three.map(chain=>chain[2])];
+ for(const stat of ['power','defense','health'] as const)for(let index=1;index<tiers.length;index++){
+  assert.ok(Math.min(...tiers[index].map(species=>species[stat]))>Math.max(...tiers[index-1].map(species=>species[stat])),`${stat} tier ${index}`);
+ }
+ assert.ok(gyarados.power>Math.max(...tiers[4].map(species=>species.power)));
+ const fishRun=new Simulation(129,29).state;fishRun.stats.elapsed=300;fishRun.party[0].level=15;
+ const fishEvolution=makeChoices(fishRun,new RNG(29)).find(choice=>choice.kind==='evolve'&&choice.targetId===130)!;
+ assert.match(fishEvolution.description,/\+150% maximum HP/);
+ const beforeHp=fishRun.player.maxHp;
+ assert.equal(applyChoice(fishRun,fishEvolution).applied,true);
+ assert.equal(fishRun.player.maxHp,beforeHp*2.5);
+});
+
 test('content validator detects removed IDs, wrong historical types, invalid evolutions and duplicate move entries',()=>{
  assert.ok(validateRoster(reference,KANTO.slice(1)).some(issue=>issue==='Missing species 1'));
  const bad=structuredClone(KANTO);bad[0].types=['fire'];bad[0].evolvesTo=[1,999];
@@ -36,7 +66,7 @@ test('all 72 explicit evolution cards apply, including 16 stone and four adapted
   const rule=evolutionRule(species.id,targetId)!;counts[rule.method]++;
   const state=new Simulation(species.id,27).state;state.stats.elapsed=500;state.stats.level=30;state.party[0].level=30;state.recruitCount=1;
   assert.deepEqual(eligibleEvolutions(state),[1]);
-  assert.ok(evolutionRequirement(species.id,targetId).includes('170s'));
+  assert.ok(evolutionRequirement(species.id,targetId).includes(`${rule.maturitySeconds}s`));
   const result=applyChoice(state,{id:`evolve-1-${targetId}`,speciesId:1,sourceSpeciesId:species.id,targetId,kind:'evolve',title:'Evolution',description:'',rarity:'epic'});
   assert.equal(result.applied,true,`${species.name} → ${getSpecies(targetId).name}`);assert.equal(state.party[0].speciesId,targetId);
   assert.equal(state.party[0].attackLevel,2,'Every evolution grants a move rank');assert.equal(state.party[0].level,30,'Evolution does not grant a level');

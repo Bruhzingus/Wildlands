@@ -1,4 +1,7 @@
 .damage-numbers{position:fixed;inset:0;pointer-events:none;z-index:2;overflow:hidden}
-.damage-number{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;color:var(--damage-color);font:500 14px/20px monospace;text-shadow:0 1px 2px #111d16,1px 0 2px #111d16,-1px 0 2px #111d16;user-select:none}
-.damage-number.is-crit{font-size:16px;font-weight:800}
+.damage-number{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;color:var(--damage-color);font:800 18px/22px monospace;letter-spacing:.02em;text-shadow:0 2px 3px #071008,2px 0 2px #071008,-2px 0 2px #071008,0 -1px 2px #071008;user-select:none}
+.damage-number.is-crit{font-size:21px;font-weight:900;color:#ffe599}
+.damage-number::after{display:block;margin-top:-2px;font:800 9px/11px system-ui,sans-serif;letter-spacing:.08em;text-align:center;text-shadow:0 1px 2px #071008}
+.damage-number.is-super::after{content:'SUPER EFFECTIVE!';color:#ffe599}
+.damage-number.is-resisted::after{content:'NOT VERY EFFECTIVE';color:#b8c8e0}
 .party-damage-color{position:absolute;left:4px;bottom:25px;width:5px;height:5px;border-radius:50%;background:var(--damage-color);box-shadow:0 0 0 1px #18201c}

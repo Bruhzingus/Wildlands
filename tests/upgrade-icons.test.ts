@@ -22,3 +22,12 @@ test('item icons distinguish recovery, chain and protection while every catalogu
  const unique=new Set(ITEMS.map(upgradeIconName));assert.ok(unique.size>=10);
  for(const choice of ITEMS){const svg=upgradeIcon(choice);assert.match(svg,/^<svg/);assert.doesNotMatch(svg,/undefined|<script/);}
 });
+
+test('new move discs carry the actual move type color',()=>{
+ for(const [id,element] of [['ember','fire'],['water-gun','water'],['tackle','normal']] as const){
+  const icon=upgradeIcon({id:`learn-1-${id}`,kind:'learn',moveId:id,title:id,description:'',rarity:'rare'});
+  assert.match(icon,/class="upgrade-icon move-disc"/);
+  assert.match(icon,new RegExp(`data-move-type="${element}"`));
+  assert.match(icon,/disc-hole/);
+ }
+});

@@ -55,9 +55,10 @@ export function moveRankGain(_state:RunState,member:PartyMember,_fromRank=member
 }
 
 function growthDescription(species:Species):string {
+ const healthGain=species.evolvesTo.length?Math.round((getSpecies(species.evolvesTo[0]).health/species.health-1)*100):0;
  return species.stage===1&&!species.evolvesTo.length?
   `Single-stage mastery: moves keep growing; training grants +${PROGRESSION.moves.soloRankGain} ranks from Pokémon level ${PROGRESSION.moves.soloTrainingLevel}.`:
-  `Evolution grants +${PROGRESSION.evolution.healthGain*100}% maximum HP, +${PROGRESSION.evolution.powerGain*100}% permanent attack damage and +${PROGRESSION.evolution.moveRankGain} rank to every known move.`;
+  `Evolution grants +${healthGain}% maximum HP, +${PROGRESSION.evolution.powerGain*100}% permanent attack damage and +${PROGRESSION.evolution.moveRankGain} rank to every known move.`;
 }
 
 export function trainingRank(state:RunState,upgrade:TrainingUpgrade):number {
@@ -336,7 +337,7 @@ export function applyChoice(state:RunState,choice:UpgradeChoice):ChoiceResult {
    if(!canRecruit(state)||!species||choice.id!==`recruit-${species.id}`||
     (choice.rank!==undefined&&choice.rank!==state.recruitCount+1))return unavailable('Recruitment unavailable');
    const uid=state.idCounter++;
-   const hp=155*(1+(state.buffs.health||0));
+ const hp=155*species.health*(1+(state.buffs.health||0));
    state.party.push({uid,speciesId:species.id,joinedAt:state.stats.elapsed,level:1,xp:0,xpToNext:xpThreshold(1),hp,maxHp:hp,iframes:0,attackLevel:1,cooldown:0,learnedMoves:[],
     x:state.player.x+1.2,z:state.player.z+1.2,facing:0,animation:'idle',attackTimer:0});
    state.stats.recruits++;state.recruitCount++;state.pendingRecruit=false;
@@ -349,7 +350,7 @@ export function applyChoice(state:RunState,choice:UpgradeChoice):ChoiceResult {
    const legacy=choice.id===`evolve-${member.uid}`&&old.stage===1&&old.evolvesTo.length===1&&choice.targetId===undefined;
    if(!old.evolvesTo.includes(target)||(!legacy&&choice.id!==`evolve-${member.uid}-${target}`)||
     (choice.sourceSpeciesId!==undefined&&choice.sourceSpeciesId!==old.id))return unavailable('Evolution unavailable');
-   const targetSpecies=getSpecies(target),hpMultiplier=1+PROGRESSION.evolution.healthGain;
+   const targetSpecies=getSpecies(target),hpMultiplier=targetSpecies.health/old.health;
    const merged=matchingSignatureMoves(member,targetSpecies);
    if(merged.length){
     member.attackLevel=Math.max(member.attackLevel,...merged.map(move=>move.rank));

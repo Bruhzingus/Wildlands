@@ -2,6 +2,7 @@ import {KANTO,type Species} from './kanto.ts';
 import {getAttackProfile,ATTACK_ARCHETYPES} from './attacks.ts';
 import {ENCOUNTER_TABLES} from './encounters.ts';
 import {SPECIES_COMBAT,LEGENDARY_SPECIES,type SpeciesCombat} from './rosterContent.ts';
+import {getMovementTrait} from './movementTraits.ts';
 export interface RosterReference {id:number;name:string;types:string[];parent:number|null;}
 export function validateRoster(reference:readonly RosterReference[],species:readonly Species[]=KANTO,combat:readonly SpeciesCombat[]=SPECIES_COMBAT):string[] {
  const issues:string[]=[],byId=new Map(species.map(row=>[row.id,row])),moves=new Set<string>();
@@ -19,9 +20,12 @@ export function validateRoster(reference:readonly RosterReference[],species:read
   if(row.stage!==1+(expected.parent?byId.get(expected.parent)?.stage??0:0))issues.push(`#${id} invalid evolution stage`);
   if(row.evolvesTo.some(target=>!byId.has(target)||target===id)||new Set(row.evolvesTo).size!==row.evolvesTo.length)issues.push(`#${id} invalid or duplicate evolution target`);
   if(loadouts.length!==1){issues.push(`#${id} missing or duplicate move entry`);continue;}
-  const loadout=loadouts[0],move=loadout.moveName.trim().toLowerCase();
-  if(!move||moves.has(move))issues.push(`#${id} empty or duplicate authored move name`);moves.add(move);
-  if(!ATTACK_ARCHETYPES[loadout.attack]||loadout.attack!==row.attack||loadout.power!==row.power||row.power<10||row.power>32)issues.push(`#${id} invalid arcade combat parameters`);
+  const loadout=loadouts[0],move=loadout.moveName.trim().toLowerCase(),profile=getAttackProfile(id);
+  // Shared canonical names (Bite, Swift) are valid when handling differs.
+  // Still reject duplicate authored names within the same attack/movement kit.
+  const identity=`${move}/${profile.pattern??profile.kind}/${getMovementTrait(id).kind}`;
+  if(!move||moves.has(identity))issues.push(`#${id} empty or duplicate authored move name within one combat identity`);moves.add(identity);
+  if(!ATTACK_ARCHETYPES[loadout.attack]||loadout.attack!==row.attack||loadout.power<10||loadout.power>32||row.power<4||row.power>32)issues.push(`#${id} invalid arcade combat parameters`);
   if(row.recruitable!==(row.stage===1&&!LEGENDARY_SPECIES.includes(id)))issues.push(`#${id} invalid first-stage recruitment flag`);
  }
  const reachable=new Set(Object.values(ENCOUNTER_TABLES).flat());

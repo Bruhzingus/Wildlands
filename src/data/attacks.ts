@@ -4,7 +4,7 @@ import {PROGRESSION} from './progression.ts';
 
 export interface StatusProc {burn?:number;poison?:number;slow?:number;soak?:number;stun?:number}
 export type ProjectileShape='orb'|'needle'|'beam'|'lob'|'star';
-export type AttackPattern='vine'|'flame-fan'|'bubble-stream'|'thread'|'gust'|'sand-wave'|'foxfire'|'spores'|'ricochet'|'pounce'|'psychic-cross'|'combo'|'haunt'|'swift';
+export type AttackPattern='vine'|'flame-fan'|'bubble-stream'|'thread'|'gust'|'sand-wave'|'foxfire'|'spores'|'ricochet'|'pounce'|'psychic-cross'|'combo'|'haunt'|'swift'|'tackle';
 export interface AttackMilestone {
  rank:number;description:string;projectiles?:number;pierce?:number;chains?:number;chainRange?:number;
  width?:number;spread?:number;splashRadius?:number;knockback?:number;bounces?:number;bounceRange?:number;
@@ -12,6 +12,7 @@ export interface AttackMilestone {
 }
 export interface AttackDefinition {
  kind:AttackKind;cooldown:number;range:number;projectiles:number;pierce:number;radius:number;
+ element?:Element;
  speed:number;lifetime:number;damageScale:number;chains:number;chainRange:number;
  growth:{damage:number;range:number;radius:number;projectilesEvery:number;chainsEvery:number};
  status:StatusProc;silhouette:ProjectileShape;
@@ -35,14 +36,15 @@ export const SPECIES_ATTACKS=SPECIES_ATTACK_PARAMETERS;
 export function getAttackProfile(speciesId:number,level=1):AttackDefinition {
  const species=getSpecies(speciesId),override=SPECIES_ATTACKS[speciesId]||{},base=ATTACK_ARCHETYPES[override.kind||species.attack];
  const growth={...base.growth,...override.growth},rank=Math.max(0,Number.isFinite(level)?level-1:0);
- let profile:AttackDefinition={...base,...override,growth,status:{...ELEMENT_PROCS[species.types[0]],...base.status,...override.status}};
+ let profile:AttackDefinition={...base,...override,growth,status:{...ELEMENT_PROCS[override.element??species.types[0]],...base.status,...override.status}};
  for(const milestone of profile.milestones||[]){
   if(milestone.rank>rank+1)continue;
   const {rank:_rank,description:_description,status,...changes}=milestone;
   profile={...profile,...changes,status:{...profile.status,...status}};
  }
  const melee=profile.kind==='slash'?1.25:1;
- return {...profile,damageScale:profile.damageScale*(1+(species.stage-1)*.12)*melee,range:(profile.range+rank*growth.range)*melee,radius:(profile.radius+rank*growth.radius)*melee,width:profile.width===undefined?undefined:(profile.width+rank*growth.radius)*melee,
+ const ranged=['bolt','beam','lob','chain'].includes(profile.kind);
+ return {...profile,damageScale:profile.damageScale*(1+(species.stage-1)*.12)*melee*(species.stage===1&&ranged?0.8:1),range:(profile.range+rank*growth.range)*melee,radius:(profile.radius+rank*growth.radius)*melee,width:profile.width===undefined?undefined:(profile.width+rank*growth.radius)*melee,
   projectiles:profile.projectiles+(growth.projectilesEvery?Math.floor(rank/growth.projectilesEvery):0),
   chains:profile.chains+(growth.chainsEvery?Math.floor((rank+1)/growth.chainsEvery):0)};
 }

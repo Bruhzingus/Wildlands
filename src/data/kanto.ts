@@ -4,7 +4,7 @@ import {getSpeciesCombat,LEGENDARY_SPECIES} from './rosterContent.ts';
  * PokéAPI is an optional data-enrichment source, not a runtime dependency. */
 export type Element = 'normal'|'fire'|'water'|'grass'|'electric'|'ice'|'fighting'|'poison'|'ground'|'flying'|'psychic'|'bug'|'rock'|'ghost'|'dragon';
 export type AttackKind = 'bolt'|'burst'|'slash'|'aura'|'chain'|'beam'|'lob'|'heal';
-export interface Species { id:number; name:string; types:Element[]; stage:number; evolvesTo:number[]; attack:AttackKind; power:number; defense:number; moveName:string; recruitable:boolean; }
+export interface Species { id:number; name:string; types:Element[]; stage:number; evolvesTo:number[]; attack:AttackKind; power:number; defense:number; health:number; moveName:string; recruitable:boolean; }
 const raw = `
 Bulbasaur|grass,poison
 Ivysaur|grass,poison
@@ -166,13 +166,25 @@ export const EVOLUTION_CHAINS: readonly (readonly number[])[] = [
 [133,135],[133,136],[138,139],[140,141],[147,148,149]
 ];
 const parents = new Map<number,number>(); const childMap = new Map<number,number[]>();
+const familyLengthByRoot=new Map<number,number>();
+for(const chain of EVOLUTION_CHAINS)familyLengthByRoot.set(chain[0],Math.max(chain.length,familyLengthByRoot.get(chain[0])??1));
 for(const chain of EVOLUTION_CHAINS) for(let i=0;i<chain.length-1;i++){
  const a=chain[i],b=chain[i+1]; parents.set(b,a); childMap.set(a,[...(childMap.get(a)||[]),b]);
 }
+/** Arcade stat bands preserve a clear ladder across two- and three-stage lines. */
+const STAGE_BANDS:Record<string,{min:number;max:number;defense:number;health:number}>={
+ '3-1':{min:11,max:14,defense:1.7,health:1},'3-2':{min:18,max:20,defense:1.98,health:1.25},'3-3':{min:25,max:27,defense:2.27,health:1.5625},
+ '2-1':{min:15,max:16,defense:1.84,health:1.1},'2-2':{min:22,max:24,defense:2.12,health:1.375},
+};
 export const KANTO: Species[] = raw.map((line,i)=>{
  const [name,t]=line.split('|');const id=i+1;const types=t.split(',') as Element[];
  let p=id,stage=1;while(parents.has(p)){ p=parents.get(p)!;stage++; }
- const combat=getSpeciesCombat(id);return {id,name,types,stage,evolvesTo:childMap.get(id)||[],attack:combat.attack,power:combat.power,defense:Number(Math.max(.5,Math.min(3,3.5-combat.power/12)).toFixed(2)),moveName:combat.moveName,recruitable:!parents.has(id)&&!LEGENDARY_SPECIES.includes(id)};
+ const combat=getSpeciesCombat(id);
+ const band=STAGE_BANDS[`${familyLengthByRoot.get(p)??1}-${stage}`];
+ const power=id===129?4:id===130?29:band?Math.max(band.min,Math.min(band.max,combat.power)):combat.power;
+ const defense=id===129?.5:id===130?2.55:band?Number((band.defense+Math.max(0,band.max-combat.power)*.02).toFixed(2)):Number(Math.max(.5,Math.min(3,3.5-combat.power/12)).toFixed(2));
+ const health=id===129?.7:id===130?1.75:band?.health??1;
+ return {id,name,types,stage,evolvesTo:childMap.get(id)||[],attack:combat.attack,power,defense,health,moveName:combat.moveName,recruitable:!parents.has(id)&&!LEGENDARY_SPECIES.includes(id)};
 });
 if(KANTO.length!==151) throw new Error(`Expected 151 Pokémon, got ${KANTO.length}`);
 export const SPECIES = new Map(KANTO.map(p=>[p.id,p]));

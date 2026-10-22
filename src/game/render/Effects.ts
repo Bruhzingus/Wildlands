@@ -6,6 +6,7 @@ import type {RunState,Projectile} from '../types.ts';
 import type {GameEvent} from '../Simulation.ts';
 import type {World} from './World.ts';
 import {ThreatIndicators} from './ThreatIndicators.ts';
+import {isBurrowed} from '../systems/movement.ts';
 import {combatGeometry,type CraftedShape} from './combatGeometry.ts';
 
 type Shape=CraftedShape|'bar'|'orb'|'needle'|'beam'|'lob'|'ring'|'slash'|'dust'|'cone'|'zone'|'column'|'shield'|'wave'|'cloud'|'dart'|'leaf'|'spark'|'egg';
@@ -22,6 +23,7 @@ export class Effects{
  private materials=new Map<string,StandardMaterial>();private prototypes=new Map<string,Mesh>();
  private free=new Map<string,Visual[]>();private freeWaves:Wave[]=[];private allocated=new Set<InstancedMesh|Mesh>();
  private previousPosition:{x:number;z:number}|null=null;private lastDodge=false;private stepDistance=0;
+ private burrowMound:Visual|undefined;
  private state:RunState|null=null;private reducedMotion:boolean;
  private density=1;private cosmeticSequence=0;private time=0;
  constructor(scene:Scene,world:Pick<World,'height'>,reducedMotion=typeof window!=='undefined'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){this.scene=scene;this.world=world;this.reducedMotion=reducedMotion;this.indicators=new ThreatIndicators(scene,(x,z)=>world.height(x,z));}
@@ -266,7 +268,7 @@ export class Effects{
    return;
   }
   if(event.toX!==undefined&&event.toZ!==undefined){
-   if(event.shape==='pounce'||event.shape==='combo'){
+   if(event.shape==='pounce'||event.shape==='combo'||event.shape==='tackle'){
     const arc=this.acquire('slash',color,`combat-${kind}-${event.shape}`);
     if(arc){arc.mesh.position.set(event.x,this.world.height(event.x,event.z)+.8,event.z);arc.mesh.rotation.y=this.slashFacing(event);arc.mesh.scaling.set(radius,1,radius);this.coverage(arc,duration,.8);}return;
    }
@@ -313,16 +315,22 @@ export class Effects{
   this.transient(visual,event.duration??(kind==='hit'?COMBAT_VISUALS.hitSeconds:COMBAT_VISUALS.areaSeconds),kind==='hit'?.25:.3,kind==='hit'?.25:0);
  }
  private updateDust(state:RunState,dt:number){
-  const p=state.player;
+  const p=state.player,burrow=isBurrowed(p);
+  if(burrow){
+   this.burrowMound??=this.acquire('dust','#80613f','combat-burrow-mound');
+   if(this.burrowMound){const mesh=this.burrowMound.mesh,pulse=this.reducedMotion?0:Math.sin(this.time*32)*.025;
+    mesh.position.set(p.x,this.world.height(p.x,p.z)+.06,p.z);mesh.rotation.y=p.facing;mesh.scaling.set(.62,.2+pulse,.8);
+   }
+  }else if(this.burrowMound){this.release(this.burrowMound);this.burrowMound=undefined;}
   if(dt>0&&this.previousPosition){
    const distance=Math.hypot(p.x-this.previousPosition.x,p.z-this.previousPosition.z);this.stepDistance+=Math.min(distance,1);
-   const dodge=p.dodgeTime>0;
-   if(p.y<.08&&((dodge&&!this.lastDodge)||this.stepDistance>.95)){
+   const dodge=p.dodgeTime>0||burrow;
+   if(p.y<.08&&((dodge&&!this.lastDodge)||this.stepDistance>(burrow?.32:.95))){
     this.stepDistance=0;
     for(let i=0;i<Math.ceil((dodge?5:2)*this.density)&&this.effects.length<Math.ceil(COMBAT_VISUALS.maxEffects*this.density);i++){
      const side=i%2?1:-1,back=.15+i*.16,x=p.x-Math.sin(p.facing)*back+Math.cos(p.facing)*side*.25,z=p.z-Math.cos(p.facing)*back-Math.sin(p.facing)*side*.25;
-     const visual=this.acquire('dust','#b3b18a','combat-footstep');if(!visual)break;
-     visual.mesh.position.set(x,this.world.height(x,z)+.12,z);visual.mesh.scaling.setAll(dodge?.16:.09);this.transient(visual,.28,-.6,.25);
+     const visual=this.acquire('dust',burrow?'#98774c':'#b3b18a','combat-footstep');if(!visual)break;
+     visual.mesh.position.set(x,this.world.height(x,z)+.12,z);visual.mesh.scaling.setAll(burrow?.25:dodge?.16:.09);this.transient(visual,burrow?.4:.28,-.6,burrow?.1:.25);
     }
    }
    this.lastDodge=dodge;
@@ -446,6 +454,6 @@ export class Effects{
  inspect(){return {projectiles:this.projectiles.size,drops:this.drops.size,effects:this.effects.length,windups:this.indicators.inspect().active,psychicRings:this.waves.size,allocated:this.allocated.size+this.indicators.inspect().allocated,pooled:this.indicators.inspect().pooled+this.freeWaves.length+[...this.free.values()].reduce((sum,pool)=>sum+pool.length,0),prototypes:this.prototypes.size};}
  dispose(){
   for(const mesh of this.allocated)mesh.dispose();for(const mesh of this.prototypes.values())mesh.dispose();for(const material of this.materials.values())material.dispose();
-  this.allocated.clear();this.projectiles.clear();this.drops.clear();this.indicators.dispose();this.projectileAccents.clear();this.waves.clear();this.freeWaves=[];this.effects=[];this.prototypes.clear();this.materials.clear();this.free.clear();this.state=null;
+  this.allocated.clear();this.projectiles.clear();this.drops.clear();this.indicators.dispose();this.projectileAccents.clear();this.waves.clear();this.freeWaves=[];this.effects=[];this.prototypes.clear();this.materials.clear();this.free.clear();this.burrowMound=undefined;this.state=null;
  }
 }

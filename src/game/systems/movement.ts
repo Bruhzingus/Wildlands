@@ -6,7 +6,7 @@ import type {Player,MovementState,RunState,Enemy} from '../types.ts';
 /** Leader-only, authoritative state. It is serializable and uses active time. */
 export function prepareMovement(player:Player,speciesId:number,nx:number,nz:number,strength:number,dt:number,dodging:boolean){
  const trait=getMovementTrait(speciesId);
- if(trait.kind==='normal'||trait.kind==='teleport'){delete player.movement;return undefined;}
+ if(trait.kind==='normal'||trait.kind==='teleport'||trait.kind==='burrow'){delete player.movement;return undefined;}
  let m=player.movement;
  if(!m||m.speciesId!==speciesId)m=player.movement={speciesId,straightTime:0,heading:Math.atan2(nx,nz),boost:0,holdTime:0,flightRemaining:0,flightCooldown:0,flightEligible:false,flightUsed:false,flying:false};
  m.flightCooldown=Math.max(0,m.flightCooldown-dt);
@@ -49,6 +49,8 @@ export function airborneTraversal(player:Player,speciesId:number):boolean {
 }
 /** Flight clears ground contact/melee, not projectiles, explosions or bosses. */
 export function canReachAirbornePlayer(enemy:Enemy,state:RunState):boolean {
+ if(isBurrowed(state.player))return false;
  return !airborneTraversal(state.player,state.party[0].speciesId)||enemy.isBoss||getSpecies(enemy.speciesId).types.includes('flying');
 }
+export function isBurrowed(player:Player):boolean {return (player.burrowTime??0)>0;}
 export function jumpVelocity(speciesId:number){return DESIGN.jumpVelocity*(getMovementTrait(speciesId).kind==='leap'?MOVEMENT_TRAITS.leapJumpMultiplier:1);}

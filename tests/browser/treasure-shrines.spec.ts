@@ -19,12 +19,13 @@ test('treasure tiers, spent chests and shrine trials render readable live status
   const g=(window as any).__WILDLANDS__,s=g.sim.state,site=s.pois.find((p:any)=>p.kind==='shrine');
   s.player.x=site.x;s.player.z=site.z;
  });
- await expect(page.locator('#interaction')).toContainText('DANGER: Lv 8+');
- await page.keyboard.press('e');await expect(page.locator('#interaction')).toContainText('SHRINE TRIAL:');
+ await expect(page.locator('#interaction')).toContainText('Machop Shrine - 1 Machop');
+ await expect(page.locator('#interaction')).toContainText('Recommended Lv 5');
+ await page.keyboard.press('e');await expect(page.locator('#interaction')).toContainText('1 left');
  expect(await page.evaluate(()=>{
   const g=(window as any).__WILDLANDS__,s=g.sim.state,site=s.pois.find((p:any)=>p.challenge);
   return g.scene.getMeshByName(`marker-ring-${site.uid}`).scaling.x;
- })).toBe(12);
+ })).toBe(10);
  await page.keyboard.press('Escape');await expect(page.locator('#resume-btn')).toBeVisible();
  const before=await page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.stats.elapsed);
  await page.waitForTimeout(150);

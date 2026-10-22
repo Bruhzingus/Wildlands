@@ -7,6 +7,7 @@ import {createGuardian} from '../src/game/systems/spawning.ts';
 import {chestChoices} from '../src/game/systems/progression.ts';
 import type {POI} from '../src/game/types.ts';
 import {DESIGN} from '../src/data/config.ts';
+import {shrineForPOI,SHRINE_RULES,shrineDefinition} from '../src/data/shrines.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function arena(kind:POI['kind']='shrine'){
@@ -39,16 +40,27 @@ test('paid rewards honor their rarity, sort by rarity and respect unlocks and ow
  s.items=['life-orb'];s.itemUnlocks=[];assert.ok(chestChoices(s,sim.rng,'epic').every(c=>c.kind==='stat'));
 });
 
-test('chests restock on game time, scale locally and cannot charge twice during a choice',()=>{
+test('chests restock on game time, roll a stable rarity and cannot charge twice during a choice',()=>{
  const {sim,s,site,activate}=arena('cache');site.price=45;site.rarity='rare';s.coins=1000;
  const price=chestCost(s,site);activate();assert.equal(s.coins,1000-price);
  assert.equal(site.respawnAt,CHEST_TIERS.rare.respawn);
  const frozen=structuredClone(s);activate();sim.update(.04,idle);assert.deepEqual(s,frozen);
  sim.choose(s.upgradeChoices[0].id);
  s.stats.elapsed=site.respawnAt!-.02;sim.update(.04,idle);assert.equal(site.used,false);
- assert.equal(chestCost(s,site),price+15);
- s.stats.elapsed=360;assert.equal(chestRarity(s,site),'epic');
- assert.ok(chestCost(s,site)>price+15);
+ const tier=chestRarity(s,site),restockedPrice=chestCost(s,site);
+ assert.equal(restockedPrice,Math.round(45*CHEST_TIERS[tier].cost)+15);
+ s.stats.elapsed=360;assert.equal(chestRarity(s,site),tier);
+ assert.equal(chestCost(s,site),restockedPrice,'Stocked chests do not change their advertised price or rarity');
+});
+
+test('reset can raise or lower chest rarity, only after its timer ends',()=>{
+ const {sim,s,site,activate}=arena('cache');site.price=45;site.rarity='common';s.coins=1000;
+ for(const [roll,expected] of [[0,'epic'],[.99,'common']] as const){
+  const old=site.rarity;activate();sim.choose(s.upgradeChoices[0].id);
+  Object.assign(sim.lootRng,{next:()=>roll});
+  s.stats.elapsed=site.respawnAt!-.01;(sim as any).updateExploration();assert.equal(site.rarity,old);assert.equal(site.used,true);
+  s.stats.elapsed=site.respawnAt!;(sim as any).updateExploration();assert.equal(site.rarity,expected);assert.equal(site.used,false);assert.equal(site.respawnAt,undefined);
+ }
 });
 
 test('free discovery caches remain spent indefinitely without a respawn timer',()=>{
@@ -58,14 +70,15 @@ test('free discovery caches remain spent indefinitely without a respawn timer',(
  assert.equal(site.used,true);const items=s.items.length;activate();assert.equal(s.items.length,items);assert.equal(s.phase,'playing');
 });
 
-test('level one shrine guardians are dangerous and scale with time, levels, squad and repeat tier',()=>{
+test('shrine health is authored per tier and stays fixed as the player invests in a build',()=>{
  const {sim,s}=arena();const first=createGuardian(s,sim.rng,26,7,0,true);
- assert.ok(first.maxHp>=2000);assert.ok(first.damage>=24);
+ assert.equal(first.maxHp,shrineDefinition(1).health);assert.ok(first.damage>=20);
  s.party[0].level=12;s.stats.elapsed=300;
  s.party.push({...s.party[0],uid:2});
- const later=createGuardian(s,sim.rng,26,7,0,true,3);
- assert.ok(later.maxHp>first.maxHp*2);assert.ok(later.damage>first.damage);
- assert.equal(later.speed,createGuardian(s,sim.rng,26,7,0,false).speed,'Keep movement and tells readable');
+ const same=createGuardian(s,sim.rng,26,7,0,true,1),later=createGuardian(s,sim.rng,26,7,0,true,3);
+ assert.equal(same.maxHp,first.maxHp);assert.equal(same.damage,first.damage);
+ assert.equal(later.maxHp,shrineDefinition(3).health/shrineDefinition(3).count);assert.ok(later.damage>first.damage);
+ assert.equal(later.speed,first.speed,'Keep movement and tells readable');
 });
 
 test('retreat and timeout fail trials without loot, remove hostile attacks and permit a full-health retry',()=>{
@@ -74,7 +87,7 @@ test('retreat and timeout fail trials without loot, remove hostile attacks and p
   guardian.hp=1;
   s.projectiles.push({uid:900,sourceId:guardian.uid,friendly:false} as any);
   s.psychicRings=[{uid:901,sourceId:guardian.uid} as any];
-  if(retreat)s.player.x=SHRINE.radius+1;else s.stats.elapsed=trial.endsAt;
+  if(retreat)s.player.x=shrineForPOI(site).radius+1;else s.stats.elapsed=trial.endsAt;
   (sim as any).updateExploration();
   assert.equal(guardian.dead,true);assert.equal(site.challenge,undefined);assert.equal(site.used,true);
   assert.equal(s.stats.kills,0);assert.equal(s.drops.length,0);assert.equal(s.buffs.luck||0,0);assert.equal(s.pendingSquadRewards,0);
@@ -93,7 +106,8 @@ test('shrine victory starts recharge on defeat and guarantees a relic plus train
  assert.equal(site.challenge,undefined);assert.equal(site.respawnAt,30+SHRINE.respawn);assert.equal(site.uses,1);
  assert.ok(s.drops.some(d=>d.kind==='item'));assert.equal(s.pendingSquadRewards,1);assert.ok(s.buffs.luck>=.04);
  s.stats.elapsed=site.respawnAt!;(sim as any).updateExploration();activate();
- assert.equal(site.challenge!.tier,2);assert.ok(s.enemies.find(e=>!e.dead)!.maxHp>guardian.maxHp);
+ assert.equal(site.challenge!.tier,2);assert.ok(s.enemies.filter(e=>!e.dead).reduce((sum,e)=>sum+e.maxHp,0)>guardian.maxHp);
+ assert.equal(site.challenge!.endsAt-s.stats.elapsed,SHRINE_RULES.timeLimit);
 });
 
 test('a killing blow on the expiry frame cannot grant kill loot or training',()=>{

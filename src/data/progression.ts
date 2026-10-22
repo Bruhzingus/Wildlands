@@ -4,7 +4,7 @@ import type {UpgradeChoice} from '../game/types.ts';
 export const PROGRESSION = {
  rerolls:{starting:2,intervalSeconds:300},
  leveling:{maxLevel:100,trainingFocusLevel:45,healthPerLevel:.02,powerPerLevel:.02,firstMilestone:3,milestoneInterval:5,xpBase:80,xpLinear:10,xpQuadratic:1.6},
- evolution: {firstLevel:5, finalLevel:10, maturitySeconds:170, healthGain:.25, powerGain:.25, moveRankGain:1},
+ evolution: {firstLevel:5, finalLevel:10, twoStageLevel:12, maturitySeconds:170, twoStageMaturitySeconds:240, healthGain:.25, powerGain:.25, moveRankGain:1},
  moves: {maxRank:Infinity, soloMaxRank:Infinity, soloTrainingLevel:5, soloRankGain:2, learnedSlots:3,learnLevels:[10,20,30],newMoveOfferChance:.3,damagePerRank:.2,speedPerRank:.08,rangePerRank:.06,maxCastPacketsPerStep:32},
  rarityWeights: {common:55, uncommon:10, rare:35, epic:9.5, legendary:.5},
  luckRareScale:2, luckEpicScale:4,

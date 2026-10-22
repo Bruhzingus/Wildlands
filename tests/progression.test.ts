@@ -56,7 +56,7 @@ test('eligibility waits for a level selection, caches remain items and forged re
 
 test('every Eevee branch is explicit and only the selected branch evolves',()=>{
  for(const target of [134,135,136]){
-  const state=new Simulation(133,10).state;state.stats.elapsed=300;state.stats.level=10;state.party[0].level=PROGRESSION.evolution.firstLevel;state.recruitCount=1;
+  const state=new Simulation(133,10).state;state.stats.elapsed=300;state.stats.level=10;state.party[0].level=PROGRESSION.evolution.twoStageLevel;state.recruitCount=1;
   const choices=makeChoices(state,new RNG(1));
   assert.deepEqual(choices.filter(choice=>choice.kind==='evolve').map(choice=>choice.targetId).sort((a,b)=>a!-b!),[134,135,136]);
   assert.ok(choices.some(choice=>choice.kind==='attack'||choice.kind==='learn'),'An Eevee milestone can be spent without evolving');

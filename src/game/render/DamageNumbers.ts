@@ -6,7 +6,7 @@ import './damageNumbers.css';
 
 interface NumberLabel {
  node:HTMLSpanElement;sourceId:number;targetId:number;slot:number;crit:boolean;
- amount:number;x:number;z:number;height:number;age:number;visible:boolean;
+ effectiveness?:'super'|'resisted';amount:number;x:number;z:number;height:number;age:number;visible:boolean;
 }
 
 /** Cosmetic only: bounded labels, short accumulation windows and screen-space spacing. */
@@ -25,14 +25,15 @@ export class DamageNumbers {
   if(slot<0||event.x===undefined||event.z===undefined)return;
   if((event.x-state.player.x)**2+(event.z-state.player.z)**2>DAMAGE_NUMBERS.range**2)return;
   const crit=event.shape==='crit';
-  const existing=this.labels.find(label=>label.sourceId===event.sourceId&&label.targetId===event.targetId&&label.crit===crit&&label.age<DAMAGE_NUMBERS.mergeSeconds);
+  const existing=this.labels.find(label=>label.sourceId===event.sourceId&&label.targetId===event.targetId&&label.crit===crit&&label.effectiveness===event.effectiveness&&label.age<DAMAGE_NUMBERS.mergeSeconds);
   if(existing){existing.amount+=amount;this.text(existing);return;}
   if(this.labels.length>=DAMAGE_NUMBERS.maxLabels||this.labels.filter(label=>label.sourceId===event.sourceId).length>=DAMAGE_NUMBERS.perMember)return;
   const enemy=state.enemies.find(enemy=>enemy.uid===event.targetId);
   const node=this.free.pop()??document.createElement('span');
-  node.className=`damage-number${crit?' is-crit':''}`;
+  node.className=`damage-number${crit?' is-crit':''}${event.effectiveness?` is-${event.effectiveness}`:''}`;
+  if(event.effectiveness)node.dataset.effectiveness=event.effectiveness;else delete node.dataset.effectiveness;
   node.style.setProperty('--damage-color',PARTY_DAMAGE_COLORS[slot%PARTY_DAMAGE_COLORS.length]);
-  const label:NumberLabel={node,sourceId:event.sourceId!,targetId:event.targetId,slot,crit,amount,x:event.x,z:event.z,
+  const label:NumberLabel={node,sourceId:event.sourceId!,targetId:event.targetId,slot,crit,effectiveness:event.effectiveness,amount,x:event.x,z:event.z,
    height:enemy?1.65*enemy.size*this.headroom(enemy.speciesId)+.8:2.8,age:0,visible:false};
   this.text(label);this.labels.push(label);this.root.append(node);
  }
@@ -45,22 +46,22 @@ export class DamageNumbers {
   const camera=this.scene.activeCamera;if(!camera)return;
   const rect=this.scene.getEngine().getRenderingCanvas()!.getBoundingClientRect();
   const viewport=camera.viewport.toGlobal(rect.width,rect.height);
-  const occupied:{x:number;y:number;width:number}[]=[];
+  const occupied:{x:number;y:number;width:number;height:number}[]=[];
   for(let i=this.labels.length-1;i>=0;i--){
    const label=this.labels[i];label.age+=Math.max(0,dt);
    if(label.age>=DAMAGE_NUMBERS.seconds){label.node.remove();this.free.push(label.node);this.labels.splice(i,1);}
   }
   for(const label of this.labels){
    const point=Vector3.Project(new Vector3(label.x,this.ground(label.x,label.z)+label.height,label.z),Matrix.IdentityReadOnly,this.scene.getTransformMatrix(),viewport);
-   const width=label.node.offsetWidth,progress=label.age/DAMAGE_NUMBERS.seconds;
+   const width=label.node.offsetWidth,height=label.node.offsetHeight,progress=label.age/DAMAGE_NUMBERS.seconds;
    const x=point.x,y=point.y-(reducedMotion?0:progress*16);
    let placedY=y;
-   const collides=(candidate:number)=>occupied.some(other=>Math.abs(x-other.x)<(width+other.width)/2+6&&Math.abs(candidate-other.y)<20);
-   for(let attempt=0;attempt<3&&collides(placedY);attempt++)placedY-=20;
+   const collides=(candidate:number)=>occupied.some(other=>Math.abs(x-other.x)<(width+other.width)/2+6&&Math.abs(candidate-other.y)<(height+other.height)/2+4);
+   for(let attempt=0;attempt<4&&collides(placedY);attempt++)placedY-=height+4;
    label.visible=point.z>0&&point.z<1&&x>width/2+8&&x<rect.width-width/2-8&&placedY>90&&placedY<rect.height-160&&!collides(placedY);
    label.node.style.visibility=label.visible?'visible':'hidden';
    if(!label.visible)continue;
-   occupied.push({x,y:placedY,width});
+   occupied.push({x,y:placedY,width,height});
    label.node.style.left=`${x+rect.left}px`;label.node.style.top=`${placedY+rect.top}px`;
    label.node.style.opacity=String(Math.min(.9,(1-progress)/.3));
   }

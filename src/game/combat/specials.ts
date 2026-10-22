@@ -73,7 +73,7 @@ export function castSpecial(context:SpecialContext):void {
   lineHit(context,origin,destination,profile.radius,profile.kind==='quickstep'?profile.damageScale:1,{burn:profile.kind==='charge'?1:0},{x:dx,z:dz});
   visual(profile.kind==='charge'?'trail':'dash',origin,{toX:destination.x,toZ:destination.z,duration:profile.kind==='charge'?profile.duration:.3});
   if(state.result!==null)return;
-  if(profile.kind==='quickstep'){projectileVolley(context,destination,aim);return;}
+  if(profile.kind==='quickstep'){if(profile.projectiles>0)projectileVolley(context,destination,aim);return;}
   const active=state.activeSpecials??=[];
   if(active.length<SPECIAL_LIMITS.active)active.push({sourceId:member.uid,profile,element,damage:context.damage,x:origin.x,z:origin.z,toX:destination.x,toZ:destination.z,dx,dz,age:0,pulse:0,hit:new Set()});
   return;

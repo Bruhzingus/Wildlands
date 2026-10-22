@@ -12,10 +12,10 @@ function shrine(kind:NonNullable<POI['challengeKind']>){
  (sim as any).activatePOI(site);return {sim,s,site};
 }
 
-test('F1 shrine invitations are seeded and offer three distinct, bounded decisions',()=>{
- const a=createPOIs(94).filter(p=>p.kind==='shrine').map(p=>[p.uid,p.challengeKind]);
- const b=createPOIs(94).filter(p=>p.kind==='shrine').map(p=>[p.uid,p.challengeKind]);
- assert.deepEqual(a,b);assert.deepEqual(new Set(a.map(([,kind])=>kind)),new Set(['guardian','holdout','ring-run']));
+test('F1 seeded shrines use species tiers while legacy optional ward trials stay bounded',()=>{
+ const a=createPOIs(94).filter(p=>p.kind==='shrine').map(p=>[p.uid,p.shrineTier,p.challengeKind]);
+ const b=createPOIs(94).filter(p=>p.kind==='shrine').map(p=>[p.uid,p.shrineTier,p.challengeKind]);
+ assert.deepEqual(a,b);assert.deepEqual(new Set(a.map(([,tier])=>tier)),new Set([1,2]));assert.ok(a.every(([, ,kind])=>kind==='guardian'));
  const {sim,s,site}=shrine('holdout');assert.equal(site.challenge?.id,'holdout');assert.equal(s.enemies.length,4);
  s.stats.elapsed=site.challenge!.endsAt;(sim as any).updateExploration();assert.equal(site.challenge,undefined);assert.equal(site.uses,1);
  const rewards=s.drops.length;(sim as any).updateExploration();assert.equal(s.drops.length,rewards,'completion is once-only');

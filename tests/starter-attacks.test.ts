@@ -16,7 +16,8 @@ function arena(speciesId:number,rank=1){
   state.enemies.push(enemy);return enemy;
  };
  const hits:{enemy:Enemy;damage:number}[]=[],shots:ProjectileSpawn[]=[],visuals:CombatVisual[]=[];
- const cast=(target:Enemy)=>executePattern({member,target,enemies:state.enemies,profile:getAttackProfile(speciesId,rank),element:getSpecies(speciesId).types[0],damage:100,crit:false,depth:0,radiusScale:1,extraProjectiles:0,extraPierce:0,extraChains:0,projectileSpeedScale:1,
+ const profile=getAttackProfile(speciesId,rank);
+ const cast=(target:Enemy)=>executePattern({member,target,enemies:state.enemies,profile,element:profile.element??getSpecies(speciesId).types[0],damage:100,crit:false,depth:0,radiusScale:1,extraProjectiles:0,extraPierce:0,extraChains:0,projectileSpeedScale:1,
   hit:(enemy,damage)=>hits.push({enemy,damage}),projectile:shot=>shots.push(shot),visual:visual=>visuals.push(visual),heal:()=>assert.fail('Offensive starter healed')});
  const launch=()=>{for(const shot of shots)addProjectile(state,shot);};
  const step=(dt:number)=>stepProjectiles(state,dt,{hit:(enemy,shot)=>hits.push({enemy,damage:shot.damage}),hurtPlayer:()=>assert.fail('Friendly fire')});
@@ -40,6 +41,34 @@ test('every starter has different handling and evolution ranks never remove earn
  assert.match(describeAttackUpgrade(52,1,2),/bounce twice/);
  assert.match(describeAttackUpgrade(66,2,3),/Three-hit/);
  assert.equal(getAttackProfile(1).growth.projectilesEvery,0,'Vines inherit slash growth rather than old lob growth');
+});
+
+test('Magikarp physically tackles one nearby foe and Gyarados fires Hyper Beam',()=>{
+ const fish=arena(129),target=fish.add(2.4),other=fish.add(2.4,1);
+ fish.cast(target);
+ assert.deepEqual(fish.hits.map(hit=>hit.enemy.uid),[target.uid]);
+ assert.equal(fish.shots.length,0);
+ assert.equal(fish.visuals[0].shape,'tackle');
+ assert.equal(getAttackProfile(129).element,'normal');
+ assert.equal(getAttackProfile(129).status.soak,undefined);
+ assert.ok(!fish.hits.some(hit=>hit.enemy.uid===other.uid));
+ assert.equal(getSpecies(130).moveName,'Hyper Beam');
+ assert.equal(getAttackProfile(130).kind,'beam');
+ assert.equal(getAttackProfile(130).element,'normal');
+ assert.equal(getAttackProfile(130).status.soak,undefined);
+});
+
+test('starter HP is reduced by 20% and first-stage ranged signatures deal 20% less damage',()=>{
+ const threeStage=new Simulation(4,4).state,twoStage=new Simulation(58,4).state,fish=new Simulation(129,4).state;
+ assert.equal(threeStage.player.maxHp,120*.8);
+ assert.equal(threeStage.party[0].maxHp,165*.8);
+ assert.equal(twoStage.player.maxHp,120*.8*getSpecies(58).health);
+ assert.equal(fish.player.maxHp,120*.8*getSpecies(129).health);
+ assert.ok(fish.player.maxHp<threeStage.player.maxHp);
+ assert.equal(getAttackProfile(4).damageScale,.48*.8);
+ assert.equal(getAttackProfile(7).damageScale,.9*.8);
+ assert.equal(getAttackProfile(25).damageScale,.8);
+ assert.equal(getAttackProfile(58).damageScale,1.05*1.25);
 });
 
 test('Bulbasaur lashes through a lane while Charmander fires a spread and Squirtle bursts soaking bubbles',()=>{

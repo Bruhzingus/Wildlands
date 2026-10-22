@@ -138,13 +138,13 @@ test('elite encounters have substantial endurance and the final boss keeps reada
  assert.ok(BOSS_RULES.volleyWindup>=.7&&BOSS_RULES.ringWindup>=1.1&&BOSS_RULES.summonWindup>=1.5);
 });
 
-test('both landmark guardians scale with average personal level and elapsed time',()=>{
+test('elite landmarks scale with the run while shrine tiers have fixed health budgets',()=>{
  const s=new Simulation(7,99).state,rng=new RNG(4);
  for(const elapsed of [0,180,600,900])for(const level of [1,8,20]){
   s.stats.elapsed=elapsed;s.stats.level=999;s.party[0].level=level;
   for(const shrine of [false,true]){
    const guardian=createGuardian(s,rng,26,4,4,shrine);
-   assert.ok(guardian.maxHp>=600+level*200+elapsed*1.5);
+   if(shrine)assert.equal(guardian.maxHp,1350);else assert.ok(guardian.maxHp>=600+level*200+elapsed*1.5);
    assert.equal(guardian.shrineGuardian,shrine);assert.equal(guardian.elite,true);assert.equal(guardian.isBoss,false);
   }
  }

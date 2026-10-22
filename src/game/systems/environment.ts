@@ -101,8 +101,8 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
   const change=profile.definition.changes[pois.length-18];
   const paid=!change&&kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
   const chestIndex=pois.filter(poi=>poi.price!==undefined).length;
-  const uid=20+pois.length,challengeIndex=pois.filter(poi=>poi.kind==='shrine').length,challengeKind=kind==='shrine'?(['guardian','holdout','ring-run'] as const)[challengeIndex%3] as OptionalChallengeId:undefined;
-  pois.push({uid,...candidate,kind,used:false,...(challengeKind?{challengeKind}:{}),...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
+  const uid=20+pois.length,challengeIndex=pois.filter(poi=>poi.kind==='shrine').length,challengeKind=kind==='shrine'?'guardian' as OptionalChallengeId:undefined;
+  pois.push({uid,...candidate,kind,used:false,...(challengeKind?{challengeKind,shrineTier:1+challengeIndex%2}:{}),...(change?{availableAt:change.at,name:change.name,changeLabel:change.label}:{}),...(paid?{price:ECONOMY.chestBaseCost,rarity:(['common','rare','epic'] as const)[chestIndex%3]}:{})});
  }
  return pois;
 }
