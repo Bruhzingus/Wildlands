@@ -17,12 +17,15 @@ function fruit(tree:BerryTree,rng:RNG,elapsed:number){
  });
 }
 /** Choose existing, collidable trees so fruit can never appear over a trail or site. */
-export function createBerryTrees(props:readonly WorldProp[],seed:number):BerryTree[]{
+export function createBerryTrees(props:readonly WorldProp[],seed:number,examined?:Set<WorldProp>):BerryTree[]{
  const rng=new RNG(seed^0x23a164fc),candidates=props.filter(prop=>prop.kind==='tree'&&!prop.landmark);
  for(let index=candidates.length-1;index>0;index--){const swap=rng.int(0,index);[candidates[index],candidates[swap]]=[candidates[swap],candidates[index]];}
  const trees:BerryTree[]=[];
  for(const prop of candidates){
   if(trees.length>=16)break;
+  // Placement may move later candidates. Retaining this entire examined prefix
+  // (including spacing rejects) preserves harvest IDs, fruit and RNG exactly.
+  examined?.add(prop);
   if(trees.some(tree=>Math.hypot(tree.x-prop.x,tree.z-prop.z)<17))continue;
   const tree:BerryTree={uid:700+trees.length,x:prop.x,z:prop.z,scale:prop.scale,berry:variant(rng),berries:[],nextChangeAt:BERRY_CHANGE_SECONDS,cycle:0};
   fruit(tree,rng,0);trees.push(tree);

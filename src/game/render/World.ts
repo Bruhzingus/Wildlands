@@ -1,4 +1,4 @@
-import {Scene,StandardMaterial,Color3,Color4,Mesh,MeshBuilder,Vector3,VertexBuffer,VertexData,TransformNode,DirectionalLight,HemisphericLight,AbstractMesh} from '@babylonjs/core';
+import {Scene,StandardMaterial,Color3,Mesh,MeshBuilder,Vector3,VertexBuffer,VertexData,TransformNode,DirectionalLight,HemisphericLight,AbstractMesh} from '@babylonjs/core';
 import {DESIGN} from '../../data/config.ts';
 import {worldProfile,siteAvailable,type WorldProfile,type MapId} from '../../data/maps.ts';
 import {TreasureChests} from './TreasureChests.ts';
@@ -6,7 +6,15 @@ import {SHRINE_TIERS,shrineForPOI,shrineHazardZones,type ShrineHazard} from '../
 import {createShrineStatue} from './ShrineStatues.ts';
 import type {BerryTree,POI,TerrainFeature} from '../types.ts';
 import {BERRIES,BERRY_ORDER,type BerryId} from '../../data/berries.ts';
-import {biomeAt,createEnvironment,explorationRoute,terrainHeight} from '../systems/environment.ts';
+import {createEnvironment,terrainHeight,type EnvironmentLayout} from '../systems/environment.ts';
+import {createSurfaceDetails} from '../systems/surfaceDetails.ts';
+import {buildGroundDetails} from './groundDetails.ts';
+import {createTerrainPalette} from './terrainPalette.ts';
+import {treeVisual} from './vegetation.ts';
+import {createLandmarkDressing,landmarkClearings,type Clearing} from '../systems/landmarkDressing.ts';
+import {LandmarkDressing} from './LandmarkDressing.ts';
+import {WorldAtmosphere} from './atmosphere.ts';
+import {RNG} from '../../utils/random.ts';
 const BERRY_TREE_PALETTES:Record<BerryId,{bark:string;lower:string;upper:string}>={
  oran:{bark:'#6f6250',lower:'#4d896f',upper:'#73aa8e'},
  leppa:{bark:'#825f46',lower:'#8d7948',upper:'#b4985d'},
@@ -15,7 +23,20 @@ const BERRY_TREE_PALETTES:Record<BerryId,{bark:string;lower:string;upper:string}
  'silver-pinap':{bark:'#676b6d',lower:'#668286',upper:'#a0bab6'},
 };
 export class World{
+ private dressing:LandmarkDressing|undefined;private atmosphere:WorldAtmosphere|undefined;
+ private terrain:Mesh|undefined;private plainColors:Float32Array|undefined;private dressedColors:Float32Array|undefined;
+ private lastPois:readonly POI[]=[];private lastElapsed=0;
+ setLandmarkDressingVisible(visible:boolean){
+  this.dressing?.setVisible(visible);this.dressing?.update(this.lastPois,this.lastElapsed);
+  const colors=visible?this.dressedColors:this.plainColors;if(colors)this.terrain?.updateVerticesData(VertexBuffer.ColorKind,colors);
+ }
+ setAtmospherePreview(seconds:number|null){this.atmosphere?.setPreview(seconds);}
+ inspectAtmosphere(){return this.atmosphere?.inspect();}
+ private groundDetails:Mesh[]=[];private detailsVisible=true;private quality:'low'|'balanced'|'high'='high';
+ /** Read-only presentation toggle for reference captures; no generation changes. */
+ setGroundDetailsVisible(visible:boolean){this.detailsVisible=visible;for(const mesh of this.groundDetails)mesh.setEnabled(visible&&this.quality!=='low');}
  setQuality(quality:'low'|'balanced'|'high'){
+  this.quality=quality;this.setGroundDetailsVisible(this.detailsVisible);
   // These decorations have no collider. Solid props and navigation stay visible.
   for(const mesh of this.spawned)if(mesh.name.startsWith('bush-'))mesh.setEnabled(quality!=='low');
  }
@@ -30,70 +51,97 @@ export class World{
  private chests:TreasureChests|undefined;
  private reusable:Mesh[]=[];private materials:StandardMaterial[]=[];private lights:(HemisphericLight|DirectionalLight)[]=[];private scene:Scene;
  readonly profile:WorldProfile;
- constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands',berryTrees:BerryTree[]=[]){this.scene=scene;this.profile=worldProfile(seed,mapId);this.buildTerrain(pois);this.buildEnvironment(seed,pois,berryTrees);this.buildBerryTrees(berryTrees);this.buildLandmarks(pois);this.buildTerrainFeatures(createEnvironment(seed,pois,mapId).features);this.update(0,pois,0,[],berryTrees);}
+ constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands',berryTrees:BerryTree[]=[]){
+  this.scene=scene;this.profile=worldProfile(seed,mapId);const layout=createEnvironment(seed,pois,mapId),sites=createLandmarkDressing(seed,this.profile,pois,berryTrees,layout);
+  this.buildTerrain(seed,landmarkClearings(sites));this.buildEnvironment(seed,layout,berryTrees);
+  this.groundDetails=buildGroundDetails(scene,createSurfaceDetails(seed,this.profile,pois,layout,berryTrees),this.profile.definition.surfaceDetails,(name,color)=>this.mat(name,color));this.reusable.push(...this.groundDetails);
+  this.buildBerryTrees(berryTrees);this.buildLandmarks(pois);
+  this.dressing=new LandmarkDressing(scene,sites,this.mat('landmark dressing stone',this.profile.definition.dressing.stone),(x,z)=>this.height(x,z));
+  this.buildTerrainFeatures(layout.features);this.update(0,pois,0,[],berryTrees);
+ }
  height(x:number,z:number){return terrainHeight(x,z,this.profile);}
  mat(name:string,hex:string,alpha=1){const m=new StandardMaterial(name,this.scene);m.diffuseColor=Color3.FromHexString(hex);m.emissiveColor=m.diffuseColor.scale(.13);m.specularColor=new Color3(.06,.07,.06);m.alpha=alpha;this.materials.push(m);return m;}
- private buildTerrain(pois:POI[]){
+ private buildTerrain(seed:number,clearings:readonly Clearing[]){
   const size=DESIGN.mapRadius*2,definition=this.profile.definition,pond=this.profile.lake;
   const ground=MeshBuilder.CreateGround('rolling forest terrain',{width:size,height:size,subdivisions:116},this.scene);
   const positions=ground.getVerticesData(VertexBuffer.PositionKind)!;const indices=ground.getIndices()!;
-  const colors:number[]=[],palette=Object.fromEntries(Object.entries(definition.palette).map(([id,biome])=>[id,Color3.FromHexString(biome.color)]));
-  const routes=pois.map(poi=>explorationRoute(poi,this.profile)),stone=Color3.FromHexString(definition.scenery.rock);
+  const colors:number[]=[],plain:number[]=[],color=new Color3(),sampleColor=createTerrainPalette(this.profile,seed,clearings),samplePlain=createTerrainPalette(this.profile,seed);
   for(let i=0;i<positions.length;i+=3){const x=positions[i],z=positions[i+2];positions[i+1]=this.height(x,z);
-   const n=(Math.sin(x*.18)*Math.cos(z*.21)+1)/2;
-   // Blend the shared regions across a narrow ecotone; height bands expose the
-   // ridge shape without adding decals, geometry or additional draw calls.
-   const biome=palette[biomeAt(x,z,this.profile)].scale(.4);
-   for(const [dx,dz] of [[-4,0],[4,0],[0,-4],[0,4]])biome.addInPlace(palette[biomeAt(x+dx,z+dz,this.profile)].scale(.15));
-   const exposed=Math.max(0,Math.min(.18,(positions[i+1]-5)*.018));
-   Color3.LerpToRef(biome,stone,exposed,biome);
-   const path=routes.some(route=>route.slice(1).some((end,index)=>{
-    const start=route[index],dx=end.x-start.x,dz=end.z-start.z,t=Math.max(0,Math.min(1,((x-start.x)*dx+(z-start.z)*dz)/(dx*dx+dz*dz||1)));
-    return Math.hypot(x-start.x-t*dx,z-start.z-t*dz)<1.25;
-   }));
-   const blend=path?.28:0;
-   colors.push(biome.r*(1-blend)+.57*blend+n*.04,biome.g*(1-blend)+.54*blend+n*.05,biome.b*(1-blend)+.38*blend+n*.03,1);
+   sampleColor(x,z,positions[i+1],color);colors.push(color.r,color.g,color.b,1);
+   samplePlain(x,z,positions[i+1],color);plain.push(color.r,color.g,color.b,1);
   }
   const normals=new Array(positions.length).fill(0);
   VertexData.ComputeNormals(positions,indices,normals);
   ground.setVerticesData(VertexBuffer.PositionKind,positions,true);ground.setVerticesData(VertexBuffer.NormalKind,normals,true);
-  ground.setVerticesData(VertexBuffer.ColorKind,colors);
+  this.terrain=ground;this.plainColors=new Float32Array(plain);this.dressedColors=new Float32Array(colors);ground.setVerticesData(VertexBuffer.ColorKind,this.dressedColors,true);
   const grass=this.mat('grass terrain','#ffffff');ground.useVertexColors=true;ground.material=grass;
   const lake=MeshBuilder.CreateDisc('Stillwater lake',{radius:pond.waterRadius,tessellation:44},this.scene);lake.rotation.x=Math.PI/2;lake.position.set(pond.x,pond.waterHeight,pond.z);
   const water=this.mat('lake',definition.waterColor,.91);lake.material=water;water.disableLighting=true;water.emissiveColor=Color3.FromHexString(definition.waterColor);
-  const rim=MeshBuilder.CreateTorus('pond shore',{diameter:pond.waterRadius*2+1.2,thickness:1.1,tessellation:48},this.scene);rim.position=lake.position.clone();rim.position.y-=.22;
-  const shore=this.mat('shore',definition.shoreColor);rim.material=shore;shore.disableLighting=true;shore.emissiveColor=Color3.FromHexString(definition.shoreColor);
-  this.spawned.push(ground,lake,rim);
-  this.scene.clearColor=Color4.FromColor3(Color3.FromHexString(definition.skyColor));
-  this.scene.fogMode=Scene.FOGMODE_EXP2;this.scene.fogDensity=.0064;this.scene.fogColor=Color3.FromHexString(definition.fogColor);
+  this.spawned.push(ground,lake);
   const ambient=new HemisphericLight('ambient sky',new Vector3(0,1,0),this.scene);ambient.intensity=definition.lighting.sky;ambient.groundColor=new Color3(.28,.32,.24);
   const sun=new DirectionalLight('sun',new Vector3(-.5,-1,.4),this.scene);sun.intensity=definition.lighting.sun;sun.position.set(35,90,-60);
   this.lights.push(ambient,sun);
+  this.atmosphere=new WorldAtmosphere(this.scene,ambient,sun,definition.atmosphere);
   // Lighting without live dynamic shadow maps is much cheaper for dense enemy scenes.
  }
- private buildEnvironment(seed:number,pois:POI[],berryTrees:readonly BerryTree[]=[]){
-  const palette=this.profile.definition.scenery;
-  const bark=this.mat('bark',palette.bark), pine=this.mat('pine',palette.pine),pine2=this.mat('pine2',palette.bush),rock=this.mat('stone',palette.rock),ruins=this.mat('old masonry',palette.ruins);
+ private buildEnvironment(seed:number,layout:EnvironmentLayout,berryTrees:readonly BerryTree[]=[]){
+  const palette=this.profile.definition.scenery,vegetation=this.profile.definition.vegetation,barren=vegetation.deadWeight===1;
+  const bark=this.mat('bark',palette.bark),pine=this.mat('pine',palette.pine),pine2=this.mat('pine2',vegetation.pineTip),round=this.mat('round foliage',vegetation.round),dead=this.mat('dead wood',vegetation.dead),scrub=this.mat('scrub',barren?vegetation.dead:palette.bush),rock=this.mat('stone',palette.rock),ruins=this.mat('old masonry',palette.ruins);
   const trunk=MeshBuilder.CreateCylinder('tree trunk',{height:2.4,diameterTop:.42,diameterBottom:.73,tessellation:5},this.scene);trunk.material=bark;trunk.isVisible=false;
   const canopy=MeshBuilder.CreateCylinder('cone crown',{height:3.8,diameterTop:0,diameterBottom:3.4,tessellation:5},this.scene);canopy.material=pine;canopy.isVisible=false;
-  const shrub=MeshBuilder.CreateIcoSphere('bush',{radius:1.1,subdivisions:0},this.scene);shrub.material=pine2;shrub.isVisible=false;
+  const tip=canopy.clone('tiered crown tip source')!;tip.material=pine2;
+  const rounded=MeshBuilder.CreateIcoSphere('round crown source',{radius:1,subdivisions:1},this.scene);rounded.material=round;rounded.isVisible=false;
+  const deadTrunk=trunk.clone('dead wood source')!;deadTrunk.material=dead;
+  const shrub=MeshBuilder.CreateIcoSphere('bush',{radius:1.1,subdivisions:0},this.scene);shrub.material=scrub;shrub.isVisible=false;
   const boulder=MeshBuilder.CreateIcoSphere('low-poly rock',{radius:1.25,subdivisions:1},this.scene);boulder.material=rock;boulder.isVisible=false;
   const smallRock=MeshBuilder.CreateBox('ruin block',{width:2.4,depth:1.8,height:2.2},this.scene);smallRock.material=ruins;smallRock.isVisible=false;
-  this.reusable.push(trunk,canopy,shrub,boulder,smallRock);
+  this.reusable.push(trunk,canopy,tip,rounded,deadTrunk,shrub,boulder,smallRock);
   let id=0;
+  // Sources share geometry/materials; the authoritative trunk collider remains in
+  // createEnvironment. Decorative foliage and branches never add collision.
+  const instance=(source:Mesh,name:string,x:number,y:number,z:number,sx:number,sy:number,sz:number,rotation=0)=>{
+   const mesh=source.createInstance(name);mesh.position.set(x,y,z);mesh.scaling.set(sx,sy,sz);mesh.rotation.y=rotation;mesh.isPickable=false;this.spawned.push(mesh);return mesh;
+  };
+  const tree=(x:number,z:number,scale:number,landmark=false,boundary?:string)=>{
+   const visual=treeVisual(seed,x,z,vegetation,landmark),s=scale*(landmark?1:visual.scale),yaw=visual.rotation;
+   // Horizon props sit beyond the finite ground mesh. Sink their silhouette
+   // bases below its edge so distant trunks never terminate in empty sky.
+   const y=this.height(x,z)-(boundary?(visual.family==='dead'?.9:2.1)*s:0);
+   const name=boundary??(landmark?`great-pine-${id++}`:`crown-${visual.family}-${id++}`);
+   if(visual.family==='dead'){
+    instance(deadTrunk,boundary??`dead-trunk-${id++}`,x,y+2.1*s,z,s,1.75*s,s,yaw);
+    // Three short tapered limbs give an asymmetric silhouette with four cheap
+    // instances of the same five-sided cylinder, rather than a complex model.
+    for(let branch=0;branch<3;branch++){
+     const angle=yaw+branch*2.5,reach=(branch===2?.3:.5)*s;
+     const limb=instance(deadTrunk,`${boundary??'dead-branch'}-${id++}`,x+Math.cos(angle)*reach,y+(2.15+branch*.57)*s,z-Math.sin(angle)*reach,.32*s,(branch===2?.55:.68)*s,.32*s,angle);
+     limb.rotation.z=-(branch===2?.48:.85);
+    }
+    return;
+   }
+   if(!boundary)instance(trunk,`trunk-${id++}`,x,y+1.2*s,z,s,s,s,yaw);
+   if(visual.family==='round')instance(rounded,name,x,y+3.15*s,z,1.65*s,1.35*s,1.65*s,yaw);
+   else if(visual.family==='tiered'){
+    instance(canopy,name,x,y+2.5*s,z,.98*s,.72*s,.98*s,yaw);
+    instance(tip,`${boundary??'crown-tiered-tip'}-${id++}`,x,y+3.65*s,z,.7*s,.75*s,.7*s,yaw+.3);
+   }else instance(canopy,name,x,y+3.2*s,z,s,s,s,yaw);
+  };
   const berryTreePositions=new Set(berryTrees.map(tree=>`${tree.x}/${tree.z}`));
-  for(const prop of createEnvironment(seed,pois,this.profile.definition.id).props){
+  for(const prop of layout.props){
    const {kind,x,z,scale}=prop,y=this.height(x,z);
    if(kind==='tree'&&berryTreePositions.has(`${x}/${z}`))continue;
-   if(kind==='rock'){const height=palette.rockHeight*(prop.scaleY??1),m=boulder.createInstance(`${prop.landmark?'watchstone':'rock'}-${id++}`);m.position.set(x,y+height*.95*scale,z);m.scaling.set(scale,height*scale,scale);this.spawned.push(m);}
-   else if(kind==='bush'){const m=shrub.createInstance(`bush-${id++}`);m.position.set(x,y+.5,z);m.scaling.scaleInPlace(scale*.7);this.spawned.push(m);}
-   else if(kind==='tree'){const t=trunk.createInstance(`trunk-${id++}`),c=canopy.createInstance(`${prop.landmark?'great-pine':'crown'}-${id++}`);t.position.set(x,y+1.2*scale,z);t.scaling.scaleInPlace(scale);c.position.set(x,y+3.2*scale,z);c.scaling.scaleInPlace(scale);this.spawned.push(t,c);}
+   if(kind==='rock'){const height=palette.rockHeight*(prop.scaleY??1);instance(boulder,`${prop.landmark?'watchstone':'rock'}-${id++}`,x,y+height*.95*scale,z,scale,height*scale,scale,prop.rotation);}
+   else if(kind==='bush'){const s=scale*.7;instance(shrub,`bush-${id++}`,x,y+(barren?.22:.5),z,s,barren?s*.34:s,s,prop.rotation);}
+   else if(kind==='tree')tree(x,z,scale,prop.landmark);
    else if(kind==='ruin'){const b=smallRock.createInstance(`${prop.landmark?'gate-pillar':'ruin'}-${id++}`);b.position.set(x,y+1.1*prop.scaleY!,z);b.scaling.set(scale,prop.scaleY!,1);b.rotation.y=prop.rotation!;this.spawned.push(b);}
   }
+  const horizonRng=new RNG(seed^0x3f2a61cb),horizonDensity=this.profile.definition.placement.horizonDensity;
   for(let side=0;side<4;side++)for(let i=0;i<25;i++){
-   const along=-DESIGN.mapRadius+i*DESIGN.mapRadius*2/24,bound=DESIGN.mapRadius+3;
+   if(horizonRng.next()>horizonDensity)continue;
+   const along=-DESIGN.mapRadius+i*DESIGN.mapRadius*2/24+horizonRng.between(-3,3),bound=DESIGN.mapRadius+3;
    const x=side<2?along:(side===2?-bound:bound),z=side<2?(side===0?-bound:bound):along;
-   const m=canopy.createInstance(`boundary-${side}-${i}`);m.position.set(x,this.height(x,z)+3.5,z);m.scaling.set(2.4,2.4,2.4);this.spawned.push(m);
+   // Sparse, irregular silhouettes beyond the playable boundary; no colliders.
+   tree(x,z,(barren?1.85:1.7)*horizonRng.between(.8,1.22),false,`boundary-${side}-${i}`);
   }
  }
  private buildBerryTrees(trees:BerryTree[]){
@@ -105,9 +153,16 @@ export class World{
   bodySource.isVisible=leafSource.isVisible=trunkSource.isVisible=lowerCanopySource.isVisible=upperCanopySource.isVisible=false;
   this.reusable.push(bodySource,leafSource,trunkSource,lowerCanopySource,upperCanopySource);
   const leafMaterial=this.mat('berry leaves','#64a655');leafSource.material=leafMaterial;
+  const vegetation=this.profile.definition.vegetation;
+  // Existing volcanic harvest trees keep their interaction identity, but their
+  // muted canopy belongs to the ash grove rather than an ordinary green forest.
+  const canopyTint=vegetation.deadWeight===1?Color3.FromHexString(vegetation.dead):Color3.FromHexString(vegetation.round);
   for(const id of BERRY_ORDER){
    const palette=BERRY_TREE_PALETTES[id];this.berryMaterials[id]=this.mat(`${id} berry`,BERRIES[id].color);
    this.berryTreeMaterials[id]={bark:this.mat(`${id} berry tree bark`,palette.bark),lower:this.mat(`${id} berry tree lower canopy`,palette.lower),upper:this.mat(`${id} berry tree upper canopy`,palette.upper)};
+   for(const material of [this.berryTreeMaterials[id].lower,this.berryTreeMaterials[id].upper]){
+    Color3.LerpToRef(material.diffuseColor,canopyTint,vegetation.deadWeight===1?.7:.18,material.diffuseColor);material.emissiveColor=material.diffuseColor.scale(.13);
+   }
   }
   for(const tree of trees){
    const trunk=trunkSource.clone(`berry-tree-${tree.uid}-trunk`)!,lower=lowerCanopySource.clone(`berry-tree-${tree.uid}-lower`)!,upper=upperCanopySource.clone(`berry-tree-${tree.uid}-upper`)!;
@@ -129,12 +184,14 @@ export class World{
    const color=this.berryMaterials[tree.berry],palette=this.berryTreeMaterials[tree.berry],silver=tree.berry==='silver-pinap',pinap=tree.berry==='pinap'||silver;
    const variation=.94+(tree.uid%5)*.025,scale=tree.scale*variation,ground=this.height(tree.x,tree.z);
    view.trunk.position.set(tree.x,ground+.525*scale,tree.z);view.trunk.scaling.set(scale,scale,scale);view.trunk.material=palette.bark;
-   view.lower.position.set(tree.x,ground+1.58*scale,tree.z);view.lower.scaling.set(1.17*scale,.74*scale,1.17*scale);view.lower.material=palette.lower;
-   view.upper.position.set(tree.x,ground+2.35*scale,tree.z);view.upper.scaling.set(.76*scale,.85*scale,.76*scale);view.upper.material=palette.upper;
+   view.lower.position.set(tree.x,ground+1.58*scale,tree.z);view.lower.scaling.set(1.3*scale,.8*scale,1.3*scale);view.lower.material=palette.lower;
+   view.upper.position.set(tree.x,ground+2.48*scale,tree.z);view.upper.scaling.set(.9*scale,.78*scale,.9*scale);view.upper.material=palette.upper;
    for(const [index,mesh] of view.crown.entries()){
-    const angle=index*Math.PI*2/5+tree.uid*.37,ring=index===4?.5:.96,high=index===4?2.58:1.68+(index%2)*.27;
+    // Fruit centers sit on outward canopy edges so saturated type colors read
+    // from the gameplay camera instead of disappearing inside the foliage.
+    const angle=index*Math.PI/2+tree.uid*.37,ring=index===4?.89:1.3,high=index===4?2.6:1.62+(index%2)*.25;
     mesh.position.set(tree.x+Math.sin(angle)*ring*scale,ground+high*scale,tree.z+Math.cos(angle)*ring*scale);
-    mesh.scaling.set(pinap?.38:.31,pinap?.5:.31,.31);mesh.material=color;
+    mesh.scaling.set((pinap?.62:.55)*scale,(pinap?.78:.55)*scale,.55*scale);mesh.material=color;
    }
    for(const [index,{body,leaf}] of view.ground.entries()){
     const berry=tree.berries[index],visible=!!berry&&!berry.collected;
@@ -186,6 +243,7 @@ export class World{
   }
  }
  update(_dt:number,pois:POI[],elapsed=0,features:TerrainFeature[]=[],berryTrees:BerryTree[]=[]){
+  this.lastPois=pois;this.lastElapsed=elapsed;this.atmosphere?.update(elapsed);this.dressing?.update(pois,elapsed);
   this.updateBerryArt(berryTrees,elapsed);
   this.chests?.update(pois,elapsed);
   for(const poi of pois){const entry=this.landmarks.get(poi.uid);if(!entry)continue;
@@ -213,5 +271,5 @@ export class World{
   }
   for(const feature of features){const view=this.terrainFeatures.get(feature.uid);if(!view)continue;view.root.setEnabled(feature.state!=='spent');if(feature.kind==='ruin-beacon')view.ring.scaling.set(feature.state==='arming'?1.18:1,1,feature.state==='arming'?1.18:1);}
  }
- dispose(){this.chests?.dispose();for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.terrainFeatures.values())root.root.dispose();for(const source of this.statueSources.values()){const material=source.material;source.dispose();material?.dispose();}this.statueSources.clear();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.terrainFeatures.clear();this.berryViews.clear();this.spawned=[];this.reusable=[];this.materials=[];this.lights=[];}
+ dispose(){this.dressing?.dispose();this.dressing=undefined;this.atmosphere?.dispose();this.atmosphere=undefined;this.chests?.dispose();for(const mesh of this.spawned)mesh.dispose();for(const root of this.landmarks.values())root.marker.dispose();for(const root of this.terrainFeatures.values())root.root.dispose();for(const source of this.statueSources.values()){const material=source.material;source.dispose();material?.dispose();}this.statueSources.clear();for(const root of this.reusable)root.dispose();for(const material of this.materials)material.dispose();for(const light of this.lights)light.dispose();this.landmarks.clear();this.terrainFeatures.clear();this.berryViews.clear();this.spawned=[];this.reusable=[];this.groundDetails=[];this.materials=[];this.lights=[];this.terrain=undefined;this.plainColors=undefined;this.dressedColors=undefined;this.lastPois=[];}
 }

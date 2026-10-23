@@ -1,10 +1,12 @@
 import {DESIGN} from '../../data/config.ts';
 import {RNG,clamp} from '../../utils/random.ts';
 import type {POI,TerrainFeature,Vec2} from '../types.ts';
-import {WORLD,type BiomeId,type WorldProp} from '../../data/world.ts';
+import {WORLD,ROCK_SCALES,type BiomeId,type WorldProp} from '../../data/world.ts';
 import {DEFAULT_WORLD,worldProfile,worldPoint,localPoint,type WorldProfile,type MapId} from '../../data/maps.ts';
 import {ECONOMY} from '../../data/economy.ts';
 import type {OptionalChallengeId} from '../../data/optionalChallenges.ts';
+import {createBerryTrees} from './berries.ts';
+import {sceneryDensity} from './sceneryDensity.ts';
 
 export type {WorldProp} from '../../data/world.ts';
 export type Obstacle=({kind:'circle';radius:number}|{kind:'box';halfWidth:number;halfDepth:number;rotation:number})&Vec2&{blocksFlight?:boolean};
@@ -41,6 +43,19 @@ const segmentDistance=(point:Vec2,a:Vec2,b:Vec2)=>{
  const dx=b.x-a.x,dz=b.z-a.z,t=clamp(((point.x-a.x)*dx+(point.z-a.z)*dz)/(dx*dx+dz*dz||1),0,1);
  return Math.hypot(point.x-a.x-t*dx,point.z-a.z-t*dz);
 };
+/** One conservative clearance mask for new stone groups and cosmetic details.
+ * Includes future sites, dry approaches and tactical features, not just visible POIs. */
+export function sceneryClearance(profile:WorldProfile,pois:readonly POI[],obstacles:readonly Obstacle[],features:readonly TerrainFeature[]){
+ const routes=pois.map(poi=>explorationRoute(poi,profile)),lake=profile.lake;
+ return (point:Vec2,radius:number)=>Math.max(Math.abs(point.x),Math.abs(point.z))<DESIGN.mapRadius-radius-3
+  &&Math.hypot(point.x,point.z)>WORLD.safeSpawnRadius+radius+3
+  &&Math.hypot(point.x-lake.x,point.z-lake.z)>lake.shoreRadius+radius+2
+  &&!pois.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<WORLD.poiClearance+radius+2)
+  &&!profile.landmarks.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<9+radius)
+  &&!routes.some(route=>route.slice(1).some((end,index)=>segmentDistance(point,route[index],end)<WORLD.routeHalfWidth+radius+1))
+  &&!features.some(f=>Math.hypot(f.x-point.x,f.z-point.z)<f.radius+radius+1)
+  &&!obstacles.some(o=>Math.hypot(o.x-point.x,o.z-point.z)<radius+(o.kind==='circle'?o.radius:Math.hypot(o.halfWidth,o.halfDepth))+1);
+}
 /** Open, obstacle-free spokes make every optional site reachable from the clearing. */
 function dryRoute(start:Vec2,local:Vec2,profile:WorldProfile):Vec2[] {
  const lake=localPoint(profile.lake,profile);
@@ -164,7 +179,68 @@ export function createEnvironment(seed:number,pois:readonly POI[]=[],mapId:MapId
   }
  };
  addFeature('bramble',4);addFeature('ruin-beacon',3);
+ composeScenery(seed,profile,pois,props,obstacles,features);
+ // Ordinary rocks are replaced after tree composition, using its live proxies.
+ // Original RNG consumption, harvest selection, landmarks and features survive.
+ const scattered=props.filter(p=>p.kind==='rock'&&!p.landmark),removed=new Set(scattered.map(p=>`${p.x}/${p.z}`));
+ const retained=props.filter(p=>p.kind!=='rock'||p.landmark),solids=obstacles.filter(o=>!removed.has(`${o.x}/${o.z}`));
+ const stoneRng=new RNG(seed^0x43b09ad1),tuning=profile.definition.rocks;
+ const candidates=stoneRng.shuffle([...scattered]);
+ // Pine groups favor forest gaps, volcanic groups favor exposed ridge regions.
+ if(profile.definition.placement.rockAffinity==='woodland')candidates.sort((a,b)=>Number(biomeAt(b.x,b.z,profile)==='woodland')-Number(biomeAt(a.x,a.z,profile)==='woodland'));
+ if(profile.definition.placement.rockAffinity==='height')candidates.sort((a,b)=>terrainHeight(b.x,b.z,profile)-terrainHeight(a.x,a.z,profile));
+ const centers:Vec2[]=[],clearStone=sceneryClearance(profile,pois,solids,features);
+ for(const center of candidates){
+  if(centers.length>=tuning.clusters||retained.length+tuning.maxGroup>WORLD.maxProps)break;
+  if(centers.some(p=>Math.hypot(p.x-center.x,p.z-center.z)<tuning.spread*3.5)||!clearStone(center,1.25*ROCK_SCALES.anchor))continue;
+  const group:WorldProp[]=[],target=stoneRng.int(tuning.minGroup,tuning.maxGroup);
+  for(let attempt=0;attempt<48&&group.length<target;attempt++){
+   const first=group.length===0,scale=first?(centers.length%3===0?ROCK_SCALES.anchor:ROCK_SCALES.medium):stoneRng.pick([ROCK_SCALES.small,ROCK_SCALES.medium]);
+   const angle=stoneRng.between(0,Math.PI*2),reach=first?0:stoneRng.between(2.8,tuning.spread),point={x:center.x+Math.sin(angle)*reach,z:center.z+Math.cos(angle)*reach},radius=1.25*scale;
+   // The opening enemies spawn 24–34 units from the origin. Leave their whole
+   // ring open as well as the player clearing; no new blockers in that ring.
+   if(Math.hypot(point.x,point.z)<36+radius||!clearStone(point,radius)||group.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<1.25*p.scale+radius+.5))continue;
+   group.push({kind:'rock',...point,scale,scaleY:scale===ROCK_SCALES.anchor?1.2:scale===ROCK_SCALES.medium?1:.8,rotation:stoneRng.between(0,Math.PI*2),rockCluster:centers.length});
+  }
+  if(group.length<tuning.minGroup)continue;
+  centers.push(center);retained.push(...group);
+  for(const prop of group)solids.push({kind:'circle',x:prop.x,z:prop.z,radius:1.25*prop.scale});
+ }
+ props.splice(0,props.length,...retained);obstacles.splice(0,obstacles.length,...solids);
  return {props,obstacles,features};
+}
+
+/** Bounded post-pass preserves the established RNG, tactical features, ruins and
+ * harvest-selection prefix. Ordinary trees keep their order/count and move with
+ * their proxies; only noninteractive shrubs/flowers are thinned. */
+function composeScenery(seed:number,profile:WorldProfile,pois:readonly POI[],props:WorldProp[],obstacles:Obstacle[],features:readonly TerrainFeature[]){
+ const tuning=profile.definition.placement,rng=new RNG(seed^0x62d41bc3),protectedTrees=new Set<WorldProp>();
+ createBerryTrees(props,seed,protectedTrees);
+ const clear=sceneryClearance(profile,pois,obstacles,features);
+ for(const prop of props){
+  if(prop.kind!=='tree'||prop.landmark||protectedTrees.has(prop))continue;
+  if(Math.hypot(prop.x,prop.z)>=tuning.openingRadius&&rng.next()<sceneryDensity(prop.x,prop.z,profile))continue;
+  const collider=obstacles.find(o=>o.kind==='circle'&&!o.blocksFlight&&o.x===prop.x&&o.z===prop.z);
+  if(!collider)continue;
+  const original={x:prop.x,z:prop.z};
+  // The shared mask sees the live array, so temporarily move only this proxy.
+  collider.x=collider.z=Infinity;
+  let moved=false;
+  for(let attempt=0;attempt<tuning.attempts;attempt++){
+   const point=worldPoint({x:rng.between(-108,108),z:rng.between(-108,108)},profile),radius=Math.max(1.7*prop.scale,tuning.treeGap);
+   if(rng.next()>sceneryDensity(point.x,point.z,profile)||Math.hypot(point.x,point.z)<tuning.openingRadius+radius||!clear(point,radius))continue;
+   const y=terrainHeight(point.x,point.z,profile);
+   if([[radius,0],[-radius,0],[0,radius],[0,-radius]].some(([dx,dz])=>Math.abs(terrainHeight(point.x+dx,point.z+dz,profile)-y)>1))continue;
+   Object.assign(prop,point);Object.assign(collider,point);moved=true;break;
+  }
+  if(!moved)Object.assign(collider,original);
+ }
+ const retained=props.filter(prop=>{
+  if(prop.landmark||prop.kind!=='bush'&&prop.kind!=='flower')return true;
+  const keep=prop.kind==='bush'?tuning.shrubKeep:tuning.flowerKeep;
+  return Math.hypot(prop.x,prop.z)>WORLD.safeSpawnRadius+5&&rng.next()<keep*sceneryDensity(prop.x,prop.z,profile);
+ });
+ props.splice(0,props.length,...retained);
 }
 
 /** Static grid avoids scanning the whole forest for every controller step. */

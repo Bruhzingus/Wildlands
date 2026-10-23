@@ -1,5 +1,7 @@
 export type BiomeId='meadow'|'woodland'|'ruins'|'lake';
-export type WorldProp={kind:'rock'|'bush'|'tree'|'flower'|'ruin';x:number;z:number;scale:number;scaleY?:number;rotation?:number;landmark?:boolean};
+export type WorldProp={kind:'rock'|'bush'|'tree'|'flower'|'ruin';x:number;z:number;scale:number;scaleY?:number;rotation?:number;landmark?:boolean;rockCluster?:number};
+/** Shared by the renderer and collision; tiny cosmetic chips are separate. */
+export const ROCK_SCALES={small:.65,medium:1.05,anchor:1.75} as const;
 export const BIOMES:Readonly<Record<BiomeId,{name:string;color:string;mapColor:string}>>={
  meadow:{name:'Open Meadow',color:'#789352',mapColor:'#7e925b'},
  woodland:{name:'Pinewood',color:'#49674b',mapColor:'#405c47'},

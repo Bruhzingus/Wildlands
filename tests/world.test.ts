@@ -26,7 +26,8 @@ test('ten world restarts release geometry, materials, landmarks and lights',()=>
 test('biome scenery reuses geometry and rendered ground matches the shared collision height',()=>{
  const profile=worldProfile(4),engine=new NullEngine(),scene=new Scene(engine),pois=createPOIs(4),world=new World(scene,4,pois);
  try{
-  assert.ok(scene.meshes.length>600);assert.ok(scene.geometries.length<=36,'Scenery, chest parts, statues and shrine effects must share source geometry');
+  const detailBatches=scene.meshes.filter(mesh=>mesh.name.startsWith('ground-detail-')).length;
+  assert.ok(scene.meshes.length>600);assert.ok(scene.geometries.length<=37+detailBatches,'Scenery, detail batches and the single dressing paver must share source geometry');
   assert.ok(scene.meshes.filter(m=>m.isAnInstance).length>600);
   assert.equal(scene.meshes.filter(m=>m.name.startsWith('great-pine-')).length,1);
   assert.equal(scene.meshes.filter(m=>m.name.startsWith('gate-pillar-')).length,2);
@@ -49,7 +50,8 @@ test('every map shares seeded geography with the renderer and releases its own p
   for(const map of Object.values(MAP_DEFINITIONS)){
    const seed=map.seed??42,pois=createPOIs(seed,map.id),profile=worldProfile(seed,map.id),world=new World(scene,seed,pois,map.id);
    const ground=scene.getMeshByName('rolling forest terrain')!,positions=ground.getVerticesData(VertexBuffer.PositionKind)!;
-   assert.equal(ground.getBoundingInfo().boundingBox.extendSize.x*2,287.5);assert.ok(scene.geometries.length<=36);
+   const detailBatches=scene.meshes.filter(mesh=>mesh.name.startsWith('ground-detail-')).length;
+   assert.equal(ground.getBoundingInfo().boundingBox.extendSize.x*2,287.5);assert.ok(scene.geometries.length<=37+detailBatches);
    // Babylon stores x/z/y in Float32; taller relief also amplifies x/z rounding.
    for(let i=0;i<positions.length;i+=3*137)assert.ok(Math.abs(positions[i+1]-terrainHeight(positions[i],positions[i+2],profile))<.000004);
    const future=pois.find(p=>p.availableAt===180)!,node=scene.getTransformNodeByName(`landmark-${future.uid}`)!;
