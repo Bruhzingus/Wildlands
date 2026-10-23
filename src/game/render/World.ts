@@ -54,7 +54,7 @@ export class World{
  constructor(scene:Scene,seed:number,pois:POI[],mapId:MapId='wildlands',berryTrees:BerryTree[]=[]){
   this.scene=scene;this.profile=worldProfile(seed,mapId);const layout=createEnvironment(seed,pois,mapId),sites=createLandmarkDressing(seed,this.profile,pois,berryTrees,layout);
   this.buildTerrain(seed,landmarkClearings(sites));this.buildEnvironment(seed,layout,berryTrees);
-  this.groundDetails=buildGroundDetails(scene,createSurfaceDetails(seed,this.profile,pois,layout,berryTrees),this.profile.definition.surfaceDetails,(name,color)=>this.mat(name,color));this.reusable.push(...this.groundDetails);
+  this.groundDetails=buildGroundDetails(scene,createSurfaceDetails(seed,this.profile,pois,layout,berryTrees),this.profile.definition.surfaceDetails,(name,color)=>this.mat(name,color),(x,z)=>this.height(x,z));this.reusable.push(...this.groundDetails);
   this.buildBerryTrees(berryTrees);this.buildLandmarks(pois);
   this.dressing=new LandmarkDressing(scene,sites,this.mat('landmark dressing stone',this.profile.definition.dressing.stone),(x,z)=>this.height(x,z));
   this.buildTerrainFeatures(layout.features);this.update(0,pois,0,[],berryTrees);
@@ -92,7 +92,8 @@ export class World{
   const tip=canopy.clone('tiered crown tip source')!;tip.material=pine2;
   const rounded=MeshBuilder.CreateIcoSphere('round crown source',{radius:1,subdivisions:1},this.scene);rounded.material=round;rounded.isVisible=false;
   const deadTrunk=trunk.clone('dead wood source')!;deadTrunk.material=dead;
-  const shrub=MeshBuilder.CreateIcoSphere('bush',{radius:1.1,subdivisions:0},this.scene);shrub.material=scrub;shrub.isVisible=false;
+  // Zero means Babylon's default (320 faces), not an unsubdivided primitive.
+  const shrub=MeshBuilder.CreateIcoSphere('bush',{radius:1.1,subdivisions:2},this.scene);shrub.material=scrub;shrub.isVisible=false;
   const boulder=MeshBuilder.CreateIcoSphere('low-poly rock',{radius:1.25,subdivisions:1},this.scene);boulder.material=rock;boulder.isVisible=false;
   const smallRock=MeshBuilder.CreateBox('ruin block',{width:2.4,depth:1.8,height:2.2},this.scene);smallRock.material=ruins;smallRock.isVisible=false;
   this.reusable.push(trunk,canopy,tip,rounded,deadTrunk,shrub,boulder,smallRock);
@@ -146,7 +147,7 @@ export class World{
  }
  private buildBerryTrees(trees:BerryTree[]){
   const bodySource=MeshBuilder.CreateIcoSphere('berry body source',{radius:.42,subdivisions:1},this.scene);
-  const leafSource=MeshBuilder.CreateIcoSphere('berry leaf source',{radius:.18,subdivisions:0},this.scene);
+  const leafSource=MeshBuilder.CreateIcoSphere('berry leaf source',{radius:.18,subdivisions:1},this.scene);
   const trunkSource=MeshBuilder.CreateCylinder('berry tree trunk source',{height:1.05,diameterTop:.34,diameterBottom:.48,tessellation:6},this.scene);
   const lowerCanopySource=MeshBuilder.CreateIcoSphere('berry tree lower canopy source',{radius:1,subdivisions:1},this.scene);
   const upperCanopySource=MeshBuilder.CreateIcoSphere('berry tree upper canopy source',{radius:1,subdivisions:1},this.scene);

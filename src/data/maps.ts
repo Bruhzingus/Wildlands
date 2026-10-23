@@ -35,14 +35,14 @@ const wildlands:MapDefinition={id:'wildlands',title:'Wildlands',description:'Shi
  placement:{regions:5,width:32,treeFloor:.12,woodlandBoost:.12,shrubKeep:.54,flowerKeep:.5,treeGap:2.4,openingRadius:36,attempts:48,horizonDensity:.66,rockAffinity:'none'},
  dressing:{shrineRadius:5.2,cacheRadius:3.6,groveRadius:4.2,approachWidth:2.4,clearingStrength:.58,stone:'#677064'},atmosphere:ATMOSPHERES.wildlands,
  surfaceDetails:{tufts:100,flowers:18,mushrooms:0,stumps:0,chips:0,grass:'#56734a',petals:'#c7bca0',cap:'#95725d',wood:'#76604b',chip:'#6b6568'},
- scenery:{bark:'#78604b',pine:'#375d47',bush:'#648561',rock:'#8a978e',flower:'#debd74',ruins:'#747c6d',rockChance:0,rockHeight:.55},landmarks:LANDMARKS,landmarkProps:LANDMARK_PROPS,changes,
+ scenery:{bark:'#78604b',pine:'#375d47',bush:'#648561',rock:'#707c74',flower:'#debd74',ruins:'#747c6d',rockChance:0,rockHeight:.55},landmarks:LANDMARKS,landmarkProps:LANDMARK_PROPS,changes,
  terrain:{ridgeHeight:12,clearingHeight:8,valleyDepth:2.4,clusterSpread:16},lighting:{sky:.9,sun:.95}};
 export const MAP_DEFINITIONS:Readonly<Record<MapId,MapDefinition>>={
  wildlands,
  'pinewood-route':{...wildlands,id:'pinewood-route',title:'Pinewood route',description:'A repeatable expedition through the expanded Wildlands. Learn its geography and changing discoveries.',seed:46837,
   palette:{meadow:{...BIOMES.meadow,color:'#677d61'},woodland:{...BIOMES.woodland,color:'#4f6954'},ruins:{...BIOMES.ruins,color:'#7e8272'},lake:{...BIOMES.lake,color:'#637d70'}},
   shoreColor:'#938b70',ground:{...wildlands.ground,patchColor:'#75836a',earthColor:'#81785e',patchSize:25,patchDensity:.32,patchStrength:.38,earthStrength:.35,shoreWidth:4.8,shoreStrength:.7},
-  scenery:{...wildlands.scenery,bark:'#6b5b4c',pine:'#37594a',bush:'#536e56',ruins:'#65736a'},
+  scenery:{...wildlands.scenery,bark:'#6b5b4c',pine:'#37594a',bush:'#536e56',rock:'#66736e',ruins:'#65736a'},
   rocks:{clusters:10,minGroup:2,maxGroup:4,spread:5},
   placement:{...wildlands.placement,regions:6,width:35,treeFloor:.08,woodlandBoost:.3,shrubKeep:.42,horizonDensity:.8,rockAffinity:'woodland'},
   dressing:{...wildlands.dressing,stone:'#616d68',clearingStrength:.52},atmosphere:ATMOSPHERES.pine,

@@ -2,6 +2,7 @@ import {Mesh,MeshBuilder,Scene,StandardMaterial,TransformNode} from '@babylonjs/
 import {siteAvailable} from '../../data/maps.ts';
 import type {POI} from '../types.ts';
 import type {DressingSite} from '../systems/landmarkDressing.ts';
+import {terrainOrientation} from './terrainOrientation.ts';
 
 /** Individually owned POI roots, shared stone/plant geometries. These objects
  * never enter picking, collision or interaction registries. */
@@ -22,10 +23,7 @@ export class LandmarkDressing {
     const mesh=source.createInstance(`dressing-${site.uid}-${part.kind}-${index}`);mesh.parent=root;
     const offset=part.kind==='paver'?part.sy*.4:part.kind==='plant'?0:part.sy*.95;
     mesh.position.set(part.x-site.x,ground(part.x,part.z)-root.position.y+offset,part.z-site.z);mesh.scaling.set(part.sx,part.sy,part.sz);mesh.rotation.y=part.rotation;
-    if(part.kind==='paver'){
-     const dx=(ground(part.x+.3,part.z)-ground(part.x-.3,part.z))/.6,dz=(ground(part.x,part.z+.3)-ground(part.x,part.z-.3))/.6;
-     mesh.rotation.set(-Math.atan(dz),0,Math.atan(dx));
-    }
+    if(part.kind==='paver'||part.kind==='plant')mesh.rotationQuaternion=terrainOrientation(part.x,part.z,part.rotation,ground);
     mesh.isPickable=false;mesh.checkCollisions=false;mesh.receiveShadows=false;mesh.metadata={landmarkDressing:true,uid:site.uid};
    }
   }
