@@ -27,7 +27,7 @@ export function upgradeStatPreview(state:RunState,choice:UpgradeChoice):StatPrev
   return before===after?[]:[{label:'Movement when leading',before,after}];
  }
  if(choice.kind!=='stat'&&choice.kind!=='item')return [];
- const projected:RunState={...state,buffs:{...state.buffs},trainingRanks:{...state.trainingRanks},
+ const projected:RunState={...state,analytics:undefined,buffs:{...state.buffs},trainingRanks:{...state.trainingRanks},
   player:{...state.player},party:state.party.map(member=>({...member,trainingBuffs:{...member.trainingBuffs},trainingRanks:{...member.trainingRanks}})),items:[...state.items],itemStacks:{...state.itemStacks}};
  if(!applyChoice(projected,choice).applied)return [];
  const owner=choice.kind==='stat'?choice.speciesId:undefined;

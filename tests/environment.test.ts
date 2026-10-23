@@ -7,9 +7,9 @@ import {biomeAt,boundaryStrength,createEnvironment,createPOIs,explorationRoute,O
 test('seeded exploration sites use statue shrines, safe spawn and separation across biomes',()=>{
  for(let seed=1;seed<=250;seed++){
   const profile=worldProfile(seed),pois=createPOIs(seed);assert.deepEqual(pois,createPOIs(seed));
-  assert.deepEqual(pois.map(p=>p.uid),Array.from({length:21},(_,i)=>20+i));
+  assert.deepEqual(pois.map(p=>p.uid),Array.from({length:25},(_,i)=>20+i));
   assert.ok(pois.filter(p=>p.kind==='cache').length>=8);assert.equal(pois.filter(p=>p.kind==='healing').length,0);
-  assert.ok(pois.filter(p=>p.kind==='shrine').length>=7);assert.ok(pois.every(p=>p.kind!=='elite'));
+  assert.ok(pois.filter(p=>p.kind==='shrine').length>=12);assert.ok(pois.every(p=>p.kind!=='elite'));
   assert.equal(new Set(pois.map(p=>biomeAt(p.x,p.z,profile))).size,4);
   for(const [index,poi] of pois.entries()){
    assert.equal(poi.used,false);assert.ok(Math.hypot(poi.x,poi.z)>=27);assert.ok(Math.max(Math.abs(poi.x),Math.abs(poi.z))<=101*WORLD.scale);
@@ -71,7 +71,7 @@ test('all optional sites are reachable through the generated open routes with ac
 
 test('rolling ground stays continuous and the pond has a shallow shared shoreline',()=>{
  let minimum=Infinity,maximum=-Infinity;
- for(let x=-113;x<=WORLD.hardBoundary;x+=3)for(let z=-113;z<=WORLD.hardBoundary;z+=3){
+ for(let x=-WORLD.hardBoundary;x<=WORLD.hardBoundary;x+=3)for(let z=-WORLD.hardBoundary;z<=WORLD.hardBoundary;z+=3){
   const h=terrainHeight(x,z);assert.ok(Number.isFinite(h));minimum=Math.min(minimum,h);maximum=Math.max(maximum,h);
   assert.ok(Math.abs(terrainHeight(x+.1,z)-h)<.09);assert.ok(Math.abs(terrainHeight(x,z+.1)-h)<.09);
  }

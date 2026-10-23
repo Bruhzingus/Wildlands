@@ -34,6 +34,13 @@ npm run preview     # Production bundle local preview
 
 ## 1. The creative vision
 
+**October 23, 2026 lighting/map follow-up:** All maps are a further 25% wider
+and deeper (359.375 metres per side, +56.25% area over phase 15).
+Directional sunlight, baked ground shade, layered atmospheric color and a
+gradient sky improve depth; continuous scenic foothills/ridges close all sides
+and corners beyond the soft/hard movement bounds. See
+[the handoff](docs/LIGHTING_AND_MAP_EDGES.md) for implementation and verification.
+
 **N1 movement presentation (October 21, 2026):** Renderer-owned travel sampling
 drives grounded walk cadence and facing, preserves loop phase through stops and
 attacks, and holds grounded frames during jumps. Walk foot anchors and contact

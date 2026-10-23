@@ -62,7 +62,7 @@ test('damage types use simplified strengths; legendary boss spawns on schedule',
 });
 test('movement deterministic and bound to play area',()=>{
  const sim=new Simulation(1,111);sim.update(.03,{...idle,mx:1});assert.ok(sim.state.player.x>0);
- sim.state.player.x=115*1.25;sim.update(.03,{...idle,mx:1});assert.ok(sim.state.player.x<=113*1.25);
+ sim.state.player.x=115*1.25*1.25;sim.update(.03,{...idle,mx:1});assert.ok(sim.state.player.x<=113*1.25*1.25);
 });
 test('win can continue endless, preserving upgrades and squad',()=>{
  const sim=new Simulation(25,18),s=sim.state;s.result='victory';s.phase='result';s.items.push('echo-bell');

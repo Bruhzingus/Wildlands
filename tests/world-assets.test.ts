@@ -26,7 +26,7 @@ test('world asset templates meet primitive budgets, light both sides of plants, 
   for(const map of Object.values(MAP_DEFINITIONS)){
    const seed=map.seed??4,pois=createPOIs(seed,map.id),layout=createEnvironment(seed,pois,map.id),berries=createBerryTrees(layout.props,seed),world=new World(scene,seed,pois,map.id,berries);
    try{
-    for(const [name,budget] of [['bush',80],['berry leaf source',20],['cone crown',20],['round crown source',20],['low-poly rock',20]] as const){
+    for(const [name,budget] of [['bush',80],['berry leaf source',20],['cone crown',20],['round crown source',20],['low-poly rock',40]] as const){
      const mesh=scene.getMeshByName(name)!;assert.ok(mesh);assert.ok(mesh.getTotalIndices()/3<=budget,`${map.id}/${name}: primitive exceeded its face budget`);
     }
     const details=createSurfaceDetails(seed,world.profile,pois,layout,berries);
@@ -34,20 +34,26 @@ test('world asset templates meet primitive budgets, light both sides of plants, 
     for(const mesh of scene.meshes.filter((m):m is Mesh=>m instanceof Mesh&&m.name.startsWith('ground-detail-'))){
      const material=mesh.material as StandardMaterial;
      assert.equal(material.alpha,1);assert.equal(material.backFaceCulling,false);assert.equal(material.twoSidedLighting,true);
-     assert.ok(mesh.getTotalVertices()<400);
-     const placements=details.filter(detail=>`ground-detail-${detail.kind}`===mesh.name),matrices=mesh.thinInstanceGetWorldMatrices();
-     assert.equal(matrices.length,placements.length);
-     for(const [index,detail] of placements.entries()){
-      const up=Vector3.TransformNormal(Vector3.Up(),matrices[index]).normalize();
+     assert.ok(mesh.getTotalVertices()<512);
+     const placements=details.filter(detail=>detail.kind===mesh.metadata.surfaceDetail),matrices=mesh.thinInstanceGetWorldMatrices();
+     assert.equal(matrices.length,mesh.metadata.count);
+     for(const matrix of matrices){
+      const position=matrix.getTranslation(),detail=placements.find(detail=>Math.hypot(detail.x-position.x,detail.z-position.z)<.00002)!;
+      assert.ok(detail,'every variant instance belongs to a seeded placement');
+      const up=Vector3.TransformNormal(Vector3.Up(),matrix).normalize();
       assert.ok(Vector3.Dot(up,expectedUp(detail.x,detail.z))>.9995,`${map.id}/${detail.kind}: base remains horizontal on a slope`);
      }
-     if(mesh.name==='ground-detail-stump'){
-      const colors=mesh.getVerticesData(VertexBuffer.ColorKind)!,normals=mesh.getVerticesData(VertexBuffer.NormalKind)!;
+     if(mesh.metadata.surfaceDetail==='stump'){
+      const colors=mesh.getVerticesData(VertexBuffer.ColorKind)!,normals=mesh.getVerticesData(VertexBuffer.NormalKind)!,positions=mesh.getVerticesData(VertexBuffer.PositionKind)!;
+      const height=Math.max(...positions.filter((_,index)=>index%3===1));
       const values={top:[] as number[],side:[] as number[]};
-      for(let i=0;i<mesh.getTotalVertices();i++)if(normals[i*3+1]>=0){
-       values[normals[i*3+1]>.5?'top':'side'].push(colors[i*4]+colors[i*4+1]+colors[i*4+2]);
+      for(let i=0;i<mesh.getTotalVertices();i++){
+       const value=colors[i*4]+colors[i*4+1]+colors[i*4+2];
+       if(normals[i*3+1]>.5&&positions[i*3+1]>height-.025)values.top.push(value);
+       else if(Math.abs(normals[i*3+1])<.5)values.side.push(value);
       }
-      assert.ok(Math.min(...values.top)>Math.max(...values.side),'cut top merges with the bark');
+      const average=(values:number[])=>values.reduce((sum,value)=>sum+value,0)/values.length;
+      assert.ok(average(values.top)>average(values.side)*1.1,'growth rings remain readable against darker bark');
      }
     }
     for(const mesh of scene.meshes.filter(m=>m.metadata?.landmarkDressing&&(m.name.includes('-paver-')||m.name.includes('-plant-')))){

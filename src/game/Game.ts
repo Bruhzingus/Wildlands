@@ -10,7 +10,7 @@ import {UI} from '../ui/UI.ts';
 import {loadSave,type SaveData} from './save.ts';
 import {ProgressionTracker} from './achievements.ts';
 import {MAP_OPTIONS} from '../data/unlocks.ts';
-import {cameraAimDirection,cameraRelativeMovement,mouseLook} from './input.ts';
+import {cameraAimDirection,cameraRelativeMovement,keyboardLook,mouseLook} from './input.ts';
 import {requestCameraPointerLock} from './pointerLock.ts';
 import {GameAudio} from './audio.ts';
 import {ImpactFeedback} from './feedback.ts';
@@ -18,6 +18,10 @@ import {AutomaticQuality,graphicsProfile,initialQuality} from './graphics.ts';
 import {FrameMetrics} from './performance.ts';
 import type {EvolutionReceipt} from './evolution.ts';
 import {ELEMENT_COLORS,getSpecies} from '../data/kanto.ts';
+import {decodeRunFile,encodeRunFile} from './runSnapshot.ts';
+import {loadSuspendedRun,storeSuspendedRun,discardSuspendedRun} from './runStorage.ts';
+import {downloadJSON} from '../ui/runFiles.ts';
+import type {ProgressionSnapshot} from './achievements.ts';
 
 const isActive=(sim:Simulation|null)=>sim?.state.phase==='playing'||sim?.state.phase==='boss';
 const withoutActions=(input:MoveInput):MoveInput=>({...input,jump:false,dodge:false,special:false,interact:false});
@@ -31,6 +35,7 @@ export class Game{
  private ui:UI;private sim:Simulation|null=null;private world:World|null=null;private assets:AssetLibrary|null=null;private visuals:CharacterVisuals|null=null;private fx:Effects|null=null;private healthBars:HealthBars|null=null;
  private save:SaveData;private pressed=new Set<string>();private justPressed=new Set<string>();private ended=false;private previous=performance.now();
  private progression:ProgressionTracker|null=null;
+ private savedRunJSON:string|null=null;private recoveryRunId:string|null=null;private lastRecoveryWrite=0;
  private listeners=new AbortController();private lastPhase='title';private pointerCaptured=false;private flashUntil=0;
  private captureWanted=false;private capturePending=false;private captureAttempt=0;private captureTimer=0;
  private captureError:(()=>void)|null=null;
@@ -56,8 +61,16 @@ export class Game{
   this.ui.onPick=id=>this.pick(id);
   this.ui.onReroll=()=>{if(this.sim?.reroll()){this.audio.unlock();this.audio.cue('upgrade');this.ui.update(this.sim.state);}};
   this.ui.onResume=()=>this.captureForPlay();
+  this.ui.onSuspend=()=>this.suspendRun();
+  this.ui.onResumeSaved=()=>{if(this.savedRunJSON)this.restoreRun(this.savedRunJSON);};
+  this.ui.onImportRun=json=>this.importRun(json);
+  this.ui.onDiscardSaved=()=>{
+   const removed=discardSuspendedRun();this.savedRunJSON=null;this.recoveryRunId=null;this.refreshRecovery();
+   this.ui.toast(removed?'Saved run discarded.':'Browser storage could not be cleared.');
+  };
   this.ui.onRestart=()=>this.restart();
   this.ui.onEndless=()=>{this.ended=false;this.clearInput();this.sim?.continueEndless();this.captureForPlay();};
+  this.refreshRecovery();
   this.installInput();this.engine.runRenderLoop(()=>this.frame());
   window.addEventListener('resize',()=>{this.applyGraphics();this.engine.resize();},{signal:this.listeners.signal});
  }
@@ -92,7 +105,7 @@ export class Game{
   this.clearInput();
   if(isActive(sim)&&!keepEvolutionVisible)sim.pause();
   this.lastPhase=sim.state.phase;this.captureWanted=true;
-  this.ui.setCaptureHint('Resume locks the mouse for continuous camera control. Esc pauses and releases it.');
+  this.ui.setCaptureHint('Use arrow keys or the mouse to look. Enter on Resume continues play. Esc pauses.');
   this.ui.update(sim.state);this.canvas.focus();
   if(document.pointerLockElement===this.canvas){this.captureReady();return;}
   if(this.capturePending)return;
@@ -105,8 +118,11 @@ export class Game{
  private captureReady(){
   this.capturePending=false;clearTimeout(this.captureTimer);this.captureError=null;
   if(!this.captureWanted||!this.sim||(!isActive(this.sim)&&this.sim.state.phase!=='paused')){this.releasePointer();return;}
-  this.pointerCaptured=true;this.clearInput();
+  this.pointerCaptured=document.pointerLockElement===this.canvas;this.clearInput();
   if(this.sim.state.phase==='paused')this.sim.pause();
+  if(!isActive(this.sim)){
+   this.releasePointer();this.audio.setActive(false);this.lastPhase=this.sim.state.phase;this.previous=performance.now();this.ui.update(this.sim.state);return;
+  }
   this.audio.setActive(true);
   if(this.evolutionCuePending){this.evolutionCuePending=false;this.audio.cue('evolve',this.evolution?.to);}
   this.lastPhase=this.sim.state.phase;this.previous=performance.now();this.ui.update(this.sim.state);this.canvas.focus();
@@ -114,9 +130,8 @@ export class Game{
  private captureFailed(attempt:number){
   if(attempt!==this.captureAttempt||!this.captureWanted)return;
   if(document.pointerLockElement===this.canvas){this.captureReady();return;}
-  this.pause();
-  this.ui.setCaptureHint('Mouse capture was blocked. Click Resume to try again. If needed, open the game in its own tab.');
-  if(this.sim)this.ui.update(this.sim.state);
+  this.captureReady();
+  this.ui.toast('Use arrow keys to look and WASD to move. Esc pauses.');
  }
  private installInput(){const signal=this.listeners.signal;
   // Space belongs to jumping, including when a popup takes focus mid-press.
@@ -133,7 +148,7 @@ export class Game{
    const target=e.target as HTMLElement|null;
    if(target?.matches('input,select,textarea'))return;
    if(!e.repeat&&this.sim&&this.ui.handleNumber(e.key,this.sim.state)){e.preventDefault();this.clearInput();return;}
-   if(!isActive(this.sim)||document.pointerLockElement!==this.canvas)return;
+   if(!isActive(this.sim))return;
    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
    if(!this.pressed.has(e.code)&&!e.repeat)this.justPressed.add(e.code);
    this.pressed.add(e.code);
@@ -144,6 +159,7 @@ export class Game{
   window.addEventListener('blur',()=>this.pause(),{signal});
   window.addEventListener('wildlands:gallery-open',()=>this.pause(),{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)this.pause();},{signal});
+  window.addEventListener('pagehide',()=>{this.pause();this.checkpointRecovery();},{signal});
   document.addEventListener('mousemove',e=>{
    if(!isActive(this.sim)||document.pointerLockElement!==this.canvas)return;
    const look=mouseLook(this.camera.alpha,this.camera.beta,e.movementX,e.movementY,this.ui.settings.mouseSensitivity,this.ui.settings.invertY);
@@ -169,18 +185,87 @@ export class Game{
   const map=MAP_OPTIONS.find(option=>option.id===this.save.selection.map)!;
   this.sim=new Simulation(starterId,map.seed,{mapId:map.id,challenge:this.save.selection.challenge,itemUnlocks:[...this.save.unlockedItems],recruitUnlocks:[...this.save.unlockedRecruits]});
   this.progression=new ProgressionTracker(this.save,this.sim.state);this.ui.setProgressionResult([]);
+  this.bindSnapshotAccounting();this.lastRecoveryWrite=0;
+  this.attachRun();
+  this.ui.toast('WASD move. Arrow keys or mouse look. Esc pauses.');this.captureForPlay();this.checkpointRecovery();
+ }
+ private bindSnapshotAccounting(){
+  const sim=this.sim,tracker=this.progression;if(!sim||!tracker)return;
+  sim.snapshotMetadata=()=>{tracker.observe(sim.state);return {progression:tracker.exportSnapshot()};};
+  sim.refreshCheckpointMetadata();
+ }
+ private attachRun(){
+  if(!this.sim)return;
   this.world=new World(this.scene,this.sim.state.seed,this.sim.state.pois,this.sim.state.mapId,this.sim.state.berryTrees??[]);
   this.assets=new AssetLibrary(this.scene);this.visuals=new CharacterVisuals(this.assets);
   this.healthBars=new HealthBars(this.scene,this.motionPreference.matches,id=>this.assets?.headroom(id)??1);
   this.damageNumbers=new DamageNumbers(this.scene,(x,z)=>this.world!.height(x,z),id=>this.assets?.headroom(id)??1);
   this.fx=new Effects(this.scene,this.world);this.sim.onEvent=e=>this.event(e);
   this.applyGraphics();this.automatic.resetWindow();this.metrics?.reset();
-  this.camera.setTarget(new Vector3(0,this.world.height(0,0)+2,0));this.camera.alpha=-Math.PI/2;this.camera.beta=1.05;this.camera.radius=this.save.settings.camera;
+  const {x,z}=this.sim.state.player;
+  this.camera.setTarget(new Vector3(x,this.world.height(x,z)+2,z));this.camera.alpha=-Math.PI/2;this.camera.beta=1.05;this.camera.radius=this.save.settings.camera;
   this.lastPhase=this.sim.state.phase;this.previous=performance.now();
   this.previousSpecialCooldown=null;
-  this.ui.update(this.sim.state);this.ui.toast('WASD move. Mouse look. Esc pauses and releases the mouse.');this.captureForPlay();
+  this.ui.update(this.sim.state);
  }
- private restart(){if(this.sim)this.progression?.finish(this.sim.state);this.cleanupRun();this.ui.showTitle();}
+ private refreshRecovery(){
+  const recovery=loadSuspendedRun();this.savedRunJSON=recovery.json;
+  const decoded=recovery.json?decodeRunFile(recovery.json):null;
+  this.recoveryRunId=decoded?.ok?decoded.file.metadata.runId:null;
+  const state=decoded?.ok?decoded.file.snapshot.state:null;
+  this.ui.setRunRecovery(state?`${getSpecies(state.party[0].speciesId).name} · ${Math.floor(state.stats.elapsed/60)}:${String(Math.floor(state.stats.elapsed%60)).padStart(2,'0')} · ${state.mapId??'wildlands'} · ${state.party.length} in squad`:null,!!recovery.json||!!recovery.error,recovery.error);
+ }
+ private runFile(){
+  if(!this.sim||!this.progression)return null;
+  const saved=this.sim.exportSuspendedSnapshot(),account=saved.snapshot.metadata.progression as ProgressionSnapshot|undefined;
+  if(!account)throw new Error('Run checkpoint accounting is unavailable. Resume briefly before saving again.');
+  const json=encodeRunFile(saved.snapshot,{runId:account.runId,starterId:saved.snapshot.state.party[0].speciesId,rocketKills:account.rocketKills,
+   victoryRecorded:this.save.recentRuns.find(run=>run.id===account.runId)?.victory??false,savedElapsed:saved.savedElapsed,rewoundSeconds:saved.rewoundSeconds});
+  return {...saved,json};
+ }
+ private checkpointRecovery(){
+  if(!this.sim||!this.progression||this.sim.state.result!==null||this.recoveryRunId&&this.recoveryRunId!==this.progression.runId)return;
+  try{const file=this.runFile();if(file&&storeSuspendedRun(file.json)){this.savedRunJSON=file.json;this.recoveryRunId=this.progression.runId;}}catch{/* Explicit saving can still report any failure and keep the live run. */}
+ }
+ private suspendRun(){
+  if(!this.sim||this.sim.state.phase!=='paused')return;
+  try{
+   const file=this.runFile();if(!file)return;
+   downloadJSON(file.json,`wildlands-run-${this.progression!.runId}.json`);
+   const stored=storeSuspendedRun(file.json);
+   this.savedRunJSON=file.json;this.recoveryRunId=this.progression!.runId;
+   this.cleanupRun();this.ui.showTitle();
+   if(stored)this.refreshRecovery();else{
+    this.ui.setRunRecovery(`Downloaded checkpoint at ${Math.floor(file.snapshot.state.stats.elapsed)} seconds.`,true,'Browser storage is unavailable. Keep the downloaded run file; this copy lasts for this session.');
+   }
+   this.ui.toast(`Run saved. Restoring returns ${Math.round(file.rewoundSeconds)} seconds earlier.`);
+  }catch(error){this.ui.toast(error instanceof Error?error.message:'The run could not be saved. Your paused run is still available.');}
+ }
+ private restoreRun(json:string){
+  const decoded=decodeRunFile(json);if(!decoded.ok){this.ui.toast(decoded.error);return;}
+  try{
+   const sim=Simulation.restore(decoded.file.snapshot),account=decoded.file.snapshot.metadata.progression;
+   const tracker=ProgressionTracker.restore(this.save,sim.state,account);
+   if(tracker.runId!==decoded.file.metadata.runId)throw new Error('The saved run identity does not match its accounting.');
+   this.cleanupRun();this.sim=sim;this.progression=tracker;this.ui.setProgressionResult([]);this.bindSnapshotAccounting();
+   this.lastRecoveryWrite=sim.state.stats.elapsed;this.attachRun();
+   // Keep a recovery copy until death or an explicit discard. Import never changes the collection.
+   if(storeSuspendedRun(json)){this.savedRunJSON=json;this.recoveryRunId=tracker.runId;}
+   this.ui.toast('Run restored and paused. Choose Resume when ready.');
+  }catch(error){this.ui.toast(error instanceof Error?error.message:'The saved run could not be restored.');}
+ }
+ private importRun(json:string){
+  const decoded=decodeRunFile(json);if(!decoded.ok){this.ui.setRunFileStatus(decoded.error);return;}
+  try{
+   const sim=Simulation.restore(decoded.file.snapshot),tracker=ProgressionTracker.restore(this.save,sim.state,decoded.file.snapshot.metadata.progression);
+   if(tracker.runId!==decoded.file.metadata.runId)throw new Error('The saved run identity does not match its accounting.');
+   const stored=storeSuspendedRun(json);this.savedRunJSON=json;this.recoveryRunId=tracker.runId;
+   const seconds=sim.state.stats.elapsed;
+   this.ui.setRunRecovery(`${getSpecies(sim.state.party[0].speciesId).name} · ${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')} · ${sim.state.mapId??'wildlands'}`,true,stored?null:'Imported for this session. Browser storage is unavailable; keep your run file.');
+   this.ui.setRunFileStatus('Run file checked. Choose Resume saved run to continue.');
+  }catch(error){this.ui.setRunFileStatus(error instanceof Error?error.message:'The saved run could not be imported.');}
+ }
+ private restart(){if(this.sim)this.progression?.finish(this.sim.state);this.cleanupRun();this.ui.showTitle();this.refreshRecovery();}
  private cleanupRun(){this.releasePointer();this.healthBars?.dispose();this.fx?.dispose();this.visuals?.dispose();this.assets?.dispose();this.world?.dispose();
   this.evolution=null;this.evolutionTime=0;this.evolutionCuePending=false;this.evolutionEffect?.dispose();this.evolutionEffect=null;this.ui.clearEvolution();
   this.damageNumbers?.dispose();this.damageNumbers=null;
@@ -213,8 +298,8 @@ export class Game{
  }
  private input():MoveInput{
   const down=(...codes:string[])=>codes.some(c=>this.pressed.has(c));
-  const f=(down('KeyW','ArrowUp')?1:0)-(down('KeyS','ArrowDown')?1:0);
-  const r=(down('KeyD','ArrowRight')?1:0)-(down('KeyA','ArrowLeft')?1:0);
+  const f=(down('KeyW')?1:0)-(down('KeyS')?1:0);
+  const r=(down('KeyD')?1:0)-(down('KeyA')?1:0);
   const movement=cameraRelativeMovement(this.camera.alpha,f,r);
   const tap=(...codes:string[])=>codes.some(c=>this.justPressed.has(c));
   // Camera aim is consumed only by directional/placed specials, including
@@ -225,8 +310,14 @@ export class Game{
   if(!this.sim||!this.world){this.justPressed.clear();this.scene.render();return;}
   const sim=this.sim,state=sim.state;
   if(state.phase!==this.lastPhase){this.clearInput();if(!isActive(sim)&&!(state.phase==='paused'&&this.captureWanted))this.releasePointer();this.lastPhase=state.phase;}
-  if(isActive(sim)&&document.pointerLockElement!==this.canvas&&!this.capturePending)this.pause();
-  const active=isActive(sim)&&document.pointerLockElement===this.canvas,input=this.input();sim.setWalking(active&&Math.hypot(input.mx,input.mz)>.01);
+  const active=isActive(sim);
+  if(active){
+   const right=Number(this.pressed.has('ArrowRight'))-Number(this.pressed.has('ArrowLeft'));
+   const up=Number(this.pressed.has('ArrowUp'))-Number(this.pressed.has('ArrowDown'));
+   const look=keyboardLook(this.camera.alpha,this.camera.beta,right,up,dt);
+   this.camera.alpha=look.alpha;this.camera.beta=look.beta;
+  }
+  const input=this.input();sim.setWalking(active&&Math.hypot(input.mx,input.mz)>.01);
   if(active&&this.ui.settings.graphicsQuality==='auto'){if(this.automatic.update(frameInterval))this.applyGraphics();}else this.automatic.resetWindow();
   const simulationStart=this.metrics?performance.now():0;
   this.audio.setActive(active);const impactFrame=this.feedback.step(dt,active);
@@ -273,7 +364,9 @@ export class Game{
   if(state.phase==='result'&&!this.ended){
    this.ended=true;
    this.progression?.finish(state);this.ui.setProgressionResult(this.progression?.earnedThisRun()??[]);
+   if(this.recoveryRunId===this.progression?.runId&&discardSuspendedRun()){this.savedRunJSON=null;this.recoveryRunId=null;}
   }
+  if(state.result===null&&state.stats.elapsed-this.lastRecoveryWrite>=30){this.lastRecoveryWrite=state.stats.elapsed;this.checkpointRecovery();}
   this.ui.update(state);this.justPressed.clear();
   const shake=this.feedback.inspect(),baseX=this.camera.target.x,baseY=this.camera.target.y,baseZ=this.camera.target.z;
   this.camera.target.addInPlaceFromFloats(shake.offsetX,shake.offsetY,shake.offsetZ);

@@ -1,9 +1,11 @@
+import {MAP_SCALE} from './world.ts';
+
 export const DESIGN = {
  runSeconds:900, bossAtSeconds:900, maxParty:6, expectedPartyAt15Min:4,
  recruitUnlockSeconds:[165,420,690,960,1200],
  // This means 5 total only in unusually good standard runs; sixth in endless mode.
  recruitUnlockLevels:[4,9,15,22,29],
- maxEnemies:190, maxProjectiles:220, mapRadius:115*1.25, pickupRadius:5.7, interactionRadius:4.5,
+ maxEnemies:190, maxProjectiles:220, mapRadius:115*MAP_SCALE, pickupRadius:5.7, interactionRadius:4.5,
  playerSpeed:7.3, playerRadius:.62, acceleration:48, deceleration:62, jumpVelocity:8.2, gravity:22, dodgeSpeed:17, dodgeSeconds:.24,
  dodgeCooldown:2.8, specialCooldown:16,
  spawnStartInterval:2.8, spawnEndInterval:.62,

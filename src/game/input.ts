@@ -16,3 +16,11 @@ export function mouseLook(alpha:number,beta:number,dx:number,dy:number,sensitivi
   beta:Math.max(.48,Math.min(1.43,beta-dy*.0025*sensitivity*(invertY?-1:1))),
  };
 }
+
+/** Arrow-key look uses radians per second, independent of mouse preferences. */
+export function keyboardLook(alpha:number,beta:number,right:number,up:number,dt:number){
+ return {
+  alpha:alpha-right*1.8*dt,
+  beta:Math.max(.48,Math.min(1.43,beta+up*1.2*dt)),
+ };
+}

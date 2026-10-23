@@ -5,6 +5,48 @@ const captured=async(page:Page)=>{
  await expect(page.locator('#overlay')).toBeHidden();
 };
 
+test('keyboard-only play supports camera look, simultaneous movement and pause without mouse capture',async({page})=>{
+ await page.addInitScript(()=>{
+  HTMLCanvasElement.prototype.requestPointerLock=()=>Promise.reject(new Error('Mouse capture unavailable'));
+ });
+ await page.goto('/?dev=1');
+ await page.locator('[data-starter="25"]').focus();
+ await page.keyboard.press('Enter');
+ await expect(page.locator('#overlay')).toBeHidden();
+ const inspect=()=>page.evaluate(()=>{
+  const g=(window as any).__WILDLANDS__;
+  return {alpha:g.camera.alpha,beta:g.camera.beta,x:g.sim.state.player.x,z:g.sim.state.player.z,phase:g.sim.state.phase};
+ });
+ await page.evaluate(()=>{(window as any).__WILDLANDS__.sim.state.player.iframes=10000;});
+ const origin=await inspect();
+ await page.keyboard.down('ArrowRight');
+ await page.keyboard.down('ArrowUp');
+ await expect.poll(async()=>(await inspect()).alpha).toBeLessThan(origin.alpha-.15);
+ await expect.poll(async()=>(await inspect()).beta).toBeGreaterThan(origin.beta+.05);
+ await page.keyboard.up('ArrowUp');
+ const looking=await inspect();
+ expect(Math.hypot(looking.x-origin.x,looking.z-origin.z)).toBeLessThan(.01);
+ await page.keyboard.down('w');
+ await expect.poll(async()=>{const p=await inspect();return Math.hypot(p.x-looking.x,p.z-looking.z);}).toBeGreaterThan(.25);
+ expect((await inspect()).alpha).toBeLessThan(looking.alpha);
+ await page.keyboard.up('w');await page.keyboard.up('ArrowRight');
+ await page.keyboard.down('ArrowLeft');await page.keyboard.down('ArrowDown');
+ const turning=await inspect();
+ await expect.poll(async()=>(await inspect()).alpha).toBeGreaterThan(turning.alpha+.1);
+ await expect.poll(async()=>(await inspect()).beta).toBeLessThan(turning.beta-.05);
+ await page.keyboard.press('Escape');
+ await page.keyboard.up('ArrowLeft');await page.keyboard.up('ArrowDown');
+ await expect(page.locator('#resume-btn')).toBeFocused();
+ const paused=await inspect();
+ await page.keyboard.press('ArrowRight');
+ expect(await inspect()).toEqual(paused);
+ await page.keyboard.press('Enter');
+ await expect(page.locator('#overlay')).toBeHidden();
+ await page.keyboard.press('Space');
+ await expect.poll(()=>page.evaluate(()=>(window as any).__WILDLANDS__.sim.state.player.y)).toBeGreaterThan(.1);
+ expect(await page.evaluate(()=>document.pointerLockElement)).toBeNull();
+});
+
 test('held movement, mouse look and jump work together without releasing movement keys',async({page})=>{
  await page.goto('/?dev=1');
  await page.locator('[data-starter="25"]').click();

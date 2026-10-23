@@ -8,8 +8,10 @@ export const BIOMES:Readonly<Record<BiomeId,{name:string;color:string;mapColor:s
  ruins:{name:'Old Ruins',color:'#969773',mapColor:'#949476'},
  lake:{name:'Lake Edge',color:'#6d8c77',mapColor:'#668a85'},
 };
-export const WORLD={scale:1.25,safeSpawnRadius:17,poiClearance:5,poiSpacing:17,routeHalfWidth:2.1,softBoundaryStart:105*1.25,hardBoundary:113*1.25,
- lake:{x:-44*1.25,z:70*1.25,waterRadius:18*1.25,shoreRadius:22*1.25,waterHeight:.18},rareEventChance:.08,propAttempts:1640,maxProps:820,
+/** A further 25% in each horizontal dimension over the phase-15 maps. */
+export const MAP_SCALE=1.25*1.25;
+export const WORLD={scale:MAP_SCALE,safeSpawnRadius:17,poiClearance:5,poiSpacing:17,routeHalfWidth:2.1,softBoundaryStart:105*MAP_SCALE,hardBoundary:113*MAP_SCALE,
+ lake:{x:-44*MAP_SCALE,z:70*MAP_SCALE,waterRadius:18*MAP_SCALE,shoreRadius:22*MAP_SCALE,waterHeight:.18},rareEventChance:.08,propAttempts:1640,maxProps:820,
 } as const;
 /** Fixed silhouettes give directions meaning; loot and smaller encounters move each run. */
 export const LANDMARKS:readonly {id:string;name:string;initial:string;biome:BiomeId;x:number;z:number}[]=[

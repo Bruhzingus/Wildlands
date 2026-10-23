@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cameraAimDirection,cameraRelativeMovement,mouseLook} from '../src/game/input.ts';
+import {cameraAimDirection,cameraRelativeMovement,keyboardLook,mouseLook} from '../src/game/input.ts';
 
 test('WASD follows the camera with A on the left and D on the right',()=>{
  for(const alpha of [-Math.PI/2,0,Math.PI/2,Math.PI,Math.PI*1.73]){
@@ -21,6 +21,20 @@ test('diagonal input has the same speed as cardinal movement',()=>{
   assert.ok(Math.abs(Math.hypot(diagonal.mx,diagonal.mz)-1)<1e-12);
  }
  assert.deepEqual(cameraRelativeMovement(0,0,0),{mx:0,mz:0});
+});
+
+test('keyboard look turns naturally, clamps pitch and has a consistent rate across frame sizes',()=>{
+ const start=-Math.PI/2,right=keyboardLook(start,1,1,1,.5);
+ assert.ok(cameraRelativeMovement(right.alpha,1,0).mx>0);
+ assert.equal(right.beta,1.43);
+ assert.ok(keyboardLook(start,1,-1,0,.5).alpha>start);
+ assert.equal(keyboardLook(start,1,0,-1,1).beta,.48);
+ assert.deepEqual(keyboardLook(start,1,0,0,.5),{alpha:start,beta:1});
+ let split={alpha:start,beta:.7};
+ for(let i=0;i<10;i++)split=keyboardLook(split.alpha,split.beta,1,1,.02);
+ const whole=keyboardLook(start,.7,1,1,.2);
+ assert.ok(Math.abs(split.alpha-whole.alpha)<1e-12);
+ assert.ok(Math.abs(split.beta-whole.beta)<1e-12);
 });
 
 test('FPS mouse look has natural pitch, invert-Y and consistent sensitivity',()=>{

@@ -10,31 +10,30 @@ import {treeVisual,type TreeFamily} from '../src/game/render/vegetation.ts';
 import {BERRY_ORDER} from '../src/data/berries.ts';
 import {createTerrainPalette} from '../src/game/render/terrainPalette.ts';
 
-// Captured from the current working tree before Stages 01/02 were implemented,
-// not from HEAD (which predates the user's unrelated game/balance changes).
-// Stages 03/07 intentionally compose ordinary scenery. Historical authoritative
-// POI, tactical feature, harvest state and height fixtures still apply unchanged.
+// Rebaselined for the October 23 map expansion and four additional shrine
+// clearings. These lock the resulting scenery; shrine-sites.test.ts also
+// preserves the original 21 site identities before the added clearings.
 const baseline:Record<MapId,{seed:number;pois:string;features:string;berries:string;heights:string}>={
  wildlands:{seed:4,
-  pois:'5c53be6bcf5bb7c213349a47f784c7de4d45a101251dc1466cd8a695ad26b967',
-  features:'ee8eb7e064ed895f94890820d298c8178a535248a8eb69540dfac129219b7b10',
-  berries:'422b0c20852ccd617f9a446235214e3c5c24f3fa9550fc49ce71b75caa400f80',
-  heights:'131e195b61e5a0c078d78b6ab24981b9d8d23e2b2980fae0b5d1725961661c5a'},
+  pois:'94e9122f5d3a9f4857f19fabc2d3c754386bfc45a8e13078d656ec6eabf13823',
+  features:'ac3f3ea01ee611f4ab9699c5e6648e28aba8b61467e91d9e2abed9a713bd2e77',
+  berries:'43c3bb5d63b8022ca5a704a35ef1c95fd7705bf403e11fced238bd5cd55ff29a',
+  heights:'d87d1fce3a3b222e3f6ee9a51aadebc29ff0b3a83409d35d686feaeca7c7e5d7'},
  'pinewood-route':{seed:46837,
-  pois:'3f2cbc9899dfdadfef96f09be8dd348e888ebf2340325fbf8eb11b658ba1ce68',
-  features:'769bd9315db1318e7ef665b73f7fb7e25e2189ec481ae77499984cd4fd467db9',
-  berries:'c31eb07307df664a7ed96245e11c6694c59fc57de6f188cfa0d0c64b37bd3882',
-  heights:'6f0e3694fbeeaecd611339dcdda434039cc178d291190421cb4b51298789caad'},
+  pois:'10355888e9676fd20a470bb0dbb6ca0749bbaa8dfadc3962eeeff26579a3069e',
+  features:'8273018fa89c38bcdb34a61ffa73b4585348d8eeeec87f0638c265bd5372a9d0',
+  berries:'407a4a32ca10f5306b8d615032f49110462769ab8dbe5bf20afe4635e07a1d41',
+  heights:'0870abcec9afc357aa13d2e5c12d75830db9a85f82baef259b75a6de76b8c4ee'},
  'ruins-route':{seed:81073,
-  pois:'53c246424123b305aab7009b8db7b1f33dd957f3a1b9122758e2db5efcc85d45',
-  features:'d36186f61ae9735899206cd24fe59a21d89a737bbd24fb3010451b4135056f57',
-  berries:'db71d71b1c80a3bc1198c90b06dc31ae546b272f1810772cfb270fef1edfbb3c',
-  heights:'7d226e1073258d52c6f3557f981e3368d0e1e560e5926fc0408d41dd3ba0fbee'},
+  pois:'6be2d588e104378740faff539c2dbc22eb8c58133acb3dfd54ba6f483d8922f7',
+  features:'3ee4d7ae67060bdd4198b758203df7476865d032082ed3ccfeebe934afa1af2c',
+  berries:'15bbb7573f131c108c4115df2eb1e3107f6db88d528b017ebed3cb7e40b4503d',
+  heights:'69da5da51af96367753959dd366593034a87782093e04f89c29222001e4a1867'},
  'volcanic-ridge':{seed:4,
-  pois:'bf89875b2baa55853c18e095f02156eb784677c67a2dad13010c8ec795e7625a',
-  features:'0ba56e8927a46f1a20588aebfdf7aff49fb3a9fb1cd18b4d4a1f409fbdfce4e6',
-  berries:'91e9f436bbf47c4bdd2392c0db460d7e2e799f0ece3ef9eef657e1b956e0d531',
-  heights:'cddd09986b98aa62730bf1012f41c0e21e3cbd06ebc8b1c54631526466a76021'},
+  pois:'de58024e0ce8c2220ec303fb1220274824b0b344ee3652be86b58842a3ca6c16',
+  features:'5a3eee16e457257b242e5e5f66b521dbb06d87eaf021c85b80be2804c75f21d8',
+  berries:'86d7db1d0a14efe9aa48531da0a406712b99ac7cb113a60abbd1ec7b7344bc29',
+  heights:'7f1a456d570c928c44e2a10e2dcf30e4f68879dbb6d4ed5e03020d3feb34e619'},
 };
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const coordinates=[-141.25,-100,-66,-32,0,18,47,82,120,141.25];
@@ -117,7 +116,7 @@ test('all maps keep the terrain and lake geometry, use deterministic vertex colo
      const lake=scene.getMeshByName('Stillwater lake')!;
      assert.deepEqual(lake.position.asArray(),[profile.lake.x,profile.lake.waterHeight,profile.lake.z]);
      assert.ok(Math.abs(lake.getBoundingInfo().boundingBox.extendSize.x-profile.lake.waterRadius)<.000004);
-     assert.equal(lake.material?.alpha,.91);
+     assert.equal(lake.material?.alpha,1,'baked lake depth and glints use one opaque surface');
      if(firstColors)assert.deepEqual(Array.from(colors),firstColors,`${map.id}: color mask changes on rebuild`);
      else firstColors=Array.from(colors);
      const initial=resources();

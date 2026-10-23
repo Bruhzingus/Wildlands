@@ -33,12 +33,17 @@ import {formatPercent,upgradeStatPreview} from './upgradePreview.ts';
 import {rerollChoices,xpThreshold} from '../game/systems/progression.ts';
 import {UpgradeCatalogue} from './UpgradeCatalogue.ts';
 import {BERRIES,BERRY_ORDER} from '../data/berries.ts';
+import {downloadJSON} from './runFiles.ts';
+import {runAnalyticsReport} from '../game/analytics.ts';
+import {renderDamageAnalysis} from './damageAnalysis.ts';
+import './runAnalysis.css';
+import {RUN_FILE_MAX_BYTES} from '../game/runSnapshot.ts';
 
 const q=<T extends Element=HTMLElement>(s:string)=>document.querySelector<T>(s)!;
 const fmt=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 const esc=(s:string)=>s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]||c));
 const percent=(value:number,max:number)=>Math.min(100,Math.max(0,max>0?100*value/max:0));
-const controls='WASD move · Mouse look · Space jump · Shift dodge · Q special · E use · Esc pause';
+const controls='WASD move · Arrow keys / Mouse look · Space jump · Shift dodge · Q special · E use · Esc pause';
 
 export class UI {
  private catalogue:UpgradeCatalogue|null=null;
@@ -65,13 +70,17 @@ export class UI {
  private overlay=q('#overlay');private content=q('#overlay-content');private hud=q('#hud');
  private lastPhase='';private lastChoices='';private toastTimer=0;private focusFrame=0;private listeners=new AbortController();
  private imageLoads=new Map<HTMLImageElement,HTMLImageElement>();
- private captureHint='Resume locks the mouse for continuous camera control. Esc pauses and releases it.';
+ private captureHint='Use arrow keys or the mouse to look. Enter on Resume continues play. Esc pauses.';
  private mapBase:HTMLCanvasElement|null=null;private mapSeed:string|null=null;private mapProfile:WorldProfile|null=null;
  private previousParty=new Map<number,string>();private previousFaints=0;private previousElapsed=0;
  private faintNotice='';private faintUntil=0;private readyUntil=0;private readyNotice='';private cooldowns:Record<string,boolean>={};
  onStart:(id:number)=>void=()=>{};onPick:(id:string)=>void=()=>{};onResume:()=>void=()=>{};onRestart:()=>void=()=>{};onEndless:()=>void=()=>{};
  onSettingsChange:(settings:GameSettings)=>void=()=>{};
  onReroll:()=>void=()=>{};
+ onSuspend:()=>void=()=>{};onResumeSaved:()=>void=()=>{};onDiscardSaved:()=>void=()=>{};onImportRun:(json:string)=>void=()=>{};
+ private runRecovery={summary:null as string|null,hasStored:false,error:null as string|null};
+ setRunRecovery(summary:string|null,hasStored:boolean,error:string|null=null){this.runRecovery={summary,hasStored,error};if(this.lastPhase==='title')this.showTitle();}
+ setRunFileStatus(message:string){const status=this.content.querySelector('#run-file-status');if(status)status.textContent=message;this.toast(message);}
  settings=loadSettings();
  private save:SaveData;
  private progressionResult='';
@@ -106,7 +115,22 @@ export class UI {
   });
   this.content.querySelector('.starter-grid')!.insertAdjacentHTML('afterend','<div class="catalogue-menu-link"><button type="button" class="btn btn-ghost" data-open-catalogue>Browse all upgrades</button></div>');
   this.bindCatalogue();this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
+  this.bindRunFiles();
   bindProgressionUI(this.content,this.save,{onImport:imported=>{Object.assign(this.save,imported);const saved=persist(this.save);this.showTitle();this.toast(saved?'Save imported. Collection updated.':'Save imported for this session. Browser storage is unavailable.');}});
+ }
+
+ private bindRunFiles(){
+  const launch=this.content.querySelector('.front-launch');if(!launch)return;
+  launch.insertAdjacentHTML('beforebegin',`<section class="run-file-tools" aria-label="Saved expedition"><h2>Saved expedition</h2>${this.runRecovery.summary?`<p>${esc(this.runRecovery.summary)}</p>`:'<p>Save from the pause menu to return later. Each saved checkpoint rolls the whole run back at least 30 seconds, including recent upgrades.</p>'}<div class="save-tool-buttons">${this.runRecovery.summary?'<button id="resume-run-btn" class="btn btn-primary" type="button">Resume saved run</button>':''}<label class="btn btn-ghost save-import-label">Import run file<input id="import-run" type="file" accept=".json,application/json" aria-label="Import suspended run JSON"></label>${this.runRecovery.hasStored?'<button id="discard-run-btn" class="btn btn-ghost" type="button">Discard saved run</button>':''}</div><p id="run-file-status" class="subtle" role="status">${esc(this.runRecovery.error??'Run files are separate from your partner collection.')}</p></section>`);
+  this.content.querySelector('#resume-run-btn')?.addEventListener('click',()=>this.onResumeSaved());
+  this.content.querySelector('#discard-run-btn')?.addEventListener('click',()=>this.onDiscardSaved());
+  this.content.querySelector<HTMLInputElement>('#import-run')?.addEventListener('change',async event=>{
+   const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];if(!file)return;
+   const status=this.content.querySelector('#run-file-status');
+   if(file.size>RUN_FILE_MAX_BYTES){if(status)status.textContent=`Run file is too large (${RUN_FILE_MAX_BYTES/1_000_000} MB maximum).`;input.value='';return;}
+   try{const json=await file.text();if(input.isConnected)this.onImportRun(json);}catch{if(status?.isConnected)status.textContent='The run file could not be read.';}
+   input.value='';
+  });
  }
 
  private pokemonCard(id:number){const s=getSpecies(id),special=getSpecialProfile(id),primary=describeAttackMechanic(id),movement=getMovementTrait(id);const color=ELEMENT_COLORS[s.types[0]];
@@ -211,11 +235,16 @@ export class UI {
 
  private showPause(s:RunState){this.content.innerHTML=`<div class="pause-screen"><div class="eyebrow">${fmt(s.stats.elapsed)} / ${s.stats.kills} DEFEATED</div><h2>Paused</h2><div class="pause-buttons"><button id="resume-btn" class="btn btn-primary">Resume</button><button id="restart-btn" class="btn btn-ghost">New run</button></div>${this.buildSummary(s)}${this.settingsPanel()}<p class="control-help">${controls}</p><p id="capture-help" class="subtle" role="status">${esc(this.captureHint)}</p></div>`;
   this.content.querySelector('.pause-buttons')!.insertAdjacentHTML('beforeend','<button type="button" class="btn btn-ghost" data-open-catalogue>Browse all upgrades</button>');
+  this.content.querySelector('.pause-buttons')!.insertAdjacentHTML('beforeend','<button id="suspend-btn" type="button" class="btn btn-ghost">Save &amp; suspend</button>');
+  this.content.querySelector('#suspend-btn')!.addEventListener('click',()=>this.onSuspend());
+  this.content.querySelector('.pause-buttons')!.insertAdjacentHTML('afterend','<p class="subtle">Saving downloads a run file and keeps a copy on this device. The whole run returns to a checkpoint at least 30 seconds earlier, or the earliest available checkpoint, removing recent items and upgrades. This replaces the saved run on this device.</p>');
   q('#resume-btn').addEventListener('click',()=>this.onResume());q('#restart-btn').addEventListener('click',()=>this.onRestart());this.bindCatalogue(s);this.bindSettings();this.imageFallbacks(this.content);this.focusFirst();
  }
 
  private showResult(s:RunState){const victory=s.result==='victory';
   this.content.innerHTML=`<div class="end-screen"><div class="eyebrow">RUN COMPLETE</div><h2>${victory?'Victory':'Game over'}</h2><p>${victory?`${mapEncounter(s.mapId).boss.name} defeated. Keep going?`:'Choose a partner and try again.'}</p><div class="result-stats"><div><strong>${fmt(s.stats.elapsed)}</strong><span>TIME</span></div><div><strong>${s.stats.kills}</strong><span>DEFEATED</span></div><div><strong>${s.party.length}</strong><span>PARTY</span></div><div><strong>${s.stats.faints}</strong><span>FAINTED</span></div></div><div class="pause-buttons">${victory?'<button id="endless-btn" class="btn btn-primary">Continue endless</button>':''}<button id="restart-btn" class="btn ${victory?'btn-ghost':'btn-primary'}">New run</button></div>${this.buildSummary(s)}${this.progressionResult}</div>`;
+  this.content.querySelector('.end-screen')!.insertAdjacentHTML('beforeend',`<button id="download-report-btn" class="btn btn-ghost" type="button">Download balancing report</button>${renderDamageAnalysis(s)}`);
+  this.content.querySelector('#download-report-btn')!.addEventListener('click',()=>downloadJSON(JSON.stringify(runAnalyticsReport(s),null,2),`wildlands-balance-${s.seed}-${Math.floor(s.stats.elapsed)}s.json`));
   q('#restart-btn').addEventListener('click',()=>this.onRestart());if(victory)q('#endless-btn').addEventListener('click',()=>this.onEndless());this.imageFallbacks(this.content);this.focusFirst();
  }
 

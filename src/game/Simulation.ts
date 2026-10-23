@@ -17,7 +17,8 @@ import {getAttackProfile,type StatusProc} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
 import {castSpecial,stepSpecials} from './combat/specials.ts';
 import {getMoveDefinition,getLearnedMoveProfile,learnedMovePower} from '../data/moves.ts';
-import {relicFamily} from '../data/items.ts';
+import {getItemDefinition,relicFamily} from '../data/items.ts';
+import {recordDamage,recordFaint,partyDamageSource,enemyDamageSource,statusDamageSource,type DamageSource} from './analytics.ts';
 import {memberDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpeedFactor} from './combat/damage.ts';
 import {attackInterval,scheduleCasts} from './combat/cadence.ts';
 import {criticalTier,criticalMultiplier} from './combat/critical.ts';
@@ -32,6 +33,9 @@ import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,rer
 import {averagePartyLevel,enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
+import {EnemyNavigation} from './systems/navigation.ts';
+import {serializeRunState,deserializeRunState,isSimulationSnapshot,SUSPEND_REWIND_SECONDS,REWIND_CHECKPOINT_SECONDS,REWIND_CHECKPOINT_LIMIT,type SimulationSnapshot} from './runSnapshot.ts';
+import {initializeAnalytics,observeAnalytics} from './analytics.ts';
 import {createBerryTrees,updateBerryTrees} from './systems/berries.ts';
 import {BERRIES,BERRY_BUFF_SECONDS,BERRY_ORDER,type BerryId} from '../data/berries.ts';
 import type {Drop,Enemy,LearnedMove,PartyMember,POI,RewardSource,RunState,TerrainFeature,UpgradeChoice,Variant} from './types.ts';
@@ -41,9 +45,15 @@ export type EventListener=(ev:GameEvent)=>void;
 export type RunConfiguration=Pick<RunState,'challenge'|'mapId'|'recruitUnlocks'|'itemUnlocks'>;
 export class Simulation {
  readonly rng:RNG;readonly state:RunState; onEvent:EventListener=()=>{};
+ /** Game-owned identity/progression accounting is captured alongside every checkpoint. */
+ snapshotMetadata:()=>Record<string,unknown>=()=>({});
+ private readonly rewindCheckpoints:SimulationSnapshot[]=[];
+ private nextCheckpointAt=REWIND_CHECKPOINT_SECONDS;
+ private restoredResumePhase?:RunState['phase'];
  private readonly lootRng:RNG;
  private spawnAccum=0;private readonly statusOwners=new Map<number,number>();
  private readonly obstacles:ObstacleField;private velocity={x:0,z:0};private dodgeDirection={x:0,z:1};
+ private readonly enemyNavigation=new EnemyNavigation();
  private heldActions={jump:false,dodge:false,special:false,interact:false};
  constructor(starterId:number,seed=Math.floor(Date.now()%2147483647),configuration:RunConfiguration={}){
   this.rng=new RNG(seed);
@@ -61,6 +71,59 @@ export class Simulation {
    const e=createEnemy(this.state,this.rng,this.rng.pick(pool),'normal',pos.x,pos.z);this.state.enemies.push(e);
   }
   updateDirector(this.state);
+  initializeAnalytics(this.state);
+  this.captureRewindCheckpoint();
+ }
+ /** Both random streams and private combat/navigation bookkeeping are authoritative. */
+ exportSnapshot():SimulationSnapshot {
+  return {version:1,state:serializeRunState(this.state),metadata:structuredClone(this.snapshotMetadata()),bookkeeping:{
+   rng:this.rng.exportState(),lootRng:this.lootRng.exportState(),spawnAccum:this.spawnAccum,statusOwners:[...this.statusOwners],
+   velocity:{...this.velocity},dodgeDirection:{...this.dodgeDirection},walking:this.walking,rewardsDeferred:this.rewardsDeferred,
+   navigation:this.enemyNavigation.exportSnapshot(this.state.enemies),resumePhase:this.restoredResumePhase??(this.state.phase==='paused'?this.activePhase():this.state.phase),
+  }};
+ }
+ static restore(snapshot:SimulationSnapshot,options:{paused?:boolean}={}):Simulation {
+  if(!isSimulationSnapshot(snapshot))throw Error('This simulation snapshot is invalid or incompatible.');
+  const restored=deserializeRunState(snapshot.state),sim=new Simulation(restored.party[0].speciesId,restored.seed,{mapId:restored.mapId,challenge:restored.challenge,recruitUnlocks:restored.recruitUnlocks,itemUnlocks:restored.itemUnlocks});
+  // Preserve the public RunState identity created by the constructor without retaining defaults.
+  for(const key of Object.keys(sim.state))delete (sim.state as unknown as Record<string,unknown>)[key];
+  Object.assign(sim.state,restored);const b=snapshot.bookkeeping;
+  sim.rng.restoreState(b.rng);sim.lootRng.restoreState(b.lootRng);sim.spawnAccum=b.spawnAccum;
+  for(const [target,owner] of b.statusOwners)sim.statusOwners.set(target,owner);
+  sim.velocity={...b.velocity};sim.dodgeDirection={...b.dodgeDirection};sim.walking=b.walking;sim.rewardsDeferred=b.rewardsDeferred;
+  sim.enemyNavigation.restoreSnapshot(b.navigation,sim.state.enemies,sim.obstacles);
+  sim.snapshotMetadata=()=>structuredClone(snapshot.metadata);
+  sim.rewindCheckpoints.length=0;
+  sim.rewindCheckpoints.push(structuredClone(snapshot));sim.nextCheckpointAt=sim.state.stats.elapsed+REWIND_CHECKPOINT_SECONDS;
+  if(options.paused!==false&&restored.result===null){sim.restoredResumePhase=b.resumePhase;sim.state.phase='paused';}
+  return sim;
+ }
+ /** A fresh user gesture restores a pending choice, boss, or ordinary play. */
+ resumeSnapshot():boolean {
+  if(this.state.phase!=='paused'||!this.restoredResumePhase)return false;
+  this.state.phase=this.restoredResumePhase;this.restoredResumePhase=undefined;
+  // The old renderer's evolution transition is absent after reopening the game.
+  // Complete that cosmetic gate once so its already-earned rewards can continue.
+  if(this.isActive())this.resumeDeferredRewards();return true;
+ }
+ /** Install accounting providers before the first frame without losing the time-zero checkpoint. */
+ refreshCheckpointMetadata():void {
+  const last=this.rewindCheckpoints.at(-1);if(last&&last.state.stats.elapsed===this.state.stats.elapsed)last.metadata=structuredClone(this.snapshotMetadata());
+ }
+ private captureRewindCheckpoint():void {
+  const elapsed=this.state.stats.elapsed,last=this.rewindCheckpoints.at(-1);
+  if(last&&elapsed+1e-8<this.nextCheckpointAt)return;
+  this.rewindCheckpoints.push(this.exportSnapshot());this.nextCheckpointAt=elapsed+REWIND_CHECKPOINT_SECONDS;
+  const target=elapsed-SUSPEND_REWIND_SECONDS;
+  while(this.rewindCheckpoints.length>1&&this.rewindCheckpoints[1].state.stats.elapsed<=target)this.rewindCheckpoints.shift();
+  while(this.rewindCheckpoints.length>REWIND_CHECKPOINT_LIMIT)this.rewindCheckpoints.shift();
+ }
+ /** Roll back the whole world; recent items, rewards, HP and POI cooldowns all follow time. */
+ exportSuspendedSnapshot():{snapshot:SimulationSnapshot;rewoundSeconds:number;savedElapsed:number} {
+  if(this.state.result!==null||!['playing','boss','choice','paused'].includes(this.state.phase))throw Error('Only an unfinished run can be suspended.');
+  this.refreshCheckpointMetadata();const savedElapsed=this.state.stats.elapsed,target=Math.max(0,savedElapsed-SUSPEND_REWIND_SECONDS);
+  const selected=[...this.rewindCheckpoints].reverse().find(checkpoint=>checkpoint.state.stats.elapsed<=target)??this.rewindCheckpoints[0]??this.exportSnapshot();
+  return {snapshot:structuredClone(selected),rewoundSeconds:Math.max(0,savedElapsed-selected.state.stats.elapsed),savedElapsed};
  }
  emit(event:GameEvent){this.onEvent(event);if((event.kind==='log'||event.kind==='faint')&&event.label){this.state.eventLog.unshift(event.label);this.state.eventLog.length=Math.min(5,this.state.eventLog.length);}}
  private hasLivingBoss(){return this.state.enemies.some(enemy=>enemy.isBoss&&!enemy.dead);}
@@ -77,7 +140,7 @@ export class Simulation {
   const choices=rerollChoices(s,this.rng);if(!choices)return false;
   s.upgradeChoices=choices;s.rerolls=(s.rerolls??0)-1;return true;
  }
- pause(){if(this.state.phase==='playing'||this.state.phase==='boss')this.state.phase='paused';else if(this.state.phase==='paused')this.state.phase=this.activePhase();}
+ pause(){if(this.state.phase==='playing'||this.state.phase==='boss')this.state.phase='paused';else if(this.state.phase==='paused'&&!this.resumeSnapshot())this.state.phase=this.activePhase();}
  private rewardsDeferred=false;
  resumeDeferredRewards(){if(!this.rewardsDeferred)return;this.rewardsDeferred=false;if(this.isActive())this.openNextLevelUp();}
  choose(choiceId:string,deferEvolutionRewards=false):boolean{const s=this.state; if(s.phase!=='choice')return false;
@@ -161,6 +224,8 @@ export class Simulation {
  }
  private isActive(){return this.state.phase==='playing'||this.state.phase==='boss';}
  update(dt:number,input:MoveInput){const s=this.state;if(!this.isActive()||!Number.isFinite(dt)||dt<=0)return;
+  this.refreshCheckpointMetadata();
+  try {
   dt=Math.min(dt,.04);s.stats.elapsed+=dt;
   this.grantRerolls();
   const previousPositions=new Map(s.party.map(member=>[member.uid,{x:member.x,z:member.z}]));previousPositions.set(s.party[0].uid,{x:s.player.x,z:s.player.z});
@@ -180,7 +245,7 @@ export class Simulation {
   this.updatePsychicRings(dt,previousPositions);
   if(s.result!==null)return;
   stepSpecials(s,dt,{
-   hit:(enemy,damage,element,sourceId,status)=>this.damageEnemy(enemy,damage,element,sourceId,status),
+   hit:(enemy,damage,element,sourceId,status,source)=>this.damageEnemy(enemy,damage,element,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
   });
   if(s.result!==null)return;
@@ -206,6 +271,7 @@ export class Simulation {
   }
   if(this.finishDefeat())return;
   this.queueLevelUps();this.openNextLevelUp();
+  } finally {observeAnalytics(s);this.captureRewindCheckpoint();}
  }
  private movePlayer(dt:number,input:MoveInput){const p=this.state.player,s=this.state;
   if(Number.isFinite(input.aimX)&&Number.isFinite(input.aimZ)&&Math.hypot(input.aimX!,input.aimZ!)>1e-6)p.aimFacing=Math.atan2(input.aimX!,input.aimZ!);
@@ -216,7 +282,9 @@ export class Simulation {
   const trait=getMovementTrait(s.party[0].speciesId);
   if(trait.kind!=='burrow')delete p.burrowTime;
   else if(p.burrowTime!==undefined)p.burrowTime=Math.max(0,p.burrowTime-dt);
-  const poisonDamage=isBurrowed(p)?0:Math.min(dt,p.poisonTime)*getVariant('poisoned').contactPoison!.damagePerSecond;p.poisonTime=Math.max(0,p.poisonTime-dt);p.hp-=poisonDamage;s.stats.damageTaken+=poisonDamage;
+  const poisonDamage=isBurrowed(p)?0:Math.min(dt,p.poisonTime)*getVariant('poisoned').contactPoison!.damagePerSecond;p.poisonTime=Math.max(0,p.poisonTime-dt);
+  const poisonHp=p.hp;p.hp-=poisonDamage;s.stats.damageTaken+=poisonDamage;
+  if(poisonDamage>0)this.observeIncoming(poisonDamage,poisonDamage,poisonHp,p.hp,s.party[0],true,statusDamageSource(p.poisonSource,'poison'));
   const dodgeMod=getBuildModifiers(s),maxCharges=1+Math.floor(dodgeMod.staminaCapacity),dodgeRecharge=Math.max(.01,DESIGN.dodgeCooldown*(trait.staminaRechargeMultiplier??1)*(1-dodgeMod.staminaRechargeReduction)/(1+dodgeMod.stamina));
   p.dodgeCharges=Math.min(maxCharges,p.dodgeCharges??(p.dodgeCooldown>0?0:maxCharges));
   p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);
@@ -272,14 +340,16 @@ export class Simulation {
  private enemyTerrainSpeedFactor(enemy:Enemy){return !enemy.isBoss&&this.terrainSpeedFactor(enemy)<1?.54:1;}
  private armBeacon(feature:TerrainFeature){
   feature.state='arming';feature.armedUntil=this.state.stats.elapsed+.65;
+  feature.damageSource={...partyDamageSource(this.state,this.state.party[0]?.uid,'Ruin beacon blast','environment','normal'),effectId:'ruin-beacon'};
   this.emit({kind:'interact',x:feature.x,z:feature.z,radius:feature.radius,label:'Ruin beacon charged — clear the blast!',color:'#f4c972',environmentId:feature.uid});
  }
  private updateTerrainFeatures(){const s=this.state;
   for(const feature of s.terrainFeatures||[])if(feature.kind==='ruin-beacon'&&feature.state==='arming'&&(feature.armedUntil??Infinity)<=s.stats.elapsed){
    feature.state='spent';delete feature.armedUntil;
    const source=s.party[0]?.uid,damage=46+Math.min(24,s.stats.elapsed/30);
-   for(const enemy of s.enemies)if(!enemy.dead&&!enemy.isBoss&&distance2(enemy,feature)<=feature.radius)this.damageEnemy(enemy,damage,'normal',source,{},false,false,true,true);
-   if(distance2(s.player,feature)<=feature.radius)this.hurtPlayer(16,false,false,false,undefined);
+   const attribution=feature.damageSource??{origin:'environment' as const,name:'Ruin beacon',move:'Ruin beacon blast',effectId:'ruin-beacon'};
+   for(const enemy of s.enemies)if(!enemy.dead&&!enemy.isBoss&&distance2(enemy,feature)<=feature.radius)this.damageEnemy(enemy,damage,'normal',source,{},false,false,true,true,1,0,attribution);
+   if(distance2(s.player,feature)<=feature.radius)this.hurtPlayer(16,false,false,false,undefined,{...attribution,name:'Ruin beacon'});
    this.emit({kind:'attack',x:feature.x,z:feature.z,radius:feature.radius,amount:feature.radius,color:'#f4c972',shape:'burst',label:'Ruin beacon',sourceId:source,environmentId:feature.uid});
   }
  }
@@ -288,7 +358,7 @@ export class Simulation {
    m.attackTimer=Math.max(0,m.attackTimer-dt);
    if(m.attackTimer===0){delete m.attackKind;delete m.attackSpecial;}
    m.iframes=Math.max(0,m.iframes-dt);
-   if(index>0){const poison=m.poisonTime||0;m.hp-=Math.min(dt,poison)*getVariant('poisoned').contactPoison!.damagePerSecond;m.poisonTime=Math.max(0,poison-dt);if(m.hp<=0){this.faintCompanion(m);return;}if(s.challenge!=='famine')m.hp=Math.min(m.maxHp,m.hp+.65*dt);}
+   if(index>0){const poison=m.poisonTime||0,damage=Math.min(dt,poison)*getVariant('poisoned').contactPoison!.damagePerSecond,before=m.hp;m.hp-=damage;m.poisonTime=Math.max(0,poison-dt);if(damage>0)this.observeIncoming(damage,damage,before,m.hp,m,false,statusDamageSource(m.poisonSource,'poison'));if(m.hp<=0){this.faintCompanion(m);return;}if(s.challenge!=='famine')m.hp=Math.min(m.maxHp,m.hp+.65*dt);}
    if(index===0){m.hp=m.maxHp*s.player.hp/s.player.maxHp;m.x=s.player.x;m.z=s.player.z;if(m.attackTimer===0)m.facing=s.player.facing;m.animation=m.attackTimer>0?'attack':Math.hypot(s.player.vy,s.player.dodgeTime)>0||this.walking?'walk':'idle';return;}
    const offsetAngle=s.player.facing+Math.PI+(index-1)*2*Math.PI/Math.max(3,count-1);
    const radius=2.15+Math.floor((index-1)/3)*1.65;
@@ -301,10 +371,11 @@ export class Simulation {
  private walking=false;
  setWalking(v:boolean){this.walking=v;}
  private updateEnemies(dt:number){const s=this.state,p=s.player;
+  this.enemyNavigation.beginFrame(this.obstacles,s.stats.elapsed);
   for(const e of s.enemies){if(e.dead)continue;
    e.hitCooldown=Math.max(0,e.hitCooldown-dt);e.attackCooldown-=dt;e.attackTimer=Math.max(0,e.attackTimer-dt);
-   const dot=tickEnemyStatuses(e,dt);
-   if(dot>0)this.damageEnemy(e,dot,'normal',this.statusOwners.get(e.uid),{},false,false,false);
+   const poison=Math.min(dt,e.poisonTime)*2.6,burn=Math.min(dt,e.burnTime)*4,dot=tickEnemyStatuses(e,dt);
+   if(dot>0)this.damageEnemy(e,dot,'normal',this.statusOwners.get(e.uid),{},false,false,false,false,1,0,undefined,1,[...(poison>0?[{weight:poison/dot,source:statusDamageSource(e.statusSources?.poison,'poison')}]:[]),...(burn>0?[{weight:burn/dot,source:statusDamageSource(e.statusSources?.burn,'burn')}]:[])]);
    if(e.hp<=0){this.killEnemy(e);if(s.result!==null)return;continue;}
    // One in five enemies hunts a follower, making teammate HP consequential without micromanagement.
    const companion=s.party.length>1&&e.uid%10===0?s.party[1+(e.uid%(s.party.length-1))]:undefined;
@@ -321,8 +392,8 @@ export class Simulation {
        resolveEnemyMove(e,windup,s,{
         animate:(enemy,facing,duration)=>this.animateAttack(enemy,facing,duration),
         projectile:projectile=>{addProjectile(s,projectile);},
-        hurtPlayer:(damage,poison,sourceId)=>this.hurtPlayer(damage,poison,false,false,sourceId),
-        hurtCompanion:(member,damage,poison,sourceId)=>this.hurtCompanion(member,damage,poison,sourceId),
+        hurtPlayer:(damage,poison,sourceId,source)=>this.hurtPlayer(damage,poison,false,false,sourceId,source),
+        hurtCompanion:(member,damage,poison,sourceId,source)=>this.hurtCompanion(member,damage,poison,sourceId,source),
         visual:event=>this.emit(event),suicide:enemy=>{enemy.dead=true;enemy.hp=0;this.statusOwners.delete(enemy.uid);},
        },committed);
        e.attackIndex=(e.attackIndex??0)+1;
@@ -333,7 +404,7 @@ export class Simulation {
        this.animateAttack(e,windup.facing,ATTACK_ANIMATION.bossSeconds);e.attackCooldown=rules.ringCooldown;e.bossCycle=((e.bossCycle||0)+1)%this.bossStage(e).patterns.length;
        const rings=s.psychicRings||(s.psychicRings=[]);
        if(rings.length<rules.maxRings)rings.push({uid:s.idCounter++,sourceId:e.uid,x:windup.x,z:windup.z,radius:1,previousRadius:1,
-        maxRadius:rules.ringMaxRadius,speed:rules.ringSpeed,width:rules.ringWidth,damage:rules.ringDamage*challengeRules(s.challenge).damageScale*lateEnemyScale(s.stats.elapsed,e.speciesId,5).damage,hit:new Set(),color:boss.color});
+        maxRadius:rules.ringMaxRadius,speed:rules.ringSpeed,width:rules.ringWidth,damage:rules.ringDamage*challengeRules(s.challenge).damageScale*lateEnemyScale(s.stats.elapsed,e.speciesId,5).damage,hit:new Set(),color:boss.color,damageSource:enemyDamageSource(e,boss.moves.psychicRing,boss.element)});
        this.emit({kind:'boss',x:windup.x,z:windup.z,label:`${boss.moves.psychicRing} — jump or dodge through`,shape:'psychicRing',color:boss.color});
       }else if(windup.kind==='summon'){
        const boss=this.activeBoss();
@@ -344,8 +415,9 @@ export class Simulation {
        const areaMove=getEliteAreaMove(e.speciesId),poison=areaMove.element==='poison'||!!getVariant(e.variant).contactPoison;
        const radius=windup.radius??3.3;
        this.emit({kind:'attack',x:windup.x,z:windup.z,amount:radius,radius,color:areaMove.color,shape:'slam',sourceId:e.uid,label:windup.moveName??areaMove.moveName});
-       if(distance2(p,windup)<radius)this.hurtPlayer(e.damage*(e.isBoss?1.65:1.2),poison,false,false,e.uid);
-       for(const member of [...s.party].slice(1))if(distance2(member,windup)<radius)this.hurtCompanion(member,e.damage*(e.isBoss?.9:.65),poison,e.uid);
+       const source=enemyDamageSource(e,windup.moveName??areaMove.moveName,areaMove.element);
+       if(distance2(p,windup)<radius)this.hurtPlayer(e.damage*(e.isBoss?1.65:1.2),poison,false,false,e.uid,source);
+       for(const member of [...s.party].slice(1))if(distance2(member,windup)<radius)this.hurtCompanion(member,e.damage*(e.isBoss?.9:.65),poison,e.uid,source);
       }
      }
      if(s.result!==null)return;continue;
@@ -377,7 +449,8 @@ export class Simulation {
     }
     if(e.stunTime===0){
      const intent=enemyMovementIntent(e,target,s,profile),movement=e.speed*enemySpeedFactor(e)*this.enemyTerrainSpeedFactor(e)*dt*intent.speedScale;
-     const next=this.obstacles.move(e,intent.x*movement,intent.z*movement);e.x=next.x;e.z=next.z;
+     const heading=movement>0&&intent.destination?this.enemyNavigation.steer(e,intent.destination,s.stats.elapsed):intent;
+     const next=this.obstacles.move(e,heading.x*movement,heading.z*movement);e.x=next.x;e.z=next.z;
      if(e.attackTimer===0)e.facing=Math.atan2(dx,dz);
      e.animation=e.attackTimer>0?'attack':movement>0?'walk':'idle';
     }else e.animation='idle';
@@ -435,10 +508,11 @@ export class Simulation {
    }
   }
  }
- private fireLearnedMove(member:PartyMember,learned:LearnedMove,target:AttackTarget|undefined,damageScale=1,depth=0,hitCount=1){
+ private fireLearnedMove(member:PartyMember,learned:LearnedMove,target:AttackTarget|undefined,damageScale=1,depth=0,hitCount=1,provenance?:DamageSource){
   const s=this.state,move=getMoveDefinition(learned.moveId);if(!move||s.result!==null)return;
   const profile=getLearnedMoveProfile(move.id,learned.rank),mod=getBuildModifiers(s,member);
-  const actions=depth===0?dispatchBuildEvent({state:s,rng:this.rng},{kind:'onAttack',sourceId:member.uid,targetId:target&&target.uid>=0?target.uid:undefined,element:move.element,count:hitCount}):[];
+  const source=provenance??partyDamageSource(s,member.uid,move.name,'learned',move.element);
+  const actions=depth===0?dispatchBuildEvent({state:s,rng:this.rng},{kind:'onAttack',sourceId:member.uid,targetId:target&&target.uid>=0?target.uid:undefined,element:move.element,count:hitCount,damageSource:source}):[];
   for(const action of actions){if(s.result!==null)return;if(action.kind!=='echo')this.applyBuildAction(action);}
   if(s.result!==null)return;
   const livingTarget=target&&!target.dead?target:this.attackTarget(member,profile.range*(1+mod.radius));
@@ -449,11 +523,11 @@ export class Simulation {
   executePattern({member:{...member,attackLevel:learned.rank},target:livingTarget||{...member,dead:false},
    enemies:s.enemies,profile,element:move.element,damage,crit,depth,radiusScale:1+mod.radius,
    extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,projectileSpeedScale:1+mod.projectileSpeed,
-   hit:(enemy,amount)=>this.damageEnemy(enemy,amount,move.element,member.uid,profile.status,crit,depth===0,true,false,hitCount,tier),
-   projectile:projectile=>{addProjectile(s,{...projectile,moveName:move.name,hitCount,critTier:tier});},
+   hit:(enemy,amount)=>this.damageEnemy(enemy,amount,move.element,member.uid,profile.status,crit,depth===0,true,false,hitCount,tier,source,criticalMultiplier(tier,mod.critDamage)),
+   projectile:projectile=>{addProjectile(s,{...projectile,moveName:move.name,hitCount,critTier:tier,damageSource:source,criticalMultiplier:criticalMultiplier(tier,mod.critDamage)});},
    visual:event=>this.emit({...event,label:move.name}),
    heal:(leader,squad)=>{if(s.challenge==='famine')return;s.player.hp=Math.min(s.player.maxHp,s.player.hp+leader*hitCount);for(const m of s.party)if(m.hp>0)m.hp=Math.min(m.maxHp,m.hp+squad*hitCount);}});
-  for(const action of actions)if(action.kind==='echo'&&s.result===null)this.fireLearnedMove(member,learned,livingTarget,action.damageScale,action.depth);
+  for(const action of actions)if(action.kind==='echo'&&s.result===null)this.fireLearnedMove(member,learned,livingTarget,action.damageScale,action.depth,1,this.procDamageSource(action));
  }
  private animatePartyAttack(member:PartyMember,kind:AttackKind,facing:number,duration:number){
   // Independent casts keep their damage/cooldowns, but share the current body
@@ -465,10 +539,11 @@ export class Simulation {
  private animateAttack(actor:PartyMember|Enemy,facing:number,duration:number=ATTACK_ANIMATION.seconds){
   actor.attackTimer=duration;actor.attackDuration=duration;actor.animation='attack';actor.facing=facing;
  }
- private fireFromMember(m:PartyMember,target:AttackTarget,damageScale=1,depth=0,hitCount=1){
+ private fireFromMember(m:PartyMember,target:AttackTarget,damageScale=1,depth=0,hitCount=1,provenance?:DamageSource){
   const s=this.state;if(s.result!==null||target.dead)return;
   const profile=getAttackProfile(m.speciesId,m.attackLevel),type=profile.element??getSpecies(m.speciesId).types[0],mod=getBuildModifiers(s,m);
-  const actions=depth===0?dispatchBuildEvent({state:s,rng:this.rng},{kind:'onAttack',sourceId:m.uid,targetId:target.uid>=0?target.uid:undefined,element:type,count:hitCount}):[];
+  const source=provenance??partyDamageSource(s,m.uid,getSpecies(m.speciesId).moveName,'signature',type);
+  const actions=depth===0?dispatchBuildEvent({state:s,rng:this.rng},{kind:'onAttack',sourceId:m.uid,targetId:target.uid>=0?target.uid:undefined,element:type,count:hitCount,damageSource:source}):[];
   for(const action of actions){if(s.result!==null)return;if(action.kind!=='echo')this.applyBuildAction(action);}
   if(s.result!==null||target.dead)return;
   const tier=depth===0&&profile.kind!=='heal'?criticalTier(mod.critChance,()=>this.rng.next()):0,crit=tier>0;
@@ -477,43 +552,46 @@ export class Simulation {
   executePattern({member:m,target,enemies:s.enemies,profile,element:type,damage,crit,depth,
    radiusScale:1+mod.radius,extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,
    projectileSpeedScale:1+mod.projectileSpeed,
-   hit:(enemy,amount)=>this.damageEnemy(enemy,amount,type,m.uid,profile.status,crit,depth===0,true,false,hitCount,tier),
-   projectile:projectile=>{addProjectile(s,{...projectile,moveName:getSpecies(m.speciesId).moveName,hitCount,critTier:tier});},visual:event=>this.emit(event),
+   hit:(enemy,amount)=>this.damageEnemy(enemy,amount,type,m.uid,profile.status,crit,depth===0,true,false,hitCount,tier,source,criticalMultiplier(tier,mod.critDamage)),
+   projectile:projectile=>{addProjectile(s,{...projectile,moveName:getSpecies(m.speciesId).moveName,hitCount,critTier:tier,damageSource:source,criticalMultiplier:criticalMultiplier(tier,mod.critDamage)});},visual:event=>this.emit(event),
    heal:(leader,squad)=>{if(s.challenge==='famine')return;s.player.hp=Math.min(s.player.maxHp,s.player.hp+leader*hitCount);for(const member of s.party)if(member.hp>0)member.hp=Math.min(member.maxHp,member.hp+squad*hitCount);}});
   for(const action of actions)if(action.kind==='echo'&&s.result===null)this.applyBuildAction(action);
  }
  private updateProjectiles(dt:number){
   stepProjectiles(this.state,dt,{
    hit:(enemy,projectile)=>this.damageEnemy(enemy,projectile.damage,projectile.type,projectile.sourceId,
-    projectile.status||{poison:projectile.poisonChance},projectile.crit||false,projectile.allowProcs!==false,true,false,projectile.hitCount??1,projectile.critTier??0),
-   hurtPlayer:(damage,poison,projectile)=>this.hurtPlayer(damage,poison,false,false,projectile?.sourceId),
-   hurtCompanion:(member,damage,poison,projectile)=>this.hurtCompanion(member,damage,poison,projectile.sourceId),
+    projectile.status||{poison:projectile.poisonChance},projectile.crit||false,projectile.allowProcs!==false,true,false,projectile.hitCount??1,projectile.critTier??0,projectile.damageSource,projectile.criticalMultiplier??1,projectile.damageContributions&&projectile.damageContributions.length>1?projectile.damageContributions.map(entry=>({source:entry.source,weight:entry.hitCount/(projectile.hitCount??1),criticalMultiplier:entry.criticalMultiplier})):undefined),
+   hurtPlayer:(damage,poison,projectile)=>this.hurtPlayer(damage,poison,false,false,projectile?.sourceId,projectile?.damageSource),
+   hurtCompanion:(member,damage,poison,projectile)=>this.hurtCompanion(member,damage,poison,projectile.sourceId,projectile.damageSource),
    explode:projectile=>this.emit({kind:'attack',x:projectile.x,z:projectile.z,amount:projectile.radius,radius:projectile.radius,color:ELEMENT_COLORS[projectile.type],shape:'burst',sourceId:projectile.sourceId,moveName:projectile.moveName}),
   });
  }
- private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false,hitCount=1,tier=crit?1:0){
+ private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false,hitCount=1,tier=crit?1:0,provenance?:DamageSource,critMultiplier=1,splitSources?:{weight:number;source:DamageSource;criticalMultiplier?:number}[]){
   if(e.dead||this.state.result!==null)return;
   const resolved=damageIsFinal?Math.max(0,Number.isFinite(amount)?amount:0):elementalDamage(amount,type,e,matchup);
   const effectiveness=matchup&&!damageIsFinal?typeEffectiveness(type,getSpecies(e.speciesId).types):'neutral';
   const metronome=allowProcs?metronomeDamageMultiplier(this.state,e.uid,hitCount):1;
-  let damage=Math.min(e.hp,resolved*hitCount*metronome);
+  const source=provenance??[...(splitSources??[])].reverse().find(part=>part.source.actorId===sourceId)?.source??partyDamageSource(this.state,sourceId,undefined,'unknown',type),before=e.hp,attempted=Math.min(Number.MAX_VALUE,resolved*hitCount*metronome);
+  let damage=Math.min(e.hp,resolved*hitCount*metronome),postMitigation=attempted;
   // A huge packet may earn a stage immediately, but cannot erase an unreadable
   // chapter. There is no transition lockout: the next hit can still land.
   if(e.isBoss){const next=this.activeBoss().stages[(e.bossStage??0)+1];const floor=next?e.maxHp*next.threshold:undefined;
-   if(floor!==undefined&&e.hp>floor&&e.hp-damage<floor)damage=Math.max(0,e.hp-floor);
+   if(floor!==undefined&&e.hp>floor&&e.hp-damage<floor){damage=Math.max(0,e.hp-floor);postMitigation=damage;}
   }
-  if(damage<=0)return;e.hp-=damage;this.state.stats.damageDealt+=damage;
+  const observe=(attribution:DamageSource,weight=1,killed=false,multiplier=critMultiplier)=>recordDamage(this.state,{direction:'outgoing',source:attribution,attempted:attempted*weight,applied:postMitigation*weight,beforeHp:before*weight,afterHp:(before-damage)*weight,criticalTier:tier,preCritical:attempted*weight/Math.max(1,multiplier),hitCount:hitCount*weight,killed});
+  if(splitSources?.length){splitSources.forEach((part,index)=>observe(part.source,part.weight,before-damage<=0&&index===splitSources.length-1,part.criticalMultiplier??critMultiplier));}else observe(source,1,before-damage<=0);
+  if(damage<=0)return;e.hp-=damage;e.lastDamageSource={...source};this.state.stats.damageDealt+=damage;
   if(e.isBoss&&!e.dead){
    const boss=this.activeBoss(),next=(e.bossStage??0)+1,stage=boss.stages[next];
    if(stage&&e.hp/e.maxHp<=stage.threshold){e.bossStage=next;this.state.bossStage=next;e.bossCycle=0;e.attackCooldown=Math.max(.45,e.attackCooldown);this.emit({kind:'boss',x:e.x,z:e.z,label:`${boss.name.toUpperCase()} — STAGE ${next+1}: ${stage.label}`,color:boss.color});}
   }
   const packetStatus=hitCount===1?status:Object.fromEntries(Object.entries(status).map(([key,chance])=>[key,1-Math.pow(1-chance,hitCount)]));
   const applied=Object.keys(status).length?applyStatusProcs(e,packetStatus,()=>this.rng.next(),1+getBuildModifiers(this.state,sourceId).duration):[];
-  if(applied.length){if(sourceId!==undefined)this.statusOwners.set(e.uid,sourceId);this.emit({kind:'status',x:e.x,z:e.z,sourceId,targetId:e.uid,color:'#c5d8a5',shape:applied[0]});}
+  if(applied.length){for(const status of applied)if(status==='burn'||status==='poison')(e.statusSources??={})[status]={...source};if(sourceId!==undefined)this.statusOwners.set(e.uid,sourceId);this.emit({kind:'status',x:e.x,z:e.z,sourceId,targetId:e.uid,color:'#c5d8a5',shape:applied[0]});}
   if(matchup)this.emit({kind:'hit',x:e.x,z:e.z,sourceId,targetId:e.uid,color:crit?'#ffe599':'#c0d4a4',amount:damage,damageTo:'enemy',shape:crit?'crit':'impact',effectiveness:effectiveness==='neutral'?undefined:effectiveness});
   if(allowProcs){
-   if(crit)this.buildEvent({kind:'onCrit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,critTier:tier});
-   this.buildEvent({kind:'onHit',sourceId,targetId:e.uid,damage,element:type,count:hitCount});
+   if(crit)this.buildEvent({kind:'onCrit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,critTier:tier,damageSource:source});
+   this.buildEvent({kind:'onHit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,damageSource:source});
   }
   if(e.hp<=0)this.killEnemy(e,sourceId,allowProcs||!matchup);
  }
@@ -548,7 +626,7 @@ export class Simulation {
    if(first){s.stats.bossKilled=true;s.result='victory';s.phase='result';this.emit({kind:'win',label:`${getSpecies(e.speciesId).name} defeated!`});}
    else {s.nextBossAt=s.stats.elapsed+420;s.player.hp=Math.min(s.player.maxHp,s.player.hp+36);for(const member of s.party)member.hp=Math.min(member.maxHp,member.hp+24);this.emit({kind:'win',label:`${getSpecies(e.speciesId).name} defeated — recover before the next chapter.`});}
   }
-  if(s.result===null)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1});
+  if(s.result===null)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1,damageSource:e.lastDamageSource});
  }
  private completeShrine(site:POI,label:string){const s=this.state,tier=site.challenge?.tier??1;
   const summoned=s.enemies.filter(enemy=>enemy.challengeSiteId===site.uid);for(const enemy of summoned){enemy.dead=true;this.statusOwners.delete(enemy.uid);}
@@ -623,6 +701,10 @@ export class Simulation {
   }
  }
  /** Declarative effects share one bounded action interpreter, independent of item IDs. */
+ private procDamageSource(action:BuildAction):DamageSource {
+  const base=action.damageSource??partyDamageSource(this.state,action.sourceId),id=action.effectId?.replace(/^item:/,'');
+  return {...base,origin:'proc',rootOrigin:base.rootOrigin??base.origin,effectId:action.effectId,move:`${id?getItemDefinition(id)?.title??id:'Unknown proc'}: ${action.kind}`,element:action.element};
+ }
  private applyBuildAction(action:BuildAction){
   const s=this.state,member=s.party.find(member=>member.uid===action.sourceId),target=s.enemies.find(enemy=>enemy.uid===action.targetId);
   const origin=target||member||s.player;
@@ -630,16 +712,16 @@ export class Simulation {
    case 'echo':{
     if(!member)return;
     const next=target&&!target.dead?target:this.attackTarget(member,getAttackProfile(member.speciesId,member.attackLevel).range*(1+getBuildModifiers(s,member).radius));
-    if(next)this.fireFromMember(member,next,action.damageScale,action.depth);return;
+    if(next)this.fireFromMember(member,next,action.damageScale,action.depth,1,this.procDamageSource(action));return;
    }
    case 'chain':{
     const first=target&&!target.dead&&target.hp>0?target:nearestEnemy(s.enemies,origin,action.range);
     if(first)executeChain(s.enemies,first,action.damage,action.jumps,action.range,action.element,action.sourceId,
-     (enemy,damage)=>this.damageEnemy(enemy,damage,action.element,action.sourceId,{},false,false,true,action.damageIsFinal),event=>this.emit(event),origin);
+     (enemy,damage)=>this.damageEnemy(enemy,damage,action.element,action.sourceId,{},false,false,true,action.damageIsFinal,1,0,this.procDamageSource(action)),event=>this.emit(event),origin);
     return;
    }
    case 'area':{
-    for(const enemy of enemiesInRadius(s.enemies,origin,action.radius))this.damageEnemy(enemy,action.damage,action.element,action.sourceId,{},false,false,true,action.damageIsFinal);
+    for(const enemy of enemiesInRadius(s.enemies,origin,action.radius))this.damageEnemy(enemy,action.damage,action.element,action.sourceId,{},false,false,true,action.damageIsFinal,1,0,this.procDamageSource(action));
     this.emit({kind:'attack',x:origin.x,z:origin.z,amount:action.radius,sourceId:action.sourceId,color:'#d7c69a',shape:'burst'});return;
    }
    case 'heal':{
@@ -647,11 +729,12 @@ export class Simulation {
     if(s.player.hp>0)s.player.hp=Math.min(s.player.maxHp,s.player.hp+action.amount+s.player.maxHp*(action.maxHpFraction??0));
     if(action.target==='squad')for(const member of s.party)if(member.hp>0)member.hp=Math.min(member.maxHp,member.hp+action.amount+member.maxHp*(action.maxHpFraction??0));return;
    }
-   case 'selfDamage':this.hurtPlayer(action.amount,false,true,true);return;
+   case 'selfDamage':this.hurtPlayer(action.amount,false,true,true,undefined,{...this.procDamageSource(action),origin:'self'});return;
    case 'status':{
     if(!target||target.dead)return;
     const timers={stun:'stunTime',slow:'slowTime',poison:'poisonTime',burn:'burnTime',soaked:'soakedTime'} as const;
     const timer=timers[action.status];target[timer]=Math.max(target[timer],action.duration);this.statusOwners.set(target.uid,action.sourceId);
+    if(action.status==='burn'||action.status==='poison')(target.statusSources??={})[action.status]=this.procDamageSource(action);
     this.emit({kind:'status',x:target.x,z:target.z,sourceId:action.sourceId,targetId:target.uid,color:'#c5d8a5',shape:action.status});return;
    }
    case 'xp':this.gainXP(action.amount);return;
@@ -659,30 +742,41 @@ export class Simulation {
    case 'specialCooldownPercent':s.player.specialCooldown*=Math.max(0,1-action.amount);return;
   }
  }
- private hurtCompanion(member:PartyMember,amount:number,poison=false,sourceId?:number){
-  if(member.iframes>0)return;
+ private observeIncoming(attempted:number,applied:number,beforeHp:number,afterHp:number,member:PartyMember,leader:boolean,source:DamageSource){
+  recordDamage(this.state,{direction:'incoming',source,recipient:{uid:member.uid,speciesId:member.speciesId,leader},attempted,applied,beforeHp,afterHp,killed:beforeHp>0&&afterHp<=0});
+ }
+ private incomingSource(sourceId?:number,source?:DamageSource):DamageSource {
+  return source??enemyDamageSource(this.state.enemies.find(enemy=>enemy.uid===sourceId));
+ }
+ private hurtCompanion(member:PartyMember,amount:number,poison=false,sourceId?:number,provenance?:DamageSource){
+  const source=this.incomingSource(sourceId,provenance),before=member.hp;
+  if(member.iframes>0){this.observeIncoming(amount,0,before,before,member,false,source);return;}
   member.iframes=1.35;
   const mod=getBuildModifiers(this.state,member);
-  if(sourceId!==undefined&&mod.deflection>0&&this.rng.next()<mod.deflection){this.emit({kind:'hit',x:member.x,z:member.z,amount:0,label:'Deflected',targetId:member.uid,damageTo:'companion'});return;}
+  if(sourceId!==undefined&&mod.deflection>0&&this.rng.next()<mod.deflection){this.observeIncoming(amount,0,before,before,member,false,source);this.emit({kind:'hit',x:member.x,z:member.z,amount:0,label:'Deflected',targetId:member.uid,damageTo:'companion'});return;}
   const damage=Math.max(0,amount-mod.armor);member.hp-=damage;
-  if(poison)member.poisonTime=Math.max(member.poisonTime||0,getVariant('poisoned').contactPoison!.seconds);
+  this.observeIncoming(amount,damage,before,member.hp,member,false,source);
+  if(poison){member.poisonTime=Math.max(member.poisonTime||0,getVariant('poisoned').contactPoison!.seconds);member.poisonSource={...source};}
   this.emit({kind:'hit',x:member.x,z:member.z,color:'#ff8c83',amount:damage,sourceId,targetId:member.uid,damageTo:'companion'});
   if(member.hp>0)return;this.faintCompanion(member);
  }
  private faintCompanion(member:PartyMember){
   const index=this.state.party.indexOf(member);if(index<1)return;
+  recordFaint(this.state,member);
   this.state.party.splice(index,1);this.state.stats.faints++;
   this.emit({kind:'faint',sourceId:member.uid,speciesId:member.speciesId,amount:member.speciesId,label:`${getSpecies(member.speciesId).name} fainted and left your party!`});
  }
- private hurtPlayer(amount:number,poison:boolean,bypassInvuln=false,ignoreArmor=false,sourceId?:number){const p=this.state.player;
-  if(isBurrowed(p))return;
-  if(p.iframes>0&&!bypassInvuln)return;
+ private hurtPlayer(amount:number,poison:boolean,bypassInvuln=false,ignoreArmor=false,sourceId?:number,provenance?:DamageSource){const p=this.state.player;
+  const source=this.incomingSource(sourceId,provenance),before=p.hp,member=this.state.party[0];
+  if(isBurrowed(p)){this.observeIncoming(amount,0,before,before,member,true,source);return;}
+  if(p.iframes>0&&!bypassInvuln){this.observeIncoming(amount,0,before,before,member,true,source);return;}
   const mod=getBuildModifiers(this.state);
-  if(sourceId!==undefined&&!ignoreArmor&&mod.deflection>0&&this.rng.next()<mod.deflection){p.iframes=.67;this.emit({kind:'hit',x:p.x,z:p.z,amount:0,label:'Deflected',targetId:this.state.party[0].uid,damageTo:'player'});return;}
+  if(sourceId!==undefined&&!ignoreArmor&&mod.deflection>0&&this.rng.next()<mod.deflection){p.iframes=.67;this.observeIncoming(amount,0,before,before,member,true,source);this.emit({kind:'hit',x:p.x,z:p.z,amount:0,label:'Deflected',targetId:this.state.party[0].uid,damageTo:'player'});return;}
   const damage=ignoreArmor?Math.max(0,amount):Math.max(0,amount-mod.armor);p.hp-=damage;this.state.stats.damageTaken+=damage;
+  this.observeIncoming(amount,damage,before,p.hp,member,true,source);
   if(!bypassInvuln)p.iframes=.67;
   this.emit({kind:'hit',x:p.x,z:p.z,color:poison?'#96f66e':'#ff756f',amount:damage,sourceId,targetId:this.state.party[0].uid,damageTo:'player'});
-  if(poison)p.poisonTime=Math.max(p.poisonTime,getVariant('poisoned').contactPoison!.seconds);
+  if(poison){p.poisonTime=Math.max(p.poisonTime,getVariant('poisoned').contactPoison!.seconds);p.poisonSource={...source};}
   this.finishDefeat();
  }
  private finishDefeat(){const s=this.state;if(s.result==='defeat')return true;if(s.player.hp>0||s.result!==null)return false;
@@ -692,12 +786,12 @@ export class Simulation {
   const profile=getSpecialProfile(member.speciesId,member.attackLevel),element=profile.element??getSpecies(member.speciesId).types[0];
   member.attackSpecial=profile.kind;delete member.attackKind;
   this.animateAttack(member,member.facing,ATTACK_ANIMATION.specialSeconds);
-  this.buildEvent({kind:'onSpecial',sourceId:member.uid,element});
+  this.buildEvent({kind:'onSpecial',sourceId:member.uid,element,damageSource:partyDamageSource(s,member.uid,profile.name,'q',element)});
   if(s.result!==null)return;
   castSpecial({state:s,member,profile,element,
    damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
    move:(dx,dz)=>this.obstacles.move(s.player,dx,dz),
-   hit:(enemy,damage,type,sourceId,status)=>this.damageEnemy(enemy,damage,type,sourceId,status),
+   hit:(enemy,damage,type,sourceId,status,source)=>this.damageEnemy(enemy,damage,type,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
   });
  }
@@ -733,8 +827,8 @@ export class Simulation {
     ring.hit.add(member.uid);
     const ringTrial=s.pois.find(poi=>poi.challenge?.id==='ring-run'&&poi.challenge.ringIds?.includes(ring.uid));
     if(ringTrial&&leader){ringTrial.challenge!.progress=(ringTrial.challenge!.progress??0)+1;this.emit({kind:'interact',x:ringTrial.x,z:ringTrial.z,label:`Ward crossed (${ringTrial.challenge!.progress}/3)`,color:'#d2b5ff'});}
-    if(leader){if(s.player.y<BOSS_RULES.jumpClearance)this.hurtPlayer(ring.damage,false,false,false,ring.sourceId);}
-    else this.hurtCompanion(member,ring.damage*.55,false,ring.sourceId);
+    if(leader){if(s.player.y<BOSS_RULES.jumpClearance)this.hurtPlayer(ring.damage,false,false,false,ring.sourceId,ring.damageSource);}
+    else this.hurtCompanion(member,ring.damage*.55,false,ring.sourceId,ring.damageSource);
     if(s.result!==null)return;
    }
   }
@@ -746,8 +840,9 @@ export class Simulation {
    for(const zone of shrineHazardZones(poi,s.stats.elapsed)){
     if(zone.warning||zone.kind==='slow')continue;
     const dps=(zone.kind==='fire'?7:4)+definition.tier*.3;
-    if(distance2(p,zone)<=zone.radius&&p.y<.9&&p.dodgeTime<=0&&!isBurrowed(p)){const damage=dps*dt;p.hp-=damage;s.stats.damageTaken+=damage;}
-    for(const member of s.party.slice(1))if(member.hp>0&&distance2(member,zone)<=zone.radius){member.hp-=dps*dt;if(member.hp<=0)this.faintCompanion(member);}
+    const source:DamageSource={origin:'environment',name:'Shrine hazard',move:`Tier ${definition.tier} ${zone.kind}`,effectId:`shrine-${zone.kind}`,status:zone.kind};
+    if(distance2(p,zone)<=zone.radius&&p.y<.9&&p.dodgeTime<=0&&!isBurrowed(p)){const damage=dps*dt,before=p.hp;p.hp-=damage;s.stats.damageTaken+=damage;this.observeIncoming(damage,damage,before,p.hp,s.party[0],true,source);}
+    for(const member of s.party.slice(1))if(member.hp>0&&distance2(member,zone)<=zone.radius){const before=member.hp;member.hp-=dps*dt;this.observeIncoming(dps*dt,dps*dt,before,member.hp,member,false,source);if(member.hp<=0)this.faintCompanion(member);}
    }
   }
  }

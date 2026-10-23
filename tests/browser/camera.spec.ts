@@ -89,7 +89,7 @@ test('losing browser pointer lock pauses and freezes gameplay until Resume captu
  await expect.poll(()=>game(page,'g=>g.sim.state.stats.elapsed')).toBeGreaterThan(elapsed);
 });
 
-test('capture denial leaves gameplay paused, explains retry, and Resume recovers without an error',async({page})=>{
+test('capture denial allows keyboard play and Resume can recover mouse capture',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{
   const original=Element.prototype.requestPointerLock;
@@ -97,11 +97,12 @@ test('capture denial leaves gameplay paused, explains retry, and Resume recovers
   Element.prototype.requestPointerLock=()=>Promise.reject(new DOMException('Capture denied for test','NotAllowedError'));
  });
  await page.goto('/?dev=1');await page.locator('[data-starter="25"]').click();
- await released(page);await expect(page.locator('#resume-btn')).toBeVisible();
- await expect(page.locator('#capture-help')).toBeVisible();
- await expect(page.locator('#capture-help')).toContainText(/mouse|capture/i);
- expect(await game(page,'g=>g.sim.state.phase')).toBe('paused');
- await frozen(page);
+ await released(page);await expect(page.locator('#overlay')).toBeHidden();
+ expect(await game(page,'g=>g.sim.state.phase')).toBe('playing');
+ const elapsed=await game(page,'g=>g.sim.state.stats.elapsed');
+ await expect.poll(()=>game(page,'g=>g.sim.state.stats.elapsed')).toBeGreaterThan(elapsed);
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#resume-btn')).toBeVisible();await frozen(page);
  await page.evaluate(()=>(window as any).__restorePointerLock());
  await page.locator('#resume-btn').click();await captured(page);
  await expect(page.locator('#capture-help')).toBeHidden();

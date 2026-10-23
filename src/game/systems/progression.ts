@@ -1,4 +1,5 @@
 import {GATED_RECRUIT_SPECIES} from '../../data/rosterContent.ts';
+import {recordAcquisition} from '../analytics.ts';
 import {evolutionRule,evolutionRequirement} from '../../data/evolutions.ts';
 import {DESIGN} from '../../data/config.ts';
 import {describeAttackUpgrade,getAttackProfile,type AttackDefinition} from '../../data/attacks.ts';
@@ -340,6 +341,11 @@ export interface ChoiceResult {event:string;applied:boolean;speciesChanged?:numb
 const unavailable=(event='Upgrade unavailable'):ChoiceResult=>({event,applied:false});
 
 export function applyChoice(state:RunState,choice:UpgradeChoice):ChoiceResult {
+ const result=applyChoiceNow(state,choice);
+ if(result.applied)recordAcquisition(state,choice,result.sourceUid);
+ return result;
+}
+function applyChoiceNow(state:RunState,choice:UpgradeChoice):ChoiceResult {
  const member=state.party.find(candidate=>candidate.uid===choice.speciesId);
  if((choice.kind==='learn'||choice.kind==='attack'||choice.kind==='evolve')&&
   state.levelUpMemberId!==undefined&&member?.uid!==state.levelUpMemberId)return unavailable('This Pokémon did not level up');

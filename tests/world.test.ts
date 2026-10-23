@@ -5,6 +5,7 @@ import {NullEngine,Scene,VertexBuffer} from '@babylonjs/core';
 import {Simulation} from '../src/game/Simulation.ts';
 import {World} from '../src/game/render/World.ts';
 import {createPOIs,terrainHeight} from '../src/game/systems/environment.ts';
+import {DESIGN} from '../src/data/config.ts';
 
 test('ten world restarts release geometry, materials, landmarks and lights',()=>{
  const engine=new NullEngine(),scene=new Scene(engine);
@@ -27,7 +28,7 @@ test('biome scenery reuses geometry and rendered ground matches the shared colli
  const profile=worldProfile(4),engine=new NullEngine(),scene=new Scene(engine),pois=createPOIs(4),world=new World(scene,4,pois);
  try{
   const detailBatches=scene.meshes.filter(mesh=>mesh.name.startsWith('ground-detail-')).length;
-  assert.ok(scene.meshes.length>600);assert.ok(scene.geometries.length<=37+detailBatches,'Scenery, detail batches and the single dressing paver must share source geometry');
+  assert.ok(scene.meshes.length>600);assert.ok(scene.geometries.length<=44+detailBatches,'Scenery shares geometry, including seven stone templates');
   assert.ok(scene.meshes.filter(m=>m.isAnInstance).length>600);
   assert.equal(scene.meshes.filter(m=>m.name.startsWith('great-pine-')).length,1);
   assert.equal(scene.meshes.filter(m=>m.name.startsWith('gate-pillar-')).length,2);
@@ -51,7 +52,19 @@ test('every map shares seeded geography with the renderer and releases its own p
    const seed=map.seed??42,pois=createPOIs(seed,map.id),profile=worldProfile(seed,map.id),world=new World(scene,seed,pois,map.id);
    const ground=scene.getMeshByName('rolling forest terrain')!,positions=ground.getVerticesData(VertexBuffer.PositionKind)!;
    const detailBatches=scene.meshes.filter(mesh=>mesh.name.startsWith('ground-detail-')).length;
-   assert.equal(ground.getBoundingInfo().boundingBox.extendSize.x*2,287.5);assert.ok(scene.geometries.length<=37+detailBatches);
+   assert.equal(ground.getBoundingInfo().boundingBox.extendSize.x*2,359.375);assert.ok(scene.geometries.length<=44+detailBatches);
+   const perimeter=scene.getMeshByName('scenic perimeter foothills')!,ring=perimeter.getVerticesData(VertexBuffer.PositionKind)!,normals=perimeter.getVerticesData(VertexBuffer.NormalKind)!;
+   assert.equal(perimeter.isPickable,false);assert.equal(perimeter.checkCollisions,false);
+   assert.ok(perimeter.getBoundingInfo().boundingBox.extendSize.x>DESIGN.mapRadius+400);
+   // The first row closes all four ground edges, including their corners.
+   const joins=new Set<string>();
+   for(let i=0;i<116*4*3;i+=3){
+    assert.equal(Math.max(Math.abs(ring[i]),Math.abs(ring[i+2])),DESIGN.mapRadius);
+    assert.ok(Math.abs(ring[i+1]-terrainHeight(ring[i],ring[i+2],profile))<.000004);
+    joins.add(`${ring[i]}/${ring[i+2]}`);
+   }
+   assert.equal(joins.size,116*4);
+   assert.ok(normals.every((value,i)=>Number.isFinite(value)&&(i%3!==1||value>0)),'Perimeter faces upward on every band');
    // Babylon stores x/z/y in Float32; taller relief also amplifies x/z rounding.
    for(let i=0;i<positions.length;i+=3*137)assert.ok(Math.abs(positions[i+1]-terrainHeight(positions[i],positions[i+2],profile))<.000004);
    const future=pois.find(p=>p.availableAt===180)!,node=scene.getTransformNodeByName(`landmark-${future.uid}`)!;

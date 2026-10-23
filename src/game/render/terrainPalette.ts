@@ -28,6 +28,12 @@ export function createTerrainPalette(profile:WorldProfile,seed:number,clearings:
   Color3.LerpToRef(result,patch,mask*tuning.patchStrength,result);
   const soil=smooth(.76,.86,.5+.3*Math.sin(u*2.6+phase[2])+.2*Math.cos(v*2.1-phase[0]));
   Color3.LerpToRef(result,earth,soil*tuning.earthStrength,result);
+  // Quiet patches of sun-dried grass at a smaller scale keep open combat
+  // clearings from becoming a single flat swatch. Color only, baked once;
+  // no extra props, textures, terrain displacement or simulation RNG.
+  const meadow=.5+.28*Math.sin(x*.19+phase[0]+Math.sin(z*.11))+.22*Math.cos(z*.23+phase[2]);
+  Color3.LerpToRef(result,patch,smooth(.43,.85,meadow)*.16,result);
+  result.scaleInPlace(.975+.05*meadow);
   let clearing=0;
   for(const site of clearings){const distance=Math.hypot(x-site.x,z-site.z);if(distance<site.radius)clearing=Math.max(clearing,(1-smooth(site.radius*.48,site.radius,distance))*site.strength);}
   // A quiet earth anchor on the real heightfield; no floating decal geometry.

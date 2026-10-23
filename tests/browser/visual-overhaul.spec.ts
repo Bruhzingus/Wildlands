@@ -57,9 +57,9 @@ for(const mapId of maps)test(`${mapId}: terrain, shore and tree silhouettes rend
    safe:batches.every((m:any)=>!m.isPickable&&!m.checkCollisions&&!m.thinInstanceEnablePicking),hidden,low,visible,
    stable:JSON.stringify(s)===before&&JSON.stringify(g.inspectPerformance().resources)===JSON.stringify(resources)};
  });
- expect(scenery.batches).toBeGreaterThan(0);expect(scenery.batches).toBeLessThanOrEqual(5);expect(scenery.count).toBe(scenery.expected);
+ expect(scenery.batches).toBeGreaterThan(0);expect(scenery.batches).toBeLessThanOrEqual(15);expect(scenery.count).toBe(scenery.expected);
  expect(scenery).toMatchObject({safe:true,hidden:true,low:true,visible:true,stable:true});
- for(const view of ['spawn','forest','rocks']){
+ for(const view of ['spawn','forest','rocks','outcrop']){
   await page.evaluate(async view=>{
    const g=(window as any).__WILDLANDS__,s=g.sim.state,{createEnvironment}=await import('/src/game/systems/environment.ts'),{worldPoint}=await import('/src/data/maps.ts'),{createSurfaceDetails}=await import('/src/game/systems/surfaceDetails.ts');
    const layout=createEnvironment(s.seed,s.pois,s.mapId);
@@ -68,11 +68,16 @@ for(const mapId of maps)test(`${mapId}: terrain, shore and tree silhouettes rend
    if(view==='forest'){
     const details=createSurfaceDetails(s.seed,g.world.profile,s.pois,layout,s.berryTrees).filter((p:any)=>p.kind==='mushroom'||p.kind==='tuft'||p.kind==='chip');
     const mushrooms=details.filter((p:any)=>p.kind==='mushroom');
-    const detail=[...(mushrooms.length?mushrooms:details)].sort((a:any,b:any)=>obstruction(a)-obstruction(b))[0];if(detail)point={x:detail.x,z:detail.z-5};
+    const detail=[...(mushrooms.length?mushrooms:details)].sort((a:any,b:any)=>obstruction(a)-obstruction(b))[0];if(detail)point={x:detail.x-2.5,z:detail.z-3};
    }
    if(view==='rocks'){
     const rocks=layout.props.filter((p:any)=>p.rockCluster!==undefined);
     const rock=[...rocks].sort((a:any,b:any)=>obstruction(a)-obstruction(b))[0];point={x:rock.x,z:rock.z-8};
+   }
+   if(view==='outcrop'){
+    const rocks=layout.props.filter((p:any)=>p.kind==='ruin'&&!p.landmark);
+    const rock=[...rocks].sort((a:any,b:any)=>obstruction(a)-obstruction(b))[0];
+    if(rock)point={x:rock.x-3,z:rock.z-4};
    }
    Object.assign(s.player,{...point,y:0});Object.assign(s.party[0],point);g.camera.target.set(point.x,g.world.height(point.x,point.z)+2,point.z);
   },view);

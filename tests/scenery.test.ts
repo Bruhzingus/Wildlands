@@ -7,6 +7,9 @@ import {createSurfaceDetails} from '../src/game/systems/surfaceDetails.ts';
 import {createBerryTrees} from '../src/game/systems/berries.ts';
 import {NullEngine,Scene,Ray,Vector3} from '@babylonjs/core';
 import {World} from '../src/game/render/World.ts';
+import {GROUND_DETAIL_VARIANTS} from '../src/game/render/groundDetails.ts';
+import {createStoneMesh,createStoneOutcrop} from '../src/game/render/stoneFormations.ts';
+import {VertexBuffer} from '@babylonjs/core';
 
 test('stone groups use three shared sizes with matching proxies and leave routes, features and opening spawns clear',()=>{
  const sizes=new Set<number>();
@@ -64,10 +67,19 @@ test('details share geometry, never intercept picking, respect quality and dispo
    const world=new World(scene,seed,pois,map.id,berries);
    try{
     const batches=scene.meshes.filter(mesh=>mesh.name.startsWith('ground-detail-'));
-    assert.ok(batches.length>0&&batches.length<=5);
+    assert.ok(batches.length>0&&batches.length<=5*GROUND_DETAIL_VARIANTS);
+    assert.equal(new Set(batches.map(mesh=>mesh.material)).size,1,'all variants share one opaque material');
+    const details=createSurfaceDetails(seed,world.profile,pois,layout,berries);
+    assert.equal(batches.reduce((sum,mesh)=>sum+mesh.thinInstanceCount,0),details.length,'variants preserve placement budgets');
+    for(const kind of new Set(details.map(detail=>detail.kind))){
+     const variants=batches.filter(mesh=>mesh.metadata.surfaceDetail===kind);
+     assert.ok(variants.length>=2&&variants.length<=GROUND_DETAIL_VARIANTS,`${kind}: expected distinct shared templates`);
+     assert.ok(new Set(variants.map(mesh=>JSON.stringify(mesh.getVerticesData(VertexBuffer.PositionKind)))).size>=2);
+    }
+    assert.equal(scene.getMeshByName('ruin block'),null);
     for(const mesh of batches){
      assert.equal(mesh.isPickable,false);assert.equal(mesh.checkCollisions,false);assert.equal(mesh.receiveShadows,false);
-     assert.ok(mesh.getTotalVertices()<400);assert.equal(mesh.material?.alpha,1);
+     assert.ok(mesh.getTotalVertices()<512,`${mesh.name}: template exceeds the low-poly budget`);assert.equal(mesh.material?.alpha,1);
     }
     const initial=resources();world.setGroundDetailsVisible(false);assert.ok(batches.every(mesh=>!mesh.isEnabled()));
     world.setQuality('low');world.setGroundDetailsVisible(true);assert.ok(batches.every(mesh=>!mesh.isEnabled()));
@@ -81,6 +93,31 @@ test('details share geometry, never intercept picking, respect quality and dispo
     assert.deepEqual(resources(),initial);
    }finally{world.dispose();}
    assert.deepEqual(resources(),empty,`${map.id}: scenery leaked on unload`);
+  }
+ }finally{scene.dispose();engine.dispose();}
+});
+
+test('fractured stone templates have outward facets and stay inside existing collision footprints',()=>{
+ const engine=new NullEngine(),scene=new Scene(engine);
+ try{
+  for(let variant=0;variant<4;variant++){
+   const mesh=createStoneMesh(scene,'test boulder',0x6291+variant*173,2.4,2.15,2.1,'#ffffff',1.24);
+   const positions=mesh.getVerticesData(VertexBuffer.PositionKind)!,normals=mesh.getVerticesData(VertexBuffer.NormalKind)!;
+   for(let i=0;i<positions.length;i+=3){
+    assert.ok(Math.hypot(positions[i],positions[i+2])<=1.240001);
+    assert.ok(positions[i+1]>=0&&positions[i+1]<=2.150001);
+    assert.ok(Number.isFinite(normals[i]+normals[i+1]+normals[i+2]));
+    if(positions[i+1]>2.14)assert.ok(normals[i+1]>0,'the crown is lit from above');
+   }
+   assert.ok(mesh.getTotalVertices()<150);mesh.dispose();
+  }
+  for(let variant=0;variant<3;variant++){
+   const mesh=createStoneOutcrop(scene,'test outcrop',variant),positions=mesh.getVerticesData(VertexBuffer.PositionKind)!;
+   for(let i=0;i<positions.length;i+=3){
+    assert.ok(Math.abs(positions[i])<=1.200001);assert.ok(Math.abs(positions[i+2])<=.900001);
+    assert.ok(positions[i+1]>=0&&positions[i+1]<=2.200001);
+   }
+   assert.ok(mesh.getTotalVertices()<300);mesh.dispose();
   }
  }finally{scene.dispose();engine.dispose();}
 });

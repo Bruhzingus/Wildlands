@@ -12,13 +12,13 @@ import {DEFAULT_SAVE,migrateSave,selectRunOptions} from '../src/game/save.ts';
 import {RNG} from '../src/utils/random.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
-test('every registered map is 25% wider with deterministic varied geography and more discoveries',()=>{
- assert.equal(DESIGN.mapRadius,115*1.25);assert.equal(WORLD.hardBoundary,113*1.25);
+test('every registered map is a further 25% wider with deterministic varied geography and reachable discoveries',()=>{
+ assert.equal(DESIGN.mapRadius,115*1.25*1.25);assert.equal(WORLD.hardBoundary,113*1.25*1.25);
  const signatures=new Set<string>(),kinds=new Set<string>();
  for(const map of Object.values(MAP_DEFINITIONS))for(const seed of [1,4,12,100,301,808]){
   const profile=worldProfile(seed,map.id),pois=createPOIs(seed,map.id);
   assert.deepEqual(profile,worldProfile(seed,map.id));assert.deepEqual(pois,createPOIs(seed,map.id));
-  assert.equal(pois.filter(p=>siteAvailable(p,0)).length,18);assert.equal(pois.length,21);
+  assert.equal(pois.filter(p=>siteAvailable(p,0)).length,22);assert.equal(pois.length,25);
   signatures.add(JSON.stringify([profile.turn,profile.lake,profile.relief]));kinds.add(pois.slice(12,18).map(p=>p.kind).join(','));
   const point={x:42,z:-57},roundTrip=localPoint(worldPoint(point,profile),profile);assert.deepEqual(roundTrip,point);
   for(const mark of profile.landmarks)assert.ok(Math.abs(mark.x)<WORLD.hardBoundary&&Math.abs(mark.z)<WORLD.hardBoundary);

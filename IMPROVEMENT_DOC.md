@@ -2,6 +2,15 @@
 
 Wildlands improvement plan and detailed future implementation handoffs.
 
+**S4 / F5 (October 23, 2026): implemented.** Results now include ranked damage
+analysis and a downloadable balancing report with minute samples, critical-hit
+and Q DPS, enemy pressure, and ordered upgrade history. Pause → Save & suspend
+downloads a portable local run file and rolls the complete simulation back about
+30 seconds, including recent upgrades and world interactions. Title controls
+resume, import and discard saved runs. See the
+[S4/F5 handoff](docs/S4_F5_IMPLEMENTATION_REPORT.md) for schemas, recovery rules,
+verification and the earliest-checkpoint behavior after import.
+
 **N1 movement presentation (October 21, 2026): implemented.** Locomotion now
 follows actual world travel, keeps walk phase through stops/attacks, and uses
 stable directional selection. Grounded walk sheets use their own foot anchors;

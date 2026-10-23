@@ -3,6 +3,7 @@ import {getVariant} from '../../data/variants.ts';
 import type {Enemy,EnemyWindup,PartyMember,RunState,Vec2} from '../types.ts';
 import type {ProjectileSpawn} from './projectiles.ts';
 import {canReachAirbornePlayer} from '../systems/movement.ts';
+import {enemyDamageSource,type DamageSource} from '../analytics.ts';
 
 export interface EnemyMoveVisual {
  kind:'attack'|'tell';x:number;z:number;sourceId:number;label:string;color:string;shape:string;
@@ -11,8 +12,8 @@ export interface EnemyMoveVisual {
 export interface EnemyMoveHooks {
  animate:(enemy:Enemy,facing:number,duration:number)=>void;
  projectile:(projectile:ProjectileSpawn)=>void;
- hurtPlayer:(damage:number,poison:boolean,sourceId:number)=>void;
- hurtCompanion:(member:PartyMember,damage:number,poison:boolean,sourceId:number)=>void;
+ hurtPlayer:(damage:number,poison:boolean,sourceId:number,source?:DamageSource)=>void;
+ hurtCompanion:(member:PartyMember,damage:number,poison:boolean,sourceId:number,source?:DamageSource)=>void;
  visual:(event:EnemyMoveVisual)=>void;
  suicide:(enemy:Enemy)=>void;
 }
@@ -49,7 +50,7 @@ export function canStartEnemyMove(enemy:Enemy,target:Vec2,state:RunState,profile
 }
 /** A normalized movement intent. Ranged foes hold firing distance; healers seek
  * wounded allies and stay behind them. The simulation applies speed and status. */
-export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profile=chooseEnemyAttack(enemy,state)):{x:number;z:number;speedScale:number} {
+export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profile=chooseEnemyAttack(enemy,state)):{x:number;z:number;speedScale:number;destination?:Vec2} {
  // An out-of-range wounded ally still draws a support enemy toward it. Its
  // temporary Quick Attack fallback only decides what it can cast right now.
  if(profile.moveName==='Quick Attack'){
@@ -65,7 +66,7 @@ export function enemyMovementIntent(enemy:Enemy,target:Vec2,state:RunState,profi
   else if(d<=preferred)return {x:0,z:0,speedScale:0};
  }else if(distance(enemy,target)<Math.min(enemy.size+.75,enemyMoveActivationRange(enemy,profile)-.1))return {x:0,z:0,speedScale:0};
  const dx=destination.x-enemy.x,dz=destination.z-enemy.z,d=Math.hypot(dx,dz)||1;
- return {x:dx/d*sign,z:dz/d*sign,speedScale:scale};
+ return {x:dx/d*sign,z:dz/d*sign,speedScale:scale,...(sign>0?{destination}: {})};
 }
 export function prepareEnemyMove(enemy:Enemy,target:Vec2,profile=getEnemyAttackProfile(enemy.speciesId)):EnemyWindup {
  const centered=profile.role==='healer'||profile.role==='explosive-suicide',facing=Math.atan2(target.x-enemy.x,target.z-enemy.z);
@@ -79,11 +80,13 @@ export function enemyMoveTell(enemy:Enemy,windup:EnemyWindup,profile=resolveComm
 }
 function inCommittedStrike(enemy:Enemy,windup:EnemyWindup,target:Vec2,radius:number){
  const dx=target.x-enemy.x,dz=target.z-enemy.z,d=Math.hypot(dx,dz);
- // The cone still determines incidental hits on actors other than the chosen target.
+ // Check current position against the facing committed at windup so players can evade the strike.
  return d<=radius+enemy.size*.3&&(d<.65||(dx*Math.sin(windup.facing)+dz*Math.cos(windup.facing))/d>.24);
 }
 export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,hooks:EnemyMoveHooks,profile:EnemyAttackProfile=resolveCommittedEnemyProfile(enemy,windup,state.stats.elapsed)):void {
  profile=withEnemyAttackRole(profile,windup.role??profile.role);
+ const originalHooks=hooks,source=enemyDamageSource(enemy,profile.moveName,profile.element);
+ hooks={...hooks,hurtPlayer:(damage,poison,sourceId)=>originalHooks.hurtPlayer(damage,poison,sourceId,source),hurtCompanion:(member,damage,poison,sourceId)=>originalHooks.hurtCompanion(member,damage,poison,sourceId,source)};
  const role=profile.role,poison=profile.element==='poison'||enemy.variant==='poisoned',damage=enemy.damage*profile.damageScale;
  enemy.attackCooldown=profile.cooldown/getVariant(enemy.variant).aggression;hooks.animate(enemy,windup.facing,role==='melee-slow'?.48:.3);
  const visual=(shape:string,x=enemy.x,z=enemy.z,radius=profile.radius,duration=.32)=>hooks.visual({kind:'attack',x,z,sourceId:enemy.uid,label:profile.moveName,color:profile.color,shape,radius,duration,facing:windup.facing});
@@ -97,7 +100,7 @@ export function resolveEnemyMove(enemy:Enemy,windup:EnemyWindup,state:RunState,h
  }
  if(role==='melee-fast'||role==='melee-slow'){
   visual('slash');
-  if(canReachAirbornePlayer(enemy,state)&&(windup.targetUid===state.party[0].uid||inCommittedStrike(enemy,windup,state.player,profile.radius)))hooks.hurtPlayer(damage,poison,enemy.uid);
+  if(canReachAirbornePlayer(enemy,state)&&inCommittedStrike(enemy,windup,state.player,profile.radius))hooks.hurtPlayer(damage,poison,enemy.uid);
   if(state.result!==null)return;
   for(const member of [...state.party].slice(1))if(windup.targetUid===member.uid||inCommittedStrike(enemy,windup,member,profile.radius))hooks.hurtCompanion(member,damage*.55,poison,enemy.uid);
   return;

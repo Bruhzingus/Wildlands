@@ -1,0 +1,14 @@
+.run-file-tools { margin: 18px 0; padding: 16px; border: 1px solid #73806b; border-radius: 10px; background: #152016; }
+.run-file-tools h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.damage-analysis { text-align: left; margin-top: 24px; padding-top: 16px; border-top: 1px solid #73806b; }
+.damage-analysis h3,.damage-analysis h4 { margin: 18px 0 10px; }
+.damage-analysis p { line-height: 1.6; }
+.damage-analysis details { margin: 14px 0; padding: 12px; border: 1px solid #53604d; border-radius: 8px; }
+.damage-analysis summary { cursor: pointer; font-weight: 700; }
+.analysis-table-scroll { overflow-x: auto; max-width: 100%; }
+.damage-analysis table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+.damage-analysis th,.damage-analysis td { padding: 10px 8px; border-bottom: 1px solid #53604d; text-align: right; white-space: nowrap; }
+.damage-analysis th:first-child { text-align: left; white-space: normal; min-width: 160px; }
+.damage-analysis th small { display: block; margin-top: 4px; font-weight: 400; opacity: .8; }
+.recent-damage,.acquisition-history { line-height: 1.7; padding-left: 22px; max-height: 300px; overflow-y: auto; }
+.damage-analysis time { font-variant-numeric: tabular-nums; }

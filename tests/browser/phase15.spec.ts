@@ -11,17 +11,18 @@ const start=async(page:Page,map='volcanic-ridge')=>{
 test('Volcanic Ridge is selectable, renders its geography and reveals a timed discovery only after unpausing',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await start(page);
  await expect(page.locator('#map-region')).toHaveText('ASHEN CLEARING');await expect.poll(()=>game(page,'g=>g.scene.isReady()')).toBe(true);
- expect(await game(page,'g=>g.sim.state.pois.filter(p=>!p.availableAt).length')).toBe(18);
+ expect(await game(page,'g=>g.sim.state.pois.filter(p=>!p.availableAt).length')).toBe(22);
  expect(await game(page,'g=>g.world.profile.definition.id')).toBe('volcanic-ridge');
- expect(await game(page,'g=>g.scene.getMeshByName("rolling forest terrain").getBoundingInfo().boundingBox.extendSize.x*2')).toBe(287.5);
+ expect(await game(page,'g=>g.scene.getMeshByName("rolling forest terrain").getBoundingInfo().boundingBox.extendSize.x*2')).toBe(359.375);
  expect(await game(page,'g=>g.scene.geometries.length')).toBeLessThan(80);
  const reveal=await game(page,'g=>{const s=g.sim.state,p=s.pois.find(p=>p.availableAt===180);s.player.x=p.x;s.player.z=p.z;s.stats.elapsed=179.5;return p.uid;}');
  expect(await game(page,`g=>g.scene.getTransformNodeByName('landmark-${reveal}').isEnabled()`)).toBe(false);
  await page.keyboard.press('Escape');await expect(page.locator('#resume-btn')).toBeVisible();
  const frozen=await game(page,'g=>JSON.stringify(g.sim.state)');await page.waitForTimeout(200);expect(await game(page,'g=>JSON.stringify(g.sim.state)')).toBe(frozen);
- await page.locator('#resume-btn').click();await captured(page);await expect(page.locator('#interaction')).toContainText('Geothermal spring');
+ await page.locator('#resume-btn').click();await captured(page);await expect(page.locator('#interaction')).toContainText('Geothermal cache');
  expect(await game(page,`g=>g.scene.getTransformNodeByName('landmark-${reveal}').isEnabled()`)).toBe(true);
- await game(page,'g=>{g.sim.state.player.hp=20;}');await page.keyboard.press('e');await expect.poll(()=>game(page,'g=>g.sim.state.player.hp')).toBeGreaterThan(60);
+ await page.keyboard.press('e');await expect.poll(()=>game(page,`g=>g.sim.state.pois.find(p=>p.uid===${reveal}).used`)).toBe(true);
+ await expect(page.locator('.choice-card')).toHaveCount(3);await page.keyboard.press('1');await captured(page);
  await page.evaluate(async()=>{const {worldPoint}=await import('/src/data/maps.ts'),g=(window as any).__WILDLANDS__,p=worldPoint({x:60,z:-48},g.world.profile);Object.assign(g.sim.state.player,p);g.camera.radius=38;g.camera.beta=.9;});
  await expect(page.locator('#map-region')).toHaveText('BASALT RIDGE');await page.waitForTimeout(200);
  await mkdir('artifacts/browser',{recursive:true});await page.screenshot({path:'artifacts/browser/phase15-volcanic-ridge.png'});expect(errors).toEqual([]);
@@ -41,7 +42,8 @@ test('Moltres has named fire tells, a frozen solar wave and victory can continue
  await page.waitForTimeout(200);expect(await game(page,'g=>JSON.stringify(g.sim.state)')).toBe(frozen);
  await page.locator('#overlay').evaluate(el=>(el as HTMLElement).style.visibility='hidden');await page.screenshot({path:'artifacts/browser/phase15-moltres-solar-flare.png'});await page.locator('#overlay').evaluate(el=>(el as HTMLElement).style.visibility='');
  await page.locator('#resume-btn').click();await captured(page);
- await game(page,'g=>{const s=g.sim.state,e=s.enemies.find(e=>e.isBoss);s.items=["wide-lens"];s.player.hp=77;g.sim.damageEnemy(e,200000,"normal",1);}');
+ // Current bosses preserve their chapter thresholds even against huge hits.
+ expect(await game(page,'g=>{const s=g.sim.state,e=s.enemies.find(e=>e.isBoss);s.items=["wide-lens"];s.player.hp=77;for(let hit=0;hit<4&&!e.dead;hit++)g.sim.damageEnemy(e,e.maxHp*2,"normal",1);return e.dead;}')).toBe(true);
  await expect(page.locator('.end-screen')).toContainText('Moltres defeated');await game(page,'g=>g.engine.stopRenderLoop()');await page.locator('#endless-btn').click();await captured(page);
  expect(await game(page,'g=>g.sim.state.items')).toEqual(['wide-lens']);expect(await game(page,'g=>g.sim.state.endless')).toBe(true);expect(errors).toEqual([]);
 });

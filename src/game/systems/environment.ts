@@ -7,6 +7,7 @@ import {ECONOMY} from '../../data/economy.ts';
 import type {OptionalChallengeId} from '../../data/optionalChallenges.ts';
 import {createBerryTrees} from './berries.ts';
 import {sceneryDensity} from './sceneryDensity.ts';
+import {segmentDistanceSquared} from '../../utils/geometry.ts';
 
 export type {WorldProp} from '../../data/world.ts';
 export type Obstacle=({kind:'circle';radius:number}|{kind:'box';halfWidth:number;halfDepth:number;rotation:number})&Vec2&{blocksFlight?:boolean};
@@ -93,11 +94,17 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
  ];
  // Outer discoveries vary in kind as well as position. Three further sites emerge during play.
  for(const [index,[x,z]] of [[-95,-87],[-98,28],[3,-96],[96,-48],[94,90],[-5,99]].entries())sites.push([index<2?'shrine':rng.pick(['cache','shrine'] as const),x,z]);
+ const changingSiteStart=sites.length;
  for(const change of profile.definition.changes)sites.push([change.kind,rng.between(-88,88),rng.between(-88,88)]);
+ // Append permanent clearings so established sites, cache stock and timed
+ // discoveries retain their positions and identities for the same seed.
+ sites.push(['shrine',28,42,'meadow'],['shrine',-71,6,'woodland'],['shrine',61,-18,'ruins'],['shrine',-8,77,'lake']);
  for(const [kind,cx,cz,biome] of sites){
   const valid=(point:Vec2)=>{
    if((biome&&biomeAt(point.x,point.z,profile)!==biome)||Math.hypot(point.x,point.z)<27||Math.max(Math.abs(point.x),Math.abs(point.z))>101*WORLD.scale)return false;
-   if(Math.hypot(point.x-lake.x,point.z-lake.z)<lake.shoreRadius+3)return false;
+   // Routing uses map-local bank padding; keep candidate clearance outside it
+   // when the shared world scale grows, including shifted lake positions.
+   if(Math.hypot(point.x-lake.x,point.z-lake.z)<lake.shoreRadius+3*WORLD.scale)return false;
    if(pois.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<WORLD.poiSpacing)||landmarks.some(p=>Math.hypot(p.x-point.x,p.z-point.z)<10))return false;
    const route=explorationRoute(point,profile);
    return !solidLandmarks.some(p=>route.slice(1).some((end,index)=>segmentDistance(p,route[index],end)<propRadius(p)+WORLD.routeHalfWidth+DESIGN.playerRadius));
@@ -113,7 +120,7 @@ export function createPOIs(seed:number,mapId:MapId='wildlands'):POI[] {
    if(valid(point)){candidate=point;break;}
   }
   if(!candidate)throw new Error(`No reachable exploration site for ${kind} in ${biome}`);
-  const change=profile.definition.changes[pois.length-18];
+  const change=profile.definition.changes[pois.length-changingSiteStart];
   const paid=!change&&kind==='cache'&&pois.filter(poi=>poi.kind==='cache').length>=2;
   const chestIndex=pois.filter(poi=>poi.price!==undefined).length;
   const uid=20+pois.length,challengeIndex=pois.filter(poi=>poi.kind==='shrine').length,challengeKind=kind==='shrine'?'guardian' as OptionalChallengeId:undefined;
@@ -133,6 +140,9 @@ export function rareEventFor(seed:number,poi:POI):ExplorationEvent|null {
 }
 export function boundaryStrength(position:Vec2):number {
  return clamp((Math.max(Math.abs(position.x),Math.abs(position.z))-WORLD.softBoundaryStart)/(WORLD.hardBoundary-WORLD.softBoundaryStart),0,1);
+}
+export function boundarySpeedScale(coordinate:number,delta:number):number {
+ return coordinate*delta>0?1-.83*boundaryStrength({x:coordinate,z:0}):1;
 }
 
 /** Shared seeded geometry: rendering and collision must describe the same world. */
@@ -256,12 +266,31 @@ export class ObstacleField {
     }
   }
  }
+ /** Swept circle clearance, using the same round and rotated box colliders as movement. */
+ isPathClear(from:Vec2,to:Vec2,radius:number=DESIGN.playerRadius):boolean {
+  if(Math.max(Math.abs(from.x),Math.abs(from.z),Math.abs(to.x),Math.abs(to.z))>WORLD.hardBoundary)return false;
+  const checked=new Set<Obstacle>();
+  for(let x=Math.floor((Math.min(from.x,to.x)-radius)/this.cellSize);x<=Math.floor((Math.max(from.x,to.x)+radius)/this.cellSize);x++)
+   for(let z=Math.floor((Math.min(from.z,to.z)-radius)/this.cellSize);z<=Math.floor((Math.max(from.z,to.z)+radius)/this.cellSize);z++)
+    for(const obstacle of this.cells.get(`${x},${z}`)||[]){
+     if(checked.has(obstacle))continue;checked.add(obstacle);
+     if(obstacle.kind==='circle'){
+      if(segmentDistanceSquared(obstacle,from,to)<=(obstacle.radius+radius)**2)return false;
+     }else{
+      const cos=Math.cos(obstacle.rotation),sin=Math.sin(obstacle.rotation);
+      const local=(p:Vec2)=>({x:(p.x-obstacle.x)*cos-(p.z-obstacle.z)*sin,z:(p.x-obstacle.x)*sin+(p.z-obstacle.z)*cos});
+      const a=local(from),b=local(to),w=obstacle.halfWidth,d=obstacle.halfDepth;
+      if(segmentIntersectsBox(a,b,w+radius,d)||segmentIntersectsBox(a,b,w,d+radius))return false;
+      for(const x of [-w,w])for(const z of [-d,d])if(segmentDistanceSquared({x,z},a,b)<=radius*radius)return false;
+     }
+    }
+  return true;
+ }
  move(position:Vec2,dx:number,dz:number,radius=DESIGN.playerRadius,airborne=false):Vec2 {
   const result={x:position.x,z:position.z};
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.3));
   for(let step=0;step<steps;step++){
-   const soften=(coordinate:number,delta:number)=>coordinate*delta>0?delta*(1-.83*boundaryStrength({x:coordinate,z:0})):delta;
-   result.x+=soften(result.x,dx/steps);result.z+=soften(result.z,dz/steps);
+   result.x+=dx/steps*boundarySpeedScale(result.x,dx);result.z+=dz/steps*boundarySpeedScale(result.z,dz);
    const nearby=new Set<Obstacle>();
    for(let x=Math.floor((result.x-radius)/this.cellSize);x<=Math.floor((result.x+radius)/this.cellSize);x++)
     for(let z=Math.floor((result.z-radius)/this.cellSize);z<=Math.floor((result.z+radius)/this.cellSize);z++)
@@ -289,4 +318,15 @@ export class ObstacleField {
   else lz=(lz<0?-1:1)*(o.halfDepth+radius+.0001);
   p.x=o.x+lx*cos+lz*sin;p.z=o.z-lx*sin+lz*cos;
  }
+}
+
+function segmentIntersectsBox(from:Vec2,to:Vec2,halfWidth:number,halfDepth:number):boolean {
+ let enter=0,exit=1;
+ for(const [start,delta,extent] of [[from.x,to.x-from.x,halfWidth],[from.z,to.z-from.z,halfDepth]]){
+  if(Math.abs(delta)<1e-10){if(Math.abs(start)>extent)return false;continue;}
+  const a=(-extent-start)/delta,b=(extent-start)/delta;
+  enter=Math.max(enter,Math.min(a,b));exit=Math.min(exit,Math.max(a,b));
+  if(enter>exit)return false;
+ }
+ return true;
 }

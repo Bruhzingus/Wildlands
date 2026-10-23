@@ -1,6 +1,9 @@
 export class RNG {
   private state: number;
   constructor(seed = 123456789) { this.state = seed >>> 0 || 1; }
+  /** The unsigned generator state is independent of elapsed time and wall clock. */
+  exportState(): number { return this.state; }
+  restoreState(state:number): void { if(!Number.isInteger(state)||state<=0||state>0xffffffff)throw Error('Invalid random generator state.');this.state=state; }
   next(): number { let s = this.state; s ^= s << 13; s ^= s >>> 17; s ^= s << 5; this.state = s >>> 0; return this.state / 4294967296; }
   between(a: number, b: number): number { return a + (b - a) * this.next(); }
   int(a: number, b: number): number { return Math.floor(this.between(a, b + 1)); }

@@ -1,4 +1,5 @@
 import {ELEMENT_COLORS,type Element} from '../../data/kanto.ts';
+import {partyDamageSource,type DamageSource} from '../analytics.ts';
 import {specialAimMode,type SpecialProfile} from '../../data/specials.ts';
 import {segmentDistanceSquared} from '../../utils/geometry.ts';
 import type {Enemy,PartyMember,RunState,Vec2} from '../types.ts';
@@ -10,6 +11,7 @@ import {enemiesInRadius,nearestEnemy,enemyInAim} from './targeting.ts';
 export const SPECIAL_LIMITS={active:6,pulses:16,projectiles:12} as const;
 type SpecialVisual=Omit<CombatVisual,'kind'>&{kind:'special'|'attack';label?:string;facing?:number;angle?:number;endRadius?:number};
 export interface ActiveSpecial {
+ damageSource?:DamageSource;
  sourceId:number;profile:SpecialProfile;element:Element;damage:number;x:number;z:number;toX:number;toZ:number;
  dx:number;dz:number;age:number;pulse:number;hit:Set<number>;manualAim?:boolean;
 }
@@ -17,7 +19,7 @@ export interface SpecialContext {
  state:RunState;member:PartyMember;profile:SpecialProfile;element:Element;damage:number;
  radiusScale:number;durationScale:number;extraProjectiles:number;
  move:(dx:number,dz:number)=>Vec2;
- hit:(enemy:Enemy,damage:number,element:Element,sourceId:number,status:StatusProc)=>void;
+ hit:(enemy:Enemy,damage:number,element:Element,sourceId:number,status:StatusProc,source?:DamageSource)=>void;
  visual:(event:SpecialVisual)=>void;heal:(amount:number)=>void;
 }
 function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
@@ -37,14 +39,14 @@ function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
    behavior:orbit?'orbit':profile.kind==='payday'?'ricochet':homing?'homing':'straight',
    bounces:profile.kind==='payday'?2+Math.floor((member.attackLevel-1)/3):0,bounceRange:7,
    orbitCenterX:origin.x,orbitCenterZ:origin.z,orbitAngle:angle,orbitRadius:profile.radius,orbitSpeed:2.8,
-   status:profile.kind==='web'?{slow:1}:orbit?{burn:1}:{},allowProcs:true,moveName:profile.name});
+   status:profile.kind==='web'?{slow:1}:orbit?{burn:1}:{},allowProcs:true,moveName:profile.name,damageSource:partyDamageSource(state,member.uid,profile.name,'q',element)});
  }
 }
 function lineHit(context:SpecialContext,from:Vec2,to:Vec2,radius:number,scale:number,status:StatusProc={},forward?:Vec2):void {
  for(const enemy of context.state.enemies){
   if(context.state.result!==null)return;
   if(forward&&(enemy.x-from.x)*forward.x+(enemy.z-from.z)*forward.z<0)continue;
-  if(!enemy.dead&&segmentDistanceSquared(enemy,from,to)<=(radius+enemy.size*.4)**2)context.hit(enemy,context.damage*scale,context.element,context.member.uid,status);
+  if(!enemy.dead&&segmentDistanceSquared(enemy,from,to)<=(radius+enemy.size*.4)**2)context.hit(enemy,context.damage*scale,context.element,context.member.uid,status,partyDamageSource(context.state,context.member.uid,context.profile.name,'q',context.element));
  }
 }
 
@@ -75,7 +77,7 @@ export function castSpecial(context:SpecialContext):void {
   if(state.result!==null)return;
   if(profile.kind==='quickstep'){if(profile.projectiles>0)projectileVolley(context,destination,aim);return;}
   const active=state.activeSpecials??=[];
-  if(active.length<SPECIAL_LIMITS.active)active.push({sourceId:member.uid,profile,element,damage:context.damage,x:origin.x,z:origin.z,toX:destination.x,toZ:destination.z,dx,dz,age:0,pulse:0,hit:new Set()});
+  if(active.length<SPECIAL_LIMITS.active)active.push({sourceId:member.uid,profile,element,damage:context.damage,x:origin.x,z:origin.z,toX:destination.x,toZ:destination.z,dx,dz,age:0,pulse:0,hit:new Set(),damageSource:partyDamageSource(state,member.uid,profile.name,'q',element)});
   return;
  }
  if(profile.kind==='teleport'){
@@ -105,7 +107,7 @@ export function castSpecial(context:SpecialContext):void {
  if(active.length>=SPECIAL_LIMITS.active)active.shift();
  const targeted=['garden','sleep','curse'].includes(profile.kind);
  const position=targeted?center:origin;
- const effect:ActiveSpecial={sourceId:member.uid,profile,element,damage:context.damage,x:position.x,z:position.z,toX:aim.x,toZ:aim.z,dx,dz,age:0,pulse:0,hit:new Set(),manualAim:manualFacing!==undefined};
+ const effect:ActiveSpecial={sourceId:member.uid,profile,element,damage:context.damage,x:position.x,z:position.z,toX:aim.x,toZ:aim.z,dx,dz,age:0,pulse:0,hit:new Set(),manualAim:manualFacing!==undefined,damageSource:partyDamageSource(state,member.uid,profile.name,'q',element)};
  active.push(effect);
  if(targeted)visual(profile.kind,position,{duration:profile.duration});
  else if(profile.kind==='surf'||profile.kind==='whirlwind')visual('wave',origin,{toX:aim.x,toZ:aim.z,duration:profile.duration,endRadius:profile.radius*(profile.kind==='whirlwind'?2:1)});
@@ -124,7 +126,7 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
   const previous=effect.age;effect.age+=dt;
   const hit=(enemy:Enemy,scale:number,status:StatusProc={},push=0)=>{
    if(state.result!==null)return;
-   hooks.hit(enemy,effect.damage*scale,element,sourceId,status);
+   hooks.hit(enemy,effect.damage*scale,element,sourceId,status,effect.damageSource??partyDamageSource(state,sourceId,profile.name,'q',element));
    if(state.result===null&&push&&!enemy.dead&&!enemy.isBoss){enemy.x+=effect.dx*push;enemy.z+=effect.dz*push;}
   };
   const visual=(shape:string,at:Vec2,radius:number,duration=.22,extra:Partial<SpecialVisual>={})=>hooks.visual({kind:'attack',x:at.x,z:at.z,color:ELEMENT_COLORS[element],sourceId,shape,radius,duration,...extra});

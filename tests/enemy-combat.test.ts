@@ -36,16 +36,38 @@ test('all 151 species have one explicit, named attack in one of seven battlefiel
  assert.equal(getEnemyAttackProfile(113).moveName,'Soft-Boiled');
 });
 
-test('fast and heavy melee hit their committed target after it backs out of range',()=>{
- for(const species of [19,20]){
+test('fast, heavy and healer fallback melee miss when the player leaves their reach during windup',()=>{
+ for(const species of [19,20,113]){
   const {sim,s,enemy,events}=arena(species,1.5);
   sim.update(.01,idle);assert.equal(s.player.hp,s.player.maxHp);
-  assert.equal(enemy.windup?.kind,'enemyMove');assert.equal(events[0].label,getEnemyAttackProfile(species).moveName);
+  assert.equal(enemy.windup?.kind,'enemyMove');assert.equal(events[0].label,species===113?'Quick Attack':getEnemyAttackProfile(species).moveName);
   const windup=structuredClone(enemy.windup);s.phase='paused';sim.update(.04,idle);assert.deepEqual(enemy.windup,windup);
-  s.phase='playing';s.player.x=5;
+  s.phase='playing';s.player.x=enemy.x-windup!.radius!-enemy.size*.3-2;
   for(let i=0;i<=Math.ceil(windup!.duration/.02);i++)sim.update(.02,idle);
-  assert.ok(s.player.hp<s.player.maxHp,'The committed target takes damage after leaving the strike radius');
+  assert.equal(s.player.hp,s.player.maxHp,'Leaving the strike radius evades the committed attack');
   assert.equal(enemy.windup,undefined);
+  assert.ok(enemy.attackCooldown>0,'A missed attack still consumes its cooldown');
+  assert.ok(events.some(event=>event.kind==='attack'&&event.shape==='slash'),'A missed strike still plays its attack effect');
+ }
+});
+
+test('enemy melee miss when the player moves behind the committed strike during windup',()=>{
+ for(const species of [19,20,113]){
+  const {sim,s,enemy}=arena(species,1.5);
+  sim.update(.01,idle);assert.ok(enemy.windup);
+  const duration=enemy.windup.duration;
+  s.player.x=enemy.x+1.5;
+  for(let i=0;i<=Math.ceil(duration/.02);i++)sim.update(.02,idle);
+  assert.equal(s.player.hp,s.player.maxHp,'Moving behind the attacker evades the strike while still in range');
+  assert.equal(enemy.windup,undefined);
+ }
+});
+
+test('enemy melee still hit a player who stays inside the committed strike',()=>{
+ for(const species of [19,20,113]){
+  const {sim,s,enemy}=arena(species,1.5);
+  release(sim,enemy);
+  assert.ok(s.player.hp<s.player.maxHp);
  }
 });
 

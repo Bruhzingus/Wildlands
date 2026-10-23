@@ -5,6 +5,11 @@ import type {RunState,Variant} from './types.ts';
 import {grantReward,persist,safeCount,type SaveData} from './save.ts';
 
 export interface ProgressionChange {earned:AchievementDefinition[];saved:boolean;}
+/** Run-local accounting travels with a suspended simulation; collection rewards remain monotonic. */
+export interface ProgressionSnapshot {
+ version:1;runId:string;speciesByUid:[number,number][];evolvedLeader:boolean;evolvedFollower:boolean;
+ rocketKills:number;seenKills:number[];endlessStartedAt:number|null;awarded:string[];
+}
 let runSequence=0;
 /** Session-owned, event-fed accounting. No browser listeners, clock timers or combat buffs. */
 export class ProgressionTracker {
@@ -18,6 +23,24 @@ export class ProgressionTracker {
  constructor(save:SaveData,initial:RunState,runId=`${Date.now().toString(36)}-${++runSequence}-${initial.seed}`){
   this.save=save;this.runId=runId;this.leaderUid=initial.party[0]?.uid??1;
   for(const member of initial.party)this.speciesByUid.set(member.uid,member.speciesId);
+ }
+ exportSnapshot():ProgressionSnapshot {
+  return {version:1,runId:this.runId,speciesByUid:[...this.speciesByUid],evolvedLeader:this.evolvedLeader,evolvedFollower:this.evolvedFollower,
+   rocketKills:this.rocketKills,seenKills:[...this.seenKills],endlessStartedAt:this.endlessStartedAt,awarded:this.awarded.map(entry=>entry.id)};
+ }
+ static restore(save:SaveData,state:RunState,value:unknown):ProgressionTracker {
+  const snapshot=value as ProgressionSnapshot|null;
+  if(!snapshot||snapshot.version!==1||typeof snapshot.runId!=='string'||!snapshot.runId.length||snapshot.runId.length>100||
+   !Array.isArray(snapshot.speciesByUid)||snapshot.speciesByUid.length>10000||!snapshot.speciesByUid.every(entry=>Array.isArray(entry)&&entry.length===2&&Number.isSafeInteger(entry[0])&&entry[0]>0&&Number.isInteger(entry[1])&&entry[1]>=1&&entry[1]<=151)||
+   typeof snapshot.evolvedLeader!=='boolean'||typeof snapshot.evolvedFollower!=='boolean'||!Number.isSafeInteger(snapshot.rocketKills)||snapshot.rocketKills<0||
+   !Array.isArray(snapshot.seenKills)||snapshot.seenKills.length>2048||!snapshot.seenKills.every(uid=>Number.isSafeInteger(uid)&&uid>0)||
+   !(snapshot.endlessStartedAt===null||typeof snapshot.endlessStartedAt==='number'&&Number.isFinite(snapshot.endlessStartedAt)&&snapshot.endlessStartedAt>=0)||
+   !Array.isArray(snapshot.awarded)||snapshot.awarded.length>ACHIEVEMENTS.length||!snapshot.awarded.every(id=>ACHIEVEMENTS.some(entry=>entry.id===id)))throw new Error('The saved run has invalid achievement accounting.');
+  const tracker=new ProgressionTracker(save,state,snapshot.runId);
+  tracker.speciesByUid=new Map(snapshot.speciesByUid);tracker.evolvedLeader=snapshot.evolvedLeader;tracker.evolvedFollower=snapshot.evolvedFollower;
+  tracker.rocketKills=snapshot.rocketKills;tracker.seenKills=new Set(snapshot.seenKills);tracker.endlessStartedAt=snapshot.endlessStartedAt;
+  tracker.awarded=snapshot.awarded.map(id=>ACHIEVEMENTS.find(entry=>entry.id===id)!);
+  return tracker;
  }
  /** Call for a semantic, once-only enemy death, not for damage or despawn events. */
  onKill(variant:Variant,uid?:number):void {

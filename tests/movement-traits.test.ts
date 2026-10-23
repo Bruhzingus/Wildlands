@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation,type MoveInput} from '../src/game/Simulation.ts';
 import {DESIGN} from '../src/data/config.ts';
+import {WORLD} from '../src/data/world.ts';
 import {getMovementTrait,MOVEMENT_TRAITS} from '../src/data/movementTraits.ts';
 import {airborneTraversal,canReachAirbornePlayer} from '../src/game/systems/movement.ts';
 import {ObstacleField,type Obstacle} from '../src/game/systems/environment.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
+import {chooseEnemyAttack,prepareEnemyMove} from '../src/game/combat/enemies.ts';
 import {addProjectile} from '../src/game/combat/projectiles.ts';
 import {migrateSave,exportSave,importSave} from '../src/game/save.ts';
 import {upgradeStatPreview} from '../src/ui/upgradePreview.ts';
@@ -49,7 +51,7 @@ test('flight crosses scenery, lands outside colliders, respects water/bounds, an
  sim.update(.02,{...idle,jump:true,jumpHeld:true});step(sim,.4,{jumpHeld:true});step(sim,1,{mx:1,jumpHeld:true});assert.ok(p.x>6);
  step(sim,1,{jumpHeld:false});assert.equal(p.y,0);assert.ok(new ObstacleField(obstacles).move(p,0,0).x===p.x);
  const field=new ObstacleField([{kind:'circle',x:4,z:0,radius:1,blocksFlight:true}]);assert.ok(field.move({x:0,z:0},8,0,DESIGN.playerRadius,true).x<3);
- assert.ok(field.move({x:140,z:0},20,0,DESIGN.playerRadius,true).x<=113*1.25);
+ assert.ok(field.move({x:WORLD.hardBoundary-1,z:0},20,0,DESIGN.playerRadius,true).x<=WORLD.hardBoundary);
  sim.update(.02,{...idle,jump:true,jumpHeld:true});step(sim,.3,{jumpHeld:true});
  // Allow the exhausted recharge to recover, then start a fresh flight.
  step(sim,5);sim.update(.02,{...idle,jump:true,jumpHeld:true});step(sim,.4,{jumpHeld:true});assert.ok(airborneTraversal(p,16));
@@ -68,6 +70,41 @@ test('Magikarp leaps higher without auto-jumping, and unassigned species and Abr
  assert.equal(normal.state.player.movement,undefined);
  const abra=arena(63);abra.update(.02,{...idle,mx:1,dodge:true});assert.ok(abra.state.player.x>5);assert.equal(abra.state.player.dodgeTime,0);
  const p=fish.state.player;fish.state.party[0].speciesId=130;step(fish,.02);assert.equal(p.movement,undefined,'Evolution cannot retain another species movement state');
+});
+test('Pidgey flight and Magikarp leap clear committed ground melee while high enough',()=>{
+ for(const speciesId of [16,129])for(const enemyId of [19,20,113]){
+  const sim=arena(speciesId),s=sim.state,p=s.player;
+  const enemy=createEnemy(s,sim.rng,enemyId,'normal',1.5,0);
+  enemy.speed=0;enemy.attackCooldown=100;s.enemies=[enemy];
+  sim.update(.02,{...idle,jump:true,jumpHeld:true});
+  step(sim,.32,{jumpHeld:true});
+  assert.ok(airborneTraversal(p,speciesId),`${speciesId} must reach melee clearance`);
+  const profile=chooseEnemyAttack(enemy,s);
+  assert.ok(profile.role==='melee-fast'||profile.role==='melee-slow');
+  enemy.windup=prepareEnemyMove(enemy,p,profile);enemy.windup.remaining=.01;
+  const hp=p.hp;p.iframes=0;
+  sim.update(.02,{...idle,jumpHeld:true});
+  assert.equal(p.hp,hp,`${speciesId} must evade ${enemyId}'s melee strike`);
+  assert.equal(enemy.windup,undefined);
+  assert.ok(enemy.attackCooldown>0,'Evaded melee still consumes the enemy attack');
+  for(let i=0;i<150&&p.y>0;i++)sim.update(.02,idle);
+  assert.equal(p.y,0);
+  enemy.windup=prepareEnemyMove(enemy,p,profile);enemy.windup.remaining=.01;
+  p.iframes=0;
+  sim.update(.02,idle);
+  assert.ok(p.hp<hp,'The same melee attack hits after landing');
+ }
+});
+test('Magikarp can leap again on landing without a cooldown',()=>{
+ const sim=arena(129),p=sim.state.player;
+ sim.update(.02,{...idle,jump:true});
+ for(let i=0;i<100&&p.y>0;i++)sim.update(.02,idle);
+ assert.equal(p.y,0);
+ assert.equal(p.movement?.flightCooldown,0);
+ p.dodgeCooldown=10;
+ sim.update(.02,{...idle,jump:true});
+ assert.ok(p.y>0,'A fresh Space press launches the next leap immediately');
+ assert.equal(p.movement?.flightCooldown,0);
 });
 test('movement traits are deterministic and reset with a fresh run',()=>{
  const a=arena(16),b=arena(16);

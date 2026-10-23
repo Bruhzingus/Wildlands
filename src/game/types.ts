@@ -10,6 +10,13 @@ export interface LearnedMove{moveId:string;rank:number;cooldown:number;}
 export interface PartyMember{uid:number;speciesId:number; joinedAt:number; level:number; xp?:number;xpToNext?:number; hp:number;maxHp:number;iframes:number;attackLevel:number; cooldown:number; x:number;z:number;facing:number;animation:'idle'|'walk'|'attack';attackTimer:number;attackDuration?:number;attackKind?:AttackKind;attackSpecial?:SpecialKind;evolvedAt?:number;poisonTime?:number;learnedMoves?:LearnedMove[];evolutionPower?:number;trainingBuffs?:Record<string,number>;trainingRanks?:Record<string,number>;}
 export interface EnemyWindup{kind:'volley'|'slam'|'psychicRing'|'summon'|'enemyMove';remaining:number;duration:number;x:number;z:number;facing:number;radius?:number;role?:import('../data/enemyAttacks.ts').EnemyAttackRole;moveName?:string;moveIndex?:number;targetUid?:number;}
 export interface CombatStatus{burn?:number;poison?:number;slow?:number;soak?:number;stun?:number;}
+/** Snapshot-owned immutable attribution for delayed damage. */
+export interface PartyMember{poisonSource?:import('./analytics.ts').DamageSource;}
+export interface Player{poisonSource?:import('./analytics.ts').DamageSource;}
+export interface Enemy{statusSources?:Partial<Record<'burn'|'poison',import('./analytics.ts').DamageSource>>;lastDamageSource?:import('./analytics.ts').DamageSource;}
+export interface Projectile{damageSource?:import('./analytics.ts').DamageSource;criticalMultiplier?:number;damageContributions?:{source:import('./analytics.ts').DamageSource;hitCount:number;criticalMultiplier:number}[];}
+export interface PsychicRing{damageSource?:import('./analytics.ts').DamageSource;}
+export interface TerrainFeature{damageSource?:import('./analytics.ts').DamageSource;}
 export interface Enemy{
  uid:number;speciesId:number;variant:Variant;x:number;z:number;hp:number;maxHp:number;speed:number;damage:number;size:number;
  facing:number;animation:'idle'|'walk'|'attack';attackTimer:number;attackDuration?:number;hitCooldown:number;attackCooldown:number;
@@ -38,6 +45,7 @@ export interface RunStats{kills:number;recruits:number;evolutions:number;level:n
 /** Seeded, simulation-owned map interactions. Renderers only mirror this state. */
 export interface TerrainFeature{uid:number;kind:'bramble'|'ruin-beacon';x:number;z:number;radius:number;state:'ready'|'arming'|'spent';armedUntil?:number;}
 export interface RunState{
+ analytics?:import('./analytics.ts').RunAnalytics;
  phase:RunPhase;result:Result;seed:number;player:Player;party:PartyMember[];enemies:Enemy[];projectiles:Projectile[];drops:Drop[];pois:POI[];
  stats:RunStats; items:string[];itemStacks?:Record<string,number>; buffs:Record<string,number>; recruitCount:number;pendingRecruit:boolean;upgradeChoices:UpgradeChoice[];choiceTitle:string;
  /** Current milestone owner and queued milestone rewards. RunStats.level tracks total squad progress. */

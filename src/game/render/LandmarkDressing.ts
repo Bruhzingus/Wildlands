@@ -21,7 +21,7 @@ export class LandmarkDressing {
    for(const [index,part] of site.parts.entries()){
     const source=part.kind==='plant'?plant:part.kind==='paver'?paver:rock;if(!source)continue;
     const mesh=source.createInstance(`dressing-${site.uid}-${part.kind}-${index}`);mesh.parent=root;
-    const offset=part.kind==='paver'?part.sy*.4:part.kind==='plant'?0:part.sy*.95;
+    const offset=part.kind==='paver'?part.sy*.4:part.kind==='plant'?0:-part.sy*.03;
     mesh.position.set(part.x-site.x,ground(part.x,part.z)-root.position.y+offset,part.z-site.z);mesh.scaling.set(part.sx,part.sy,part.sz);mesh.rotation.y=part.rotation;
     if(part.kind==='paver'||part.kind==='plant')mesh.rotationQuaternion=terrainOrientation(part.x,part.z,part.rotation,ground);
     mesh.isPickable=false;mesh.checkCollisions=false;mesh.receiveShadows=false;mesh.metadata={landmarkDressing:true,uid:site.uid};

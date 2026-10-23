@@ -14,8 +14,8 @@ export interface BuildRuntimeState {
  /** Metronome follows the shared hit stream, so swapping targets resets its ramp. */
  metronomeTargetId?:number;metronomeHits?:number;
 }
-export interface BuildEvent {kind:BuildEventKind;sourceId?:number;targetId?:number;damage?:number;element?:Element;depth?:number;count?:number;critTier?:number;}
-interface ActionSource {sourceId:number;targetId?:number;element:Element;depth:number;}
+export interface BuildEvent {kind:BuildEventKind;sourceId?:number;targetId?:number;damage?:number;element?:Element;depth?:number;count?:number;critTier?:number;damageSource?:import('../analytics.ts').DamageSource;}
+interface ActionSource {sourceId:number;targetId?:number;element:Element;depth:number;effectId?:string;damageSource?:import('../analytics.ts').DamageSource;}
 export type BuildAction=ActionSource & (
  |{kind:'echo';damageScale:number}
  |{kind:'chain';damage:number;jumps:number;range:number;damageIsFinal?:boolean}
@@ -115,7 +115,8 @@ const STATUS_FIELDS:Record<BuildStatus,keyof Pick<Enemy,'stunTime'|'slowTime'|'p
 function resolveAction(action:EffectAction,event:BuildEvent,state:RunState,sourceId:number,depth:number,scale=1):BuildAction|undefined{
  const source=state.party.find(member=>member.uid===sourceId);
  const element=('element' in action?action.element:undefined)||event.element||(source?getSpecies(source.speciesId).types[0]:'normal');
- const origin:ActionSource={sourceId,targetId:event.targetId,element,depth:depth+1};
+ const attributed=['echo','chain','area','selfDamage','status'].includes(action.kind);
+ const origin:ActionSource={sourceId,targetId:event.targetId,element,depth:depth+1,...(attributed&&event.damageSource?{damageSource:{...event.damageSource}}:{})};
  if(action.kind==='echo')return {...origin,kind:action.kind,damageScale:Math.max(0,finite(action.damageScale))*scale};
  if(action.kind==='chain'||action.kind==='area'){
   // Hit procs reuse the resolved hit; death/special procs scale with the source's move instead.
@@ -170,6 +171,7 @@ export function dispatchBuildEvent(context:BuildContext,event:BuildEvent):BuildA
   const perHit=event.damage===undefined?event:{...event,damage:event.damage/occurrences};
   const resolved=resolveAction(rule.action,perHit,state,sourceId,depth,(rule.action.kind==='status'?1:stacks)*triggers);if(!resolved)continue;
   if(rule.cooldown)build.cooldownUntil[counterKey]=now+rule.cooldown;
+  if(['echo','chain','area','selfDamage','status'].includes(resolved.kind))resolved.effectId=key;
   result.push(resolved);build.actionsInWindow++;
  }
  return result;

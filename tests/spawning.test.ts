@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DESIGN} from '../src/data/config.ts';
+import {WORLD} from '../src/data/world.ts';
 import {Simulation} from '../src/game/Simulation.ts';
 import {enemySpawnPosition,spawnRandomEnemy} from '../src/game/systems/spawning.ts';
 import {RNG} from '../src/utils/random.ts';
@@ -14,7 +15,7 @@ function assertSpawn(position:Vec2,player:Vec2,minDistance:number,maxDistance:nu
 
 test('random enemies spawn 24–34 units away at the center, edges and corners',()=>{
  const sim=new Simulation(1,10),s=sim.state;
- for(const x of [-113*1.25,0,113*1.25])for(const z of [-113*1.25,0,113*1.25])for(let seed=1;seed<=64;seed++){
+ for(const x of [-WORLD.hardBoundary,0,WORLD.hardBoundary])for(const z of [-WORLD.hardBoundary,0,WORLD.hardBoundary])for(let seed=1;seed<=64;seed++){
   Object.assign(s.player,{x,z,facing:seed*Math.PI/8});
   const enemy=spawnRandomEnemy(s,new RNG(seed));assert.ok(enemy);
   assertSpawn(enemy,s.player,24,34);
@@ -22,7 +23,7 @@ test('random enemies spawn 24–34 units away at the center, edges and corners',
 });
 
 test('spawn positions are deterministic and boss rings stay clear near boundaries',()=>{
- for(const x of [-113*1.25,0,113*1.25])for(const z of [-113*1.25,0,113*1.25])for(let seed=1;seed<=32;seed++){
+ for(const x of [-WORLD.hardBoundary,0,WORLD.hardBoundary])for(const z of [-WORLD.hardBoundary,0,WORLD.hardBoundary])for(let seed=1;seed<=32;seed++){
   const player={x,z,facing:seed*Math.PI/8};
   const position=enemySpawnPosition(player,new RNG(seed),30,38);
   assertSpawn(position,player,30,38);
@@ -32,7 +33,7 @@ test('spawn positions are deterministic and boss rings stay clear near boundarie
 
 test('repeated outward samples fall back inward after a bounded number of draws',()=>{
  class OutwardRNG extends RNG{calls=0;override next(){this.calls++;return 0;}}
- const player={x:113*1.25,z:113*1.25,facing:Math.PI/4+1.25},rng=new OutwardRNG();
+ const player={x:WORLD.hardBoundary,z:WORLD.hardBoundary,facing:Math.PI/4+1.25},rng=new OutwardRNG();
  assertSpawn(enemySpawnPosition(player,rng),player,24,34);
  assert.equal(rng.calls,18,'Eight attempts and one fallback should cap the sampling work');
 });
@@ -62,7 +63,7 @@ test('actual arrivals stay sparse in the first minute and build gradually throug
 
 test('scheduled bosses keep their spawn distance when the player reaches a corner',()=>{
  const sim=new Simulation(1,42),s=sim.state;
- Object.assign(s.player,{x:113*1.25,z:113*1.25});s.stats.elapsed=DESIGN.bossAtSeconds-.01;s.enemies=[];
+ Object.assign(s.player,{x:WORLD.hardBoundary,z:WORLD.hardBoundary});s.stats.elapsed=DESIGN.bossAtSeconds-.01;s.enemies=[];
  sim.update(.02,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});
  const boss=s.enemies.find(enemy=>enemy.isBoss);assert.ok(boss);
  assertSpawn(boss,s.player,30,38);
