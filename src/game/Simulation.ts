@@ -244,6 +244,8 @@ export class Simulation {
   if(s.result!==null)return;
   this.updatePsychicRings(dt,previousPositions);
   if(s.result!==null)return;
+  this.updateCompanionSpecials(dt);
+  if(s.result!==null)return;
   stepSpecials(s,dt,{
    hit:(enemy,damage,element,sourceId,status,source)=>this.damageEnemy(enemy,damage,element,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
@@ -738,8 +740,14 @@ export class Simulation {
     this.emit({kind:'status',x:target.x,z:target.z,sourceId:action.sourceId,targetId:target.uid,color:'#c5d8a5',shape:action.status});return;
    }
    case 'xp':this.gainXP(action.amount);return;
-   case 'specialCharge':s.player.specialCooldown=Math.max(0,s.player.specialCooldown-action.amount);return;
-   case 'specialCooldownPercent':s.player.specialCooldown*=Math.max(0,1-action.amount);return;
+   case 'specialCharge':
+    if(member===s.party[0])s.player.specialCooldown=Math.max(0,s.player.specialCooldown-action.amount);
+    else if(member)member.specialCooldown=Math.max(0,(member.specialCooldown??0)-action.amount);
+    return;
+   case 'specialCooldownPercent':
+    if(member===s.party[0])s.player.specialCooldown*=Math.max(0,1-action.amount);
+    else if(member)member.specialCooldown=(member.specialCooldown??0)*Math.max(0,1-action.amount);
+    return;
   }
  }
  private observeIncoming(attempted:number,applied:number,beforeHp:number,afterHp:number,member:PartyMember,leader:boolean,source:DamageSource){
@@ -782,7 +790,21 @@ export class Simulation {
  private finishDefeat(){const s=this.state;if(s.result==='defeat')return true;if(s.player.hp>0||s.result!==null)return false;
   s.player.hp=0;s.result='defeat';s.phase='result';this.emit({kind:'death',speciesId:s.party[0].speciesId});return true;
  }
- private specialAttack(){const s=this.state,member=s.party[0],mod=getBuildModifiers(s,member);
+ private updateCompanionSpecials(dt:number){const s=this.state;
+  for(const member of s.party.slice(1)){
+   if(member.hp<=0)continue;
+   member.specialCooldown=Math.max(0,(member.specialCooldown??0)-dt);
+   if(member.specialCooldown>0)continue;
+   const profile=getSpecialProfile(member.speciesId,member.attackLevel),mod=getBuildModifiers(s,member);
+   if(profile.kind==='mend'){
+    if(s.challenge==='famine'||(s.player.hp>=s.player.maxHp&&s.party.every(partner=>partner.hp>=partner.maxHp)))continue;
+   }else if(!nearestEnemy(s.enemies,member,profile.range*(1+mod.radius)))continue;
+   member.specialCooldown=profile.cooldown/(1+mod.specialHaste)*Math.max(.2,1-.2*this.berryStacks('leppa'));
+   this.specialAttack(member);
+   if(s.result!==null)return;
+  }
+ }
+ private specialAttack(member=this.state.party[0]){const s=this.state,mod=getBuildModifiers(s,member);
   const profile=getSpecialProfile(member.speciesId,member.attackLevel),element=profile.element??getSpecies(member.speciesId).types[0];
   member.attackSpecial=profile.kind;delete member.attackKind;
   this.animateAttack(member,member.facing,ATTACK_ANIMATION.specialSeconds);
@@ -790,7 +812,7 @@ export class Simulation {
   if(s.result!==null)return;
   castSpecial({state:s,member,profile,element,
    damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
-   move:(dx,dz)=>this.obstacles.move(s.player,dx,dz),
+   move:(dx,dz)=>this.obstacles.move(member===s.party[0]?s.player:member,dx,dz),
    hit:(enemy,damage,type,sourceId,status,source)=>this.damageEnemy(enemy,damage,type,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),
   });

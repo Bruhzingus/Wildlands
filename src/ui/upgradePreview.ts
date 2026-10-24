@@ -11,7 +11,7 @@ import {attackInterval} from '../game/combat/cadence.ts';
 import {movementTraitLabel} from '../data/movementTraits.ts';
 
 export const formatPercent=(value:number)=>`${Number((value*100).toFixed(2))}%`;
-const labels:Partial<Record<BuildStat,string>>={staminaRechargeReduction:'Stamina recharge time reduction',defense:'Defense bonus',deflection:'Deflection chance',staminaCapacity:'Extra dodge charges',critDamagePercent:'Critical damage bonus',power:'Damage bonus',haste:'Attack speed bonus',speed:'Movement bonus',
+const labels:Partial<Record<BuildStat,string>>={staminaRechargeReduction:'Stamina recharge time reduction',defense:'Defense bonus',deflection:'Deflection chance',staminaCapacity:'Extra dodge charges',critDamagePercent:'Critical damage bonus',power:'Damage bonus',specialPower:'Special damage bonus',haste:'Attack speed bonus',speed:'Movement bonus',
  damageReduction:'Damage reduction',xp:'XP bonus',xpCatchup:'Catch-up XP bonus',critChance:'Critical chance',
  critDamage:'Critical damage',radius:'Reach / radius bonus',specialHaste:'Special recharge bonus',stamina:'Dodge recovery bonus',
  projectileSpeed:'Projectile speed bonus',duration:'Status duration bonus',regenerationPercent:'Max HP / sec',partyRegenerationPercent:'Teammate max HP / sec',
@@ -48,7 +48,7 @@ export function upgradeStatPreview(state:RunState,choice:UpgradeChoice):StatPrev
   for(const move of leader.learnedMoves??[]){const profile=getLearnedMoveProfile(move.moveId,move.rank);rows.push({label:`${getMoveDefinition(move.moveId)!.name} rate`,before:rate(attackInterval(profile.cooldown,before.haste)),after:rate(attackInterval(profile.cooldown,after.haste))});}
  }
  if(after.stamina!==before.stamina||after.staminaRechargeReduction!==before.staminaRechargeReduction)rows.push({label:'Dodge cooldown',before:seconds(Math.max(.01,DESIGN.dodgeCooldown*(1-before.staminaRechargeReduction)/(1+before.stamina))),after:seconds(Math.max(.01,DESIGN.dodgeCooldown*(1-after.staminaRechargeReduction)/(1+after.stamina)))});
- if(after.specialHaste!==before.specialHaste&&leader){const special=getSpecialProfile(leader.speciesId,leader.attackLevel);rows.push({label:'Q cooldown',before:seconds(special.cooldown/(1+before.specialHaste)),after:seconds(special.cooldown/(1+after.specialHaste))});}
+ if(after.specialHaste!==before.specialHaste&&leader){const special=getSpecialProfile(leader.speciesId,leader.attackLevel);rows.push({label:leader===state.party[0]?'Q cooldown':'Special cooldown',before:seconds(special.cooldown/(1+before.specialHaste)),after:seconds(special.cooldown/(1+after.specialHaste))});}
  if(choice.stat==='health')rows.push({label:personal?'Pokémon max HP':'Leader max HP',before:String(Number((personal??state.player).maxHp.toFixed(1))),after:String(Number((projectedPersonal??projected.player).maxHp.toFixed(1)))});
  return rows;
 }

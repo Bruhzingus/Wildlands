@@ -74,9 +74,9 @@ export function trainingRank(state:RunState,upgrade:TrainingUpgrade,owner?:Party
 function trainingChoices(state:RunState):UpgradeChoice[] {
  const owner=trainingOwner(state),members=owner?[owner]:state.party;
  if(state.choiceSource==='level'&&(!owner||owner.hp<=0))return [];
- const damaging=members.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||(member===state.party[0]&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0)||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
- const specialDamaging=state.party[0]?.hp>0&&getSpecialProfile(state.party[0].speciesId,state.party[0].attackLevel).damageScale>0;
- return TRAINING_UPGRADES.filter(upgrade=>(!owner||owner===state.party[0]||!['speed','staminaCapacity','specialHaste','specialPower'].includes(upgrade.stat))&&(upgrade.stat!=='deflection'||members.some(member=>member.hp>0&&getBuildModifiers(state,member).deflection<.5-1e-9))&&(!['power','crit','radius'].includes(upgrade.stat)||damaging)&&(upgrade.stat!=='specialPower'||specialDamaging)).flatMap(upgrade=>trainingVariants(upgrade).map(({rarity,amount})=>{
+ const damaging=members.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
+ const specialDamaging=members.some(member=>member.hp>0&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0);
+ return TRAINING_UPGRADES.filter(upgrade=>(!owner||owner===state.party[0]||!['speed','staminaCapacity'].includes(upgrade.stat))&&(upgrade.stat!=='deflection'||members.some(member=>member.hp>0&&getBuildModifiers(state,member).deflection<.5-1e-9))&&(!['power','crit','radius'].includes(upgrade.stat)||damaging)&&(upgrade.stat!=='specialPower'||specialDamaging)).flatMap(upgrade=>trainingVariants(upgrade).map(({rarity,amount})=>{
   const rank=trainingRank(state,upgrade,owner)+1,description=trainingDescription(upgrade,rarity).replace('for every squad member',owner?'for this Pokémon':'for every squad member');
   return {id:rarity==='common'?upgrade.id:`${upgrade.id}-${rarity}`,kind:'stat' as const,stat:upgrade.stat,amount,
    ...(owner?{speciesId:owner.uid,sourceSpeciesId:owner.speciesId}:{}),
@@ -96,7 +96,7 @@ function moveChoices(state:RunState):UpgradeChoice[] {
   return [{id:`attack-${member.uid}-${member.attackLevel}`,kind:'attack' as const,speciesId:member.uid,
    sourceSpeciesId:species.id,amount:gain,rank,category:'move',
    title:`${species.moveName} ${toRoman(rank)}`,
-   description:`${species.name}: rank ${member.attackLevel} to ${rank}. ${describeAttackUpgrade(species.id,member.attackLevel,rank)}${member===state.party[0]?' '+describeSpecialUpgrade(species.id,member.attackLevel,rank):''}${gain>1?` Single-stage mastery: +${gain} ranks per training choice.`:''}`,
+   description:`${species.name}: rank ${member.attackLevel} to ${rank}. ${describeAttackUpgrade(species.id,member.attackLevel,rank)} ${describeSpecialUpgrade(species.id,member.attackLevel,rank)}${gain>1?` Single-stage mastery: +${gain} ranks per training choice.`:''}`,
    rarity:member.attackLevel>=4||gain>1?'rare' as const:'common' as const}];
  });
 }
@@ -130,8 +130,9 @@ function learnedMoveChoices(state:RunState):UpgradeChoice[] {
  });
 }
 
-function matchingSignatureMoves(member:PartyMember,target:Species) {
- return (member.learnedMoves||[]).filter(learned=>getMoveDefinition(learned.moveId)?.name===target.moveName);
+function matchingInnateMoves(member:PartyMember,target:Species) {
+ const names=[target.moveName,getSpecialProfile(target.id).name];
+ return (member.learnedMoves||[]).filter(learned=>names.includes(getMoveDefinition(learned.moveId)?.name??''));
 }
 
 function evolutionChoices(state:RunState):UpgradeChoice[] {
@@ -139,9 +140,11 @@ function evolutionChoices(state:RunState):UpgradeChoice[] {
  return levelUpMembers(state).filter(member=>eligible.has(member.uid)).flatMap(member=>{
   const species=getSpecies(member.speciesId);
   return species.evolvesTo.map(targetId=>{
-   const target=getSpecies(targetId),merged=matchingSignatureMoves(member,target);
+   const target=getSpecies(targetId),merged=matchingInnateMoves(member,target);
+   const mergedName=[...new Set(merged.map(move=>getMoveDefinition(move.moveId)!.name))].join(' / ');
+   const mergedSlot=merged.every(move=>getMoveDefinition(move.moveId)?.name===target.moveName)?'signature attack':'special ability';
    const training=merged.length?
-    `Keeps its level and XP. ${target.moveName} merges into its signature attack at rank ${Math.max(member.attackLevel,...merged.map(move=>move.rank))+PROGRESSION.evolution.moveRankGain}, freeing ${merged.length} move slot${merged.length===1?'':'s'}.`:
+    `Keeps its level and XP. ${mergedName} merges into its ${mergedSlot} at rank ${Math.max(member.attackLevel,...merged.map(move=>move.rank))+PROGRESSION.evolution.moveRankGain}, freeing ${merged.length} move slot${merged.length===1?'':'s'}.`:
     'Keeps its level, XP and trained moves.';
    return {id:`evolve-${member.uid}-${targetId}`,kind:'evolve' as const,
    speciesId:member.uid,sourceSpeciesId:species.id,targetId,title:`Evolve into ${getSpecies(targetId).name}`,
@@ -217,11 +220,11 @@ function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
    if(stat==='duration')return moves.some(profile=>Object.values(profile.status).some(chance=>chance!>0))||state.items.some(id=>getItemDefinition(id)?.effects?.some(effect=>effect.action.kind==='status'))||getSpecialProfile(member.speciesId,member.attackLevel).duration>0;
    if(modifier.amount<=0||modifiers[stat]>=BUILD_STAT_CAPS[stat]-1e-9)return false;
    if(stat==='partyRegeneration'||stat==='partyRegenerationPercent')return member!==state.party[0];
-   if(stat==='projectiles'&&member===state.party[0]){
+   if(stat==='projectiles'){
     const special=getSpecialProfile(member.speciesId,member.attackLevel);
     if(['quickstep','web','foxfire','payday','volley'].includes(special.kind)&&special.projectiles+modifiers.projectiles+modifier.amount<=12)return true;
    }
-   if(member===state.party[0]&&['power','radius'].includes(stat)&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0)return true;
+   if(['power','radius'].includes(stat)&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0)return true;
    return moves.some(profile=>moveUsesModifier(profile,stat,modifiers[stat],modifier.amount));
   });
  });
@@ -369,12 +372,12 @@ function applyChoiceNow(state:RunState,choice:UpgradeChoice):ChoiceResult {
    if(!old.evolvesTo.includes(target)||(!legacy&&choice.id!==`evolve-${member.uid}-${target}`)||
     (choice.sourceSpeciesId!==undefined&&choice.sourceSpeciesId!==old.id))return unavailable('Evolution unavailable');
    const targetSpecies=getSpecies(target),hpMultiplier=targetSpecies.health/old.health;
-   const merged=matchingSignatureMoves(member,targetSpecies);
+   const merged=matchingInnateMoves(member,targetSpecies);
    if(merged.length){
     member.attackLevel=Math.max(member.attackLevel,...merged.map(move=>move.rank));
     member.learnedMoves=member.learnedMoves!.filter(move=>!merged.includes(move));
    }
-   // Merge first so a shared signature receives the evolution bonus only once.
+   // Merge first so a shared basic or special move receives the bonus only once.
    const rankGain=PROGRESSION.evolution.moveRankGain;
    member.attackLevel=member.attackLevel+rankGain;
    for(const learned of member.learnedMoves||[])learned.rank=learned.rank+rankGain;
@@ -382,7 +385,8 @@ function applyChoiceNow(state:RunState,choice:UpgradeChoice):ChoiceResult {
    member.evolutionPower=(member.evolutionPower||0)+PROGRESSION.evolution.powerGain;
    member.maxHp*=hpMultiplier;member.hp*=hpMultiplier;state.stats.evolutions++;
    if(member===state.party[0]){state.player.maxHp*=hpMultiplier;state.player.hp*=hpMultiplier;}
-   const mergeEvent=merged.length?` ${targetSpecies.moveName} training merged at rank ${member.attackLevel}; ${merged.length} move slot${merged.length===1?'':'s'} freed.`:'';
+   const mergedName=[...new Set(merged.map(move=>getMoveDefinition(move.moveId)!.name))].join(' / ');
+   const mergeEvent=merged.length?` ${mergedName} training merged at rank ${member.attackLevel}; ${merged.length} move slot${merged.length===1?'':'s'} freed.`:'';
    return {event:`${old.name} evolved into ${targetSpecies.name}! Known moves gained +${rankGain} rank.${mergeEvent}`,applied:true,speciesChanged:target,sourceUid:member.uid};
   }
   case 'learn': {

@@ -55,7 +55,7 @@ test('cards and rerolls retain their milestone owner and reject stale owners',()
  const old=s.upgradeChoices.find(choice=>choice.kind==='stat')!;
  for(const choice of [...s.upgradeChoices,...(rerollChoices(s,new RNG(8))??[])])if(choice.kind==='stat'){
   assert.equal(choice.speciesId,follower.uid);
-  assert.ok(!['speed','staminaCapacity','specialHaste','specialPower'].includes(choice.stat!));
+  assert.ok(!['speed','staminaCapacity'].includes(choice.stat!));
  }
  s.levelUpMemberId=leader.uid;assert.equal(applyChoice(s,old).applied,false);
  s.levelUpMemberId=follower.uid;follower.hp=0;assert.equal(applyChoice(s,old).applied,false);
@@ -85,4 +85,20 @@ test('personal HP training is not inherited by recruits',()=>{
  const member=s.party.at(-1)!;
  assert.equal(member.trainingBuffs,undefined);
  assert.equal(s.buffs.health??0,0);
+});
+
+test('companions can train their special recharge and damage with personal previews',()=>{
+ const {s,leader,follower}=squad();s.levelUpMemberId=follower.uid;makeChoices(s,new RNG(3));
+ const original=structuredClone(leader);
+ for(const id of ['special','wise-glasses']){
+  const choice=training(s,id),preview=upgradeStatPreview(s,choice);
+  assert.ok(preview.length);
+  if(id==='special')assert.ok(preview.some(row=>row.label==='Special cooldown'&&row.before!==row.after));
+  if(id==='wise-glasses')assert.ok(preview.some(row=>row.label==='Special damage bonus'));
+  assert.equal(applyChoice(s,choice).applied,true);
+ }
+ close(getBuildModifiers(s,follower).specialHaste,.25);close(getBuildModifiers(s,follower).specialPower,.1);
+ assert.deepEqual(leader,original);
+ follower.speciesId=113;
+ assert.equal(applyChoice(s,training(s,'wise-glasses')).applied,false,'Support specials cannot use special damage training');
 });

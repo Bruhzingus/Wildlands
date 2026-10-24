@@ -2,6 +2,7 @@ import {ATTACK_ARCHETYPES,ELEMENT_PROCS,type AttackDefinition} from './attacks.t
 import {getSpecies,type AttackKind,type Element} from './kanto.ts';
 import {PROGRESSION} from './progression.ts';
 import {SPECIES_LEARNSETS} from './learnsets.ts';
+import {getSpecialProfile} from './specials.ts';
 
 export interface LearnableMove {
  id:string;name:string;element:Element;power:number;description:string;
@@ -72,9 +73,9 @@ export function moveLearnLevel(id:string):number {
   ['razor-leaf','ember','water-gun','thunder-shock','gust','tackle','quick-attack','bug-bite','confusion','swift','water-pulse','mud-shot','psybeam','dragon-breath','poison-jab','pin-missile'].includes(id)?3:5;
 }
 export function learnableMoves(speciesId:number,level=Infinity):LearnableMove[] {
- const species=getSpecies(speciesId);
+ const species=getSpecies(speciesId),special=getSpecialProfile(speciesId);
  const known=new Set(SPECIES_LEARNSETS[speciesId]||[]);
- return LEARNABLE_MOVES.filter(definition=>known.has(definition.id)&&definition.name!==species.moveName&&moveLearnLevel(definition.id)<=level);
+ return LEARNABLE_MOVES.filter(definition=>known.has(definition.id)&&definition.name!==species.moveName&&definition.name!==special.name&&moveLearnLevel(definition.id)<=level);
 }
 export function getLearnedMoveProfile(id:string,rank=1):AttackDefinition {
  const definition=getMoveDefinition(id);if(!definition)throw new Error(`Unknown learned move: ${id}`);

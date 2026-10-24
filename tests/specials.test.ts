@@ -9,7 +9,7 @@ import {DESIGN} from '../src/data/config.ts';
 import {SPECIAL_LIMITS} from '../src/game/combat/specials.ts';
 import {getMovementTrait} from '../src/data/movementTraits.ts';
 import {getBuildModifiers} from '../src/game/systems/builds.ts';
-import type {Enemy} from '../src/game/types.ts';
+import type {Enemy,PartyMember} from '../src/game/types.ts';
 
 const idle={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function arena(starter:number,rank=1){
@@ -27,6 +27,10 @@ function advance(sim:Simulation,seconds:number){
  for(let remaining=seconds;remaining>1e-8;remaining-=.02)sim.update(Math.min(.02,remaining),idle);
 }
 const hits=(events:GameEvent[],enemy:Enemy)=>events.filter(event=>event.kind==='hit'&&event.damageTo==='enemy'&&event.targetId===enemy.uid);
+function companion(sim:Simulation,speciesId:number,overrides:Partial<PartyMember>={}):PartyMember {
+ const member={...structuredClone(sim.state.party[0]),uid:sim.state.idCounter++,speciesId,x:4,z:0,specialCooldown:0,...overrides};
+ sim.state.party.push(member);return member;
+}
 
 test('each starter has a distinct special and movement combination and every species has a valid bounded profile',()=>{
  const starters=starterChoices();assert.equal(new Set(starters.map(id=>`${getSpecialProfile(id).kind}/${getMovementTrait(id).kind}`)).size,starters.length);
@@ -298,4 +302,112 @@ test('Famine suppresses healing from the Sleep Powder special and onSpecial reli
   if(famine){assert.equal(s.player.hp,30);assert.equal(s.party[1].hp,30);}
   else {assert.ok(s.player.hp>38);assert.ok(s.party[1].hp>38);}
  }
+});
+
+test('companions cast automatically from their own positions without consuming the leader special',()=>{
+ const {sim,s,events}=arena(1),member=companion(sim,4),target=foe(sim,9,0);
+ sim.update(.02,{...idle,aimX:-1,aimZ:0});
+ assert.ok(hits(events,target).some(event=>event.sourceId===member.uid));
+ const cast=events.find(event=>event.kind==='special'&&event.sourceId===member.uid);
+ assert.ok(cast);assert.equal(cast.x,member.x);assert.equal(cast.z,member.z);
+ assert.ok((s.activeSpecials??[]).some(effect=>effect.sourceId===member.uid&&!effect.manualAim&&effect.dx>.9));
+ assert.equal(s.player.specialCooldown,0);assert.equal(s.player.iframes,999.98);
+ assert.equal(member.specialCooldown,getSpecialProfile(4).cooldown);
+ advance(sim,.7);
+ assert.ok(hits(events,target).filter(event=>event.sourceId===member.uid).length>=3);
+ assert.equal(events.filter(event=>event.kind==='special'&&event.sourceId===member.uid).length,1);
+});
+
+test('companion specials wait for targets, recharge independently, and freeze outside play',()=>{
+ const {sim,s,events}=arena(1),first=companion(sim,25),second=companion(sim,25,{specialCooldown:1});
+ sim.update(.02,idle);assert.equal(first.specialCooldown,0);assert.equal(events.filter(event=>event.kind==='special').length,0);
+ foe(sim,0,50);sim.update(.02,idle);assert.equal(first.specialCooldown,0,'Out-of-range enemies do not spend a special');
+ foe(sim,0,8);sim.update(.02,idle);
+ assert.equal(first.specialCooldown,getSpecialProfile(25).cooldown);assert.ok(second.specialCooldown!<1&&second.specialCooldown!>0);
+ assert.equal(s.player.specialCooldown,0);
+ for(const phase of ['paused','choice','result'] as const){
+  s.phase=phase;const frozen=structuredClone(s);sim.update(.04,idle);assert.deepEqual(s,frozen);
+ }
+ s.phase='playing';advance(sim,1);
+ assert.ok(events.some(event=>event.kind==='special'&&event.sourceId===second.uid));
+ assert.equal(events.filter(event=>event.kind==='special'&&event.sourceId===first.uid).length,1);
+ first.specialCooldown=.01;sim.update(.02,idle);
+ assert.equal(events.filter(event=>event.kind==='special'&&event.sourceId===first.uid).length,2);
+});
+
+test('companion special damage, rank, recharge and relic triggers use the caster upgrades',()=>{
+ const cast=(upgraded:boolean)=>{
+  const battle=arena(1),member=companion(battle.sim,4,{attackLevel:upgraded?4:1,trainingBuffs:upgraded?{specialPower:1,specialHaste:1,radius:.25}:undefined});
+  battle.s.items=['rescue-ribbon'];battle.s.player.hp=40;const target=foe(battle.sim,9,0);
+  battle.sim.update(.02,idle);
+  return {...battle,member,target,damage:hits(battle.events,target).find(event=>event.sourceId===member.uid)?.amount??0};
+ };
+ const base=cast(false),upgraded=cast(true);
+ assert.ok(base.damage>0);assert.ok(upgraded.damage>base.damage*2);
+ assert.equal(upgraded.member.specialCooldown,base.member.specialCooldown!/2);
+ assert.ok(upgraded.s.player.hp>40,'Automatic specials trigger onSpecial relics');
+ const effect=upgraded.s.activeSpecials!.find(effect=>effect.sourceId===upgraded.member.uid)!;
+ assert.equal(effect.profile.pulses,getSpecialProfile(4,4).pulses);assert.equal(effect.profile.range,getSpecialProfile(4,4).range*(1+getBuildModifiers(upgraded.s,upgraded.member).radius));
+});
+
+test('companion dashes and teleports move only their caster and respect solid scenery',()=>{
+ for(const speciesId of [58,63,133]){
+  const {sim,s,events}=arena(1),member=companion(sim,speciesId),target=foe(sim,10,0);
+  const player={x:s.player.x,z:s.player.z};sim.update(.02,{...idle,aimX:-1,aimZ:0});
+  assert.equal(s.player.x,player.x);assert.equal(s.player.z,player.z);
+  assert.ok(member.x>8);assert.ok(hits(events,target).some(event=>event.sourceId===member.uid));
+  assert.ok(events.some(event=>event.sourceId===member.uid&&(event.shape==='trail'||event.shape==='teleport'||event.shape==='dash')));
+  const rock=createEnvironment(s.seed,s.pois).obstacles.find(obstacle=>obstacle.kind==='circle'&&obstacle.radius>.8)!;
+  if(rock.kind!=='circle')throw Error('Expected a rock');
+  member.x=rock.x-rock.radius-DESIGN.playerRadius-.2;member.z=rock.z;member.specialCooldown=0;
+  s.enemies=[];foe(sim,rock.x+rock.radius+2,rock.z);
+  (sim as any).updateCompanionSpecials(.02);
+  assert.ok(member.x<rock.x);assert.ok(Math.hypot(member.x-rock.x,member.z-rock.z)>=rock.radius+DESIGN.playerRadius-1e-6);
+  assert.equal(s.player.x,player.x);assert.equal(s.player.z,player.z);
+ }
+});
+
+test('companion projectiles target independently of the player aim and retain attribution',()=>{
+ const {sim,s}=arena(1),member=companion(sim,10);foe(sim,10,0);
+ sim.update(.02,{...idle,aimX:-1,aimZ:0});
+ const shots=s.projectiles.filter(projectile=>projectile.sourceId===member.uid);
+ assert.equal(shots.length,getSpecialProfile(10).projectiles);
+ assert.ok(shots.some(projectile=>projectile.vx>0));
+ assert.ok(shots.every(projectile=>projectile.damageSource?.actorId===member.uid&&projectile.damageSource?.origin==='q'));
+});
+
+test('support companions heal automatically when needed and respect Famine',()=>{
+ for(const famine of [false,true]){
+  const {sim,s,events}=arena(1),member=companion(sim,113);s.challenge=famine?'famine':'standard';
+  sim.update(.02,idle);assert.equal(member.specialCooldown,0,'A healthy squad saves the heal');
+  s.player.hp=30;sim.update(.02,idle);
+  if(famine){assert.equal(s.player.hp,30);assert.equal(member.specialCooldown,0);}
+  else {assert.ok(s.player.hp>30);assert.ok(member.specialCooldown!>0);assert.ok(events.some(event=>event.kind==='special'&&event.sourceId===member.uid));}
+ }
+});
+
+test('companion Flail scales with its own missing HP and removed companions stop pulsing',()=>{
+ const cast=(hpFraction:number)=>{
+  const {sim,s,events}=arena(1),member=companion(sim,129);member.hp=member.maxHp*hpFraction;
+  const target=foe(sim,6,0);sim.update(.02,{...idle,aimX:-1,aimZ:0});
+  return {sim,s,events,member,target,damage:hits(events,target).find(event=>event.sourceId===member.uid)?.amount??0};
+ };
+ const full=cast(1),low=cast(.1);assert.ok(full.damage>0);assert.ok(low.damage>full.damage*2.7);
+ full.s.party.splice(1,1);const before=hits(full.events,full.target).length;advance(full.sim,.6);
+ assert.equal(hits(full.events,full.target).length,before);assert.ok(!full.s.activeSpecials?.some(effect=>effect.sourceId===full.member.uid));
+});
+
+test('Meowth companions automatically use Fury Swipes against their own target',()=>{
+ const {sim,events}=arena(1),member=companion(sim,52),target=foe(sim,6,0);
+ sim.update(.02,{...idle,aimX:-1,aimZ:0});advance(sim,.7);
+ assert.equal(hits(events,target).filter(event=>event.sourceId===member.uid).length,getSpecialProfile(52).pulses);
+});
+
+test('special recharge relics reduce the triggering companion cooldown',()=>{
+ const {sim,s}=arena(1),member=companion(sim,25,{specialCooldown:10});s.player.specialCooldown=12;
+ s.items=['critical-capacitor'];(sim as any).buildEvent({kind:'onCrit',sourceId:member.uid});
+ assert.equal(member.specialCooldown,9.5);assert.equal(s.player.specialCooldown,12);
+ s.items=['power-herb'];
+ for(let i=0;i<3;i++)(sim as any).buildEvent({kind:'onAttack',sourceId:member.uid});
+ assert.equal(member.specialCooldown,9.5*.97);assert.equal(s.player.specialCooldown,12);
 });

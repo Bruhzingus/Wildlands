@@ -135,7 +135,7 @@ test('enemy melee telegraphs before damage and keeps its release pose through re
 
 test('enemy facing and attacks follow the companion it is actually targeting',()=>{
  const {sim,s,leader,foe}=arena();leader.cooldown=10;
- const follower={...leader,uid:s.idCounter++,x:-1,z:-1,cooldown:10};s.party.push(follower);
+ const follower={...leader,uid:s.idCounter++,x:-1,z:-1,cooldown:10,specialCooldown:10};s.party.push(follower);
  foe.uid=100;foe.x=-2;foe.z=-1;foe.attackCooldown=0;
  sim.update(.02,idle);
  assert.equal(foe.animation,'attack');

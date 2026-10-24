@@ -140,7 +140,7 @@ test('psychic ring collision sweeps radial movement and supports jump, dodge and
 });
 
 test('variant contact poison persists on followers and can faint them without bypassing recruit gates',()=>{
- const {sim,s}=arena();const follower={...s.party[0],uid:200,hp:20,x:-1,z:-1};s.party.push(follower);s.recruitCount=1;
+ const {sim,s}=arena();const follower={...s.party[0],uid:200,hp:20,x:-1,z:-1,specialCooldown:10};s.party.push(follower);s.recruitCount=1;
  const enemy=createEnemy(s,sim.rng,19,'poisoned',-1,-1);enemy.uid=100;enemy.speed=0;enemy.damage=1;enemy.attackCooldown=0;s.enemies=[enemy];
  sim.update(.02,idle);assert.equal(follower.poisonTime??0,0);
  for(let i=0;i<6;i++)sim.update(.04,idle);

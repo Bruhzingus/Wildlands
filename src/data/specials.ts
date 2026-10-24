@@ -50,7 +50,7 @@ const fallback:Record<string,SpecialTuning>={
  bolt:{kind:'volley',name:'Seeking Volley',description:'Launch several seeking shots toward separate enemies.',range:20,projectiles:6,damageScale:1.2},
 };
 
-/** Specials inherit the leader's move rank, but grow along their own mechanical paths. */
+/** Specials inherit their caster's move rank, but grow along their own mechanical paths. */
 export function getSpecialProfile(speciesId:number,rank=1):SpecialProfile {
  const species=getSpecies(speciesId),r=Math.max(1,Number.isFinite(rank)?Math.floor(rank):1);
  const profile:SpecialProfile={range:16,radius:2,duration:0,pulses:1,projectiles:0,damageScale:1,cooldown:DESIGN.specialCooldown,angle:1,knockback:0,...(bySpecies.get(speciesId)??fallback[species.attack])};

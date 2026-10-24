@@ -24,7 +24,7 @@ export interface SpecialContext {
 }
 function projectileVolley(context:SpecialContext,origin:Vec2,aim:Vec2):void {
  const {state,member,profile,element}=context,count=Math.min(SPECIAL_LIMITS.projectiles,profile.projectiles+context.extraProjectiles);
- const facing=specialAimMode(profile.kind)==='automatic'?undefined:state.player.aimFacing;
+ const facing=member===state.party[0]&&specialAimMode(profile.kind)!=='automatic'?state.player.aimFacing:undefined;
  const targets=state.enemies.filter(e=>!e.dead&&Math.hypot(e.x-origin.x,e.z-origin.z)<=profile.range&&(facing===undefined||(e.x-origin.x)*Math.sin(facing)+(e.z-origin.z)*Math.cos(facing)>=Math.hypot(e.x-origin.x,e.z-origin.z)*Math.cos(Math.PI/6))).sort((a,b)=>Math.hypot(a.x-origin.x,a.z-origin.z)-Math.hypot(b.x-origin.x,b.z-origin.z));
  const heading=Math.atan2(aim.z-origin.z,aim.x-origin.x);
  for(let i=0;i<count;i++){
@@ -55,22 +55,23 @@ export function castSpecial(context:SpecialContext):void {
  const {state,member,element}=context;
  const profile={...context.profile,range:context.profile.range*context.radiusScale,radius:context.profile.radius*context.radiusScale,duration:context.profile.duration*context.durationScale};
  context={...context,profile};
- const manualFacing=specialAimMode(profile.kind)==='automatic'?undefined:state.player.aimFacing;
- const origin={x:state.player.x,z:state.player.z},target=manualFacing===undefined?nearestEnemy(state.enemies,origin,profile.range):enemyInAim(state.enemies,origin,profile.range,manualFacing);
+ const caster=member===state.party[0]?state.player:member;
+ const manualFacing=member===state.party[0]&&specialAimMode(profile.kind)!=='automatic'?state.player.aimFacing:undefined;
+ const origin={x:caster.x,z:caster.z},target=manualFacing===undefined?nearestEnemy(state.enemies,origin,profile.range):enemyInAim(state.enemies,origin,profile.range,manualFacing);
  const length=target?Math.hypot(target.x-origin.x,target.z-origin.z):1;
- const dx=manualFacing!==undefined?Math.sin(manualFacing):target?(target.x-origin.x)/(length||1):Math.sin(state.player.facing),dz=manualFacing!==undefined?Math.cos(manualFacing):target?(target.z-origin.z)/(length||1):Math.cos(state.player.facing);
+ const dx=manualFacing!==undefined?Math.sin(manualFacing):target?(target.x-origin.x)/(length||1):Math.sin(caster.facing),dz=manualFacing!==undefined?Math.cos(manualFacing):target?(target.z-origin.z)/(length||1):Math.cos(caster.facing);
  const aim={x:origin.x+dx*profile.range,z:origin.z+dz*profile.range};
  const center=target?(manualFacing===undefined?{x:target.x,z:target.z}:{x:origin.x+dx*length,z:origin.z+dz*length}):aim,color=ELEMENT_COLORS[element],facing=Math.atan2(dx,dz);
  const visual=(shape:string,at:Vec2=origin,extra:Partial<SpecialVisual>={})=>context.visual({kind:'special',x:at.x,z:at.z,color,sourceId:member.uid,shape,label:profile.name,radius:profile.radius,duration:.25,...extra});
- state.player.iframes=Math.max(state.player.iframes,.4);member.facing=facing;
+ caster.iframes=Math.max(caster.iframes,.4);member.facing=facing;
  if(profile.kind==='quickstep'||profile.kind==='charge'){
   // Move in short collision-aware steps, so dashes cannot tunnel through scenery.
   for(let distance=0;distance<profile.range;distance+=.4){
-   const step=Math.min(.4,profile.range-distance),before={x:state.player.x,z:state.player.z},next=context.move(dx*step,dz*step);
-   state.player.x=next.x;state.player.z=next.z;
+   const step=Math.min(.4,profile.range-distance),before={x:caster.x,z:caster.z},next=context.move(dx*step,dz*step);
+   caster.x=next.x;caster.z=next.z;
    if(Math.hypot(next.x-before.x,next.z-before.z)<step*.1)break;
   }
-  member.x=state.player.x;member.z=state.player.z;
+  member.x=caster.x;member.z=caster.z;
   const destination={x:member.x,z:member.z};
   lineHit(context,origin,destination,profile.radius,profile.kind==='quickstep'?profile.damageScale:1,{burn:profile.kind==='charge'?1:0},{x:dx,z:dz});
   visual(profile.kind==='charge'?'trail':'dash',origin,{toX:destination.x,toZ:destination.z,duration:profile.kind==='charge'?profile.duration:.3});
@@ -83,11 +84,11 @@ export function castSpecial(context:SpecialContext):void {
  if(profile.kind==='teleport'){
   // Resolve the lance path against scenery before blinking so its tip and landing spot agree.
   for(let distance=0;distance<profile.range;distance+=.4){
-   const step=Math.min(.4,profile.range-distance),before={x:state.player.x,z:state.player.z},next=context.move(dx*step,dz*step);
-   state.player.x=next.x;state.player.z=next.z;
+   const step=Math.min(.4,profile.range-distance),before={x:caster.x,z:caster.z},next=context.move(dx*step,dz*step);
+   caster.x=next.x;caster.z=next.z;
    if((next.x-before.x)*dx+(next.z-before.z)*dz<step*.1)break;
   }
-  const lance={x:state.player.x,z:state.player.z};
+  const lance={x:caster.x,z:caster.z};
   member.x=lance.x;member.z=lance.z;member.facing=facing;
   lineHit(context,origin,lance,profile.radius,profile.damageScale,{stun:1},{x:dx,z:dz});
   context.visual({kind:'attack',x:origin.x,z:origin.z,toX:lance.x,toZ:lance.z,color,sourceId:member.uid,shape:'beam',radius:profile.radius,duration:.35});
@@ -122,7 +123,8 @@ export interface SpecialStepHooks {
 export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):void {
  for(const effect of state.activeSpecials??[]){
   if(state.result!==null)break;
-  const {profile,element,sourceId}=effect,member=state.party.find(m=>m.uid===sourceId);if(!member){effect.age=profile.duration+1;continue;}
+  const {profile,element,sourceId}=effect,member=state.party.find(m=>m.uid===sourceId);if(!member||member.hp<=0){effect.age=profile.duration+1;continue;}
+  const caster=member===state.party[0]?state.player:member;
   const previous=effect.age;effect.age+=dt;
   const hit=(enemy:Enemy,scale:number,status:StatusProc={},push=0)=>{
    if(state.result!==null)return;
@@ -154,9 +156,9 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
      for(const enemy of enemiesInRadius(state.enemies,effect,profile.radius))hit(enemy,profile.damageScale,{poison:1,slow:1});
      visual('column',effect,profile.radius,.4);break;
     case 'flamethrower':case 'flurry':{
-     if(effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
-     const origin={x:state.player.x,z:state.player.z};
-     const hpScale=member.speciesId===129?1+2*(1-Math.min(1,Math.max(0,state.player.hp/Math.max(1,state.player.maxHp)))):1;
+     if(member===state.party[0]&&effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
+     const origin={x:caster.x,z:caster.z};
+     const hpScale=member.speciesId===129?1+2*(1-Math.min(1,Math.max(0,caster.hp/Math.max(1,caster.maxHp)))):1;
      for(const enemy of enemiesInRadius(state.enemies,origin,profile.range)){
       const x=enemy.x-origin.x,z=enemy.z-origin.z,d=Math.hypot(x,z);
       if(d>1&&(x*effect.dx+z*effect.dz)/d<Math.cos(profile.angle/2))continue;
@@ -165,8 +167,8 @@ export function stepSpecials(state:RunState,dt:number,hooks:SpecialStepHooks):vo
      visual('cone',origin,profile.range,.22,{facing:Math.atan2(effect.dx,effect.dz),angle:profile.angle});break;
     }
     case 'fury-swipes':{
-     if(effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
-     const origin={x:state.player.x,z:state.player.z},facing=Math.atan2(effect.dx,effect.dz);
+     if(member===state.party[0]&&effect.manualAim&&state.player.aimFacing!==undefined){effect.dx=Math.sin(state.player.aimFacing);effect.dz=Math.cos(state.player.aimFacing);member.facing=state.player.aimFacing;}
+     const origin={x:caster.x,z:caster.z},facing=Math.atan2(effect.dx,effect.dz);
      const enemy=enemyInAim(state.enemies,origin,profile.range,facing);if(!enemy)break;
      hit(enemy,profile.damageScale);
      visual('slash',enemy,1.6,.18,{facing});break;

@@ -12,8 +12,10 @@ crafted assets. Shrine density also felt sparse across the expanded maps.
   broken wavelets, a restrained sky reflection, sunlight glints and interrupted
   shoreline highlights are drawn in the same opaque surface. Motion follows
   the run clock and presentation preview; pause freezes it.
-- Two sparse cloud layers have rounded silhouettes, shaded bases and warm
-  caps. A small sun disc and broad halo share the existing lighting direction.
+- Two sparse cloud layers mix flat banks, compact puffs and taller asymmetric
+  cumulus, with varied sizes, altitude, spacing and opacity. Their shaded bases
+  and warm caps adapt to each silhouette. A small sun disc and broad halo share
+  the existing lighting direction.
   Day/dusk colours still come from each map's original atmosphere curve.
 - All 24 shrine species have authored stone silhouettes, sculpted faces and
   distinctive ears, tails, wings, claws or crests. Stone wings have thickness

@@ -118,7 +118,7 @@ function validState(candidate:unknown):candidate is SerializedRunState {
   if(!optional(member,'learnedMoves',value=>records(value,16)&&value.every(move=>typeof move.moveId==='string'&&!!getMoveDefinition(move.moveId)&&numbers(move,['rank','cooldown']))))return false;
   for(const key of ['trainingBuffs','trainingRanks'])if(!optional(member,key,numericRecord))return false;
   if(!optional(member,'poisonSource',validDamageSource))return false;
-  if(!optionalNumbers(member,['xp','xpToNext','attackDuration','evolvedAt','poisonTime','evolutionPower']))return false;
+  if(!optionalNumbers(member,['xp','xpToNext','attackDuration','evolvedAt','poisonTime','evolutionPower','specialCooldown']))return false;
  }
  if(!records(s.enemies,2048)||!ids(s.enemies.map(enemy=>enemy.uid),2048))return false;
  for(const enemy of s.enemies){

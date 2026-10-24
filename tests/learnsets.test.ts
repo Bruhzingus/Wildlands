@@ -8,6 +8,7 @@ import {applyChoice,makeChoices} from '../src/game/systems/progression.ts';
 import {RNG} from '../src/utils/random.ts';
 import {eligibleEvolutions} from '../src/game/systems/progression.ts';
 import {PROGRESSION} from '../src/data/progression.ts';
+import {getSpecialProfile} from '../src/data/specials.ts';
 
 test('cached learnsets cover all 151 species and contain only implemented real moves',()=>{
  assert.equal(Object.keys(SPECIES_LEARNSETS).length,151);
@@ -16,6 +17,7 @@ test('cached learnsets cover all 151 species and contain only implemented real m
   assert.ok(moves.every(id=>getMoveDefinition(id)),species.name);
   for(const level of [3,5,10])for(const move of learnableMoves(species.id,level)){
    assert.ok(moves.includes(move.id));assert.ok(moveLearnLevel(move.id)<=level);assert.notEqual(move.name,species.moveName);
+   assert.notEqual(move.name,getSpecialProfile(species.id).name,`${species.name} already has ${move.name} as its special`);
   }
  }
  assert.ok(learnableMoves(1).some(move=>move.id==='razor-leaf'));
@@ -24,6 +26,24 @@ test('cached learnsets cover all 151 species and contain only implemented real m
  assert.ok(learnableMoves(6).some(move=>move.id==='hyper-beam'));
  assert.ok(!learnableMoves(66).some(move=>move.id==='swift'),'Machop cannot learn Swift');
  assert.ok(!learnableMoves(133).some(move=>move.id==='swift'),'Eevee already knows Swift as its signature');
+});
+
+test('special moves cannot be offered or learned again, including forged and repeated learn cards',()=>{
+ for(const [speciesId,moveId] of [[7,'surf'],[9,'surf'],[130,'hyper-beam'],[133,'quick-attack'],[52,'fury-swipes'],[53,'fury-swipes']] as const){
+  const state=new Simulation(speciesId,8).state,member=state.party[0];
+  member.level=30;state.recruitCount=5;
+  assert.ok(!learnableMoves(speciesId).some(move=>move.id===moveId));
+  const card={id:`learn-${member.uid}-${moveId}`,kind:'learn' as const,speciesId:member.uid,moveId,title:'Duplicate',description:'',rarity:'rare' as const,rank:1};
+  assert.equal(applyChoice(state,card).applied,false);
+  for(let seed=0;seed<20;seed++)assert.ok(makeChoices(state,new RNG(seed)).every(choice=>choice.kind!=='learn'||choice.moveId!==moveId));
+  assert.equal(member.learnedMoves?.length??0,0);
+ }
+ const state=new Simulation(52,8).state,member=state.party[0];member.level=30;
+ const move=learnableMoves(member.speciesId,member.level)[0];assert.ok(move);
+ const card={id:`learn-${member.uid}-${move.id}`,kind:'learn' as const,speciesId:member.uid,moveId:move.id,title:move.name,description:'',rarity:'rare' as const,rank:1};
+ assert.equal(applyChoice(state,card).applied,true);
+ assert.equal(applyChoice(state,card).applied,false);
+ assert.equal(member.learnedMoves?.filter(known=>known.moveId===move.id).length,1);
 });
 
 test('all evolution and new-move unlocks precede level 45; later milestones train moves and stats',()=>{

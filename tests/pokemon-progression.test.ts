@@ -73,6 +73,19 @@ test('evolution bonuses continue beyond old move caps and cannot be claimed twic
  assert.equal(applyChoice(state,evolution).applied,false);assert.deepEqual(member,after);
 });
 
+test('evolution merges a learned duplicate of its special and preserves its training',()=>{
+ const state=new Simulation(8,8).state,member=state.party[0];
+ state.recruitCount=5;state.stats.elapsed=300;member.level=30;member.attackLevel=2;
+ // Older runs could learn Surf despite already having it as a special.
+ member.learnedMoves=[{moveId:'surf',rank:6,cooldown:2},{moveId:'tackle',rank:3,cooldown:1}];
+ const evolution=allOffers(state).find(choice=>choice.kind==='evolve'&&choice.targetId===9)!;
+ assert.ok(evolution);assert.match(evolution.description,/Surf merges into its special ability at rank 7, freeing 1 move slot/);
+ assert.equal(applyChoice(state,evolution).applied,true);
+ assert.equal(member.attackLevel,7);
+ assert.deepEqual(member.learnedMoves,[{moveId:'tackle',rank:4,cooldown:1}]);
+ assert.ok(allOffers(state).every(choice=>choice.kind!=='learn'||choice.moveId!=='surf'));
+});
+
 test('single-stage mastery applies indefinitely to learned moves with accurate offers and stale-card guards',()=>{
  const state=new Simulation(123,31).state,member=state.party[0];state.recruitCount=5;member.level=30;
  for(const move of learnableMoves(member.speciesId,member.level).slice(0,3))assert.equal(applyChoice(state,learnCard(member,move.id)).applied,true);

@@ -7,6 +7,8 @@ export interface Vec2{x:number;z:number}
 export interface BerryFruit extends Vec2{collected:boolean;droppedAt:number}
 export interface BerryTree extends Vec2{uid:number;scale:number;berry:import('../data/berries.ts').BerryId;berries:BerryFruit[];nextChangeAt:number;cycle:number}
 export interface LearnedMove{moveId:string;rank:number;cooldown:number;}
+/** Companions recharge their own special; the leader uses Player.specialCooldown. */
+export interface PartyMember{specialCooldown?:number;}
 export interface PartyMember{uid:number;speciesId:number; joinedAt:number; level:number; xp?:number;xpToNext?:number; hp:number;maxHp:number;iframes:number;attackLevel:number; cooldown:number; x:number;z:number;facing:number;animation:'idle'|'walk'|'attack';attackTimer:number;attackDuration?:number;attackKind?:AttackKind;attackSpecial?:SpecialKind;evolvedAt?:number;poisonTime?:number;learnedMoves?:LearnedMove[];evolutionPower?:number;trainingBuffs?:Record<string,number>;trainingRanks?:Record<string,number>;}
 export interface EnemyWindup{kind:'volley'|'slam'|'psychicRing'|'summon'|'enemyMove';remaining:number;duration:number;x:number;z:number;facing:number;radius?:number;role?:import('../data/enemyAttacks.ts').EnemyAttackRole;moveName?:string;moveIndex?:number;targetUid?:number;}
 export interface CombatStatus{burn?:number;poison?:number;slow?:number;soak?:number;stun?:number;}

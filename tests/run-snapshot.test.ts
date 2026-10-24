@@ -50,6 +50,21 @@ test('exact snapshot roundtrip preserves seeded combat, navigation, sets, RNG st
  const after=original.exportSnapshot(),resumed=restored.exportSnapshot();assert.deepEqual(resumed.bookkeeping,after.bookkeeping);
  assert.equal(restored.rng.next(),original.rng.next());
 });
+
+test('snapshots preserve companion special cooldowns and persistent casts',()=>{
+ const original=safeRun(194,1),s=original.state;
+ s.party[0].cooldown=1000;
+ const member={...structuredClone(s.party[0]),uid:s.idCounter++,speciesId:4,x:2,z:0,specialCooldown:0};s.party.push(member);
+ for(const enemy of s.enemies)Object.assign(enemy,{x:7,z:0,hp:100000,maxHp:100000,speed:0,attackCooldown:1000});
+ original.update(.02,idle);
+ assert.ok(member.specialCooldown>0);assert.ok(s.activeSpecials?.some(effect=>effect.sourceId===member.uid));
+ const restored=Simulation.restore(copy(original.exportSnapshot()),{paused:false});
+ assert.equal(restored.state.party[1].specialCooldown,member.specialCooldown);
+ for(let frame=0;frame<30;frame++){original.update(.02,idle);restored.update(.02,idle);}
+ assert.deepEqual(copy(restored.exportSnapshot()),copy(original.exportSnapshot()));
+ const invalid=copy(original.exportSnapshot());(invalid.state.party[1] as any).specialCooldown='ready';
+ assert.equal(isSimulationSnapshot(invalid),false);
+});
 test('restoration starts paused and preserves pending choice without granting a second reward',()=>{
  const original=safeRun(),choices=makeChoices(original.state,original.rng,'squad'),choice=choices[0];original.enterChoice(choices,'Choose','squad');
  original.state.pendingLevelUps=[1];original.state.rerolls=2;
