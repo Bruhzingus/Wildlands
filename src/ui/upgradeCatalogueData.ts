@@ -54,13 +54,14 @@ const FLAT_STATS=new Set<BuildStat>(['staminaCapacity','armor','critDamage','mag
 /** Complete finite definitions; unbounded ranks use rules and representative transitions. */
 export function createUpgradeCatalogue():readonly CatalogueEntry[]{
  const entries:CatalogueEntry[]=[];
- for(const training of TRAINING_UPGRADES)for(const {rarity,amount,rechargeReduction} of trainingVariants(training)){
-  const curve=trainingVariants(training).map(variant=>variant.rarity+': +'+(training.stat==='staminaCapacity'?variant.amount+' stamina':pct(variant.amount))).join(' / ');
+ for(const training of TRAINING_UPGRADES)for(const {rarity,amount,rechargeReduction} of trainingVariants(training,true)){
+  const curve=trainingVariants(training,true).map(variant=>variant.rarity+': +'+(training.stat==='staminaCapacity'?variant.amount+' stamina':pct(variant.amount))).join(' / ');
   entries.push({id:`training:${training.id}:${rarity}`,group:'training',title:training.title,subtitle:'Pokémon stat training',
-   description:trainingDescription(training,rarity).replace('for every squad member','for the trained Pokémon'),rarities:[rarity],elements:[],
+   description:trainingDescription(training,rarity,true).replace('for every squad member','for the trained Pokémon'),rarities:[rarity],elements:[],
    stats:[stat('Per selection',training.stat==='staminaCapacity'?`+${amount} stamina`:`+${pct(amount)}`),...(rechargeReduction?[stat('Recharge time',`-${pct(rechargeReduction)}`)]:[]),stat('Rank limit',training.stat==='deflection'?'50% total chance':'Unlimited'),stat('Rank gain','+1')],
    details:[detail('Scope','Level-up training and ranks belong only to the Pokémon that earned the milestone. Shrine rewards apply to the whole squad. Movement, stamina and Q training appear only on leader milestones.'),detail('Stacking',training.stat==='staminaCapacity'?'Adds maximum dodge charges. Each spent charge recharges separately.':training.stat==='deflection'?'Adds attack deflection chance in percentage points, capped at 50%. Stops appearing at the cap.':training.stat==='crit'?'Adds critical chance in percentage points. Each full 100% guarantees another critical tier.':'Each selection adds its printed percentage against the base stat. Agility recharge reductions multiply the remaining recharge time.'),
-    detail('Rarity',curve+'. Base roll weights: Common 55 / Uncommon 10 / Rare 35 / Epic 9.5 / Legendary 0.5. Eligible pools and luck affect the final odds.')]});
+    detail('Squad reward',trainingDescription(training,rarity)),
+    detail('Rarity',curve+'. Personal bonuses are reduced by 15%, rounded to whole percentage points or charges. Base roll weights: Common 55 / Uncommon 10 / Rare 35 / Epic 9.5 / Legendary 0.5. Eligible pools and luck affect the final odds.')]});
  }
  for(const item of ITEM_DEFINITIONS.filter(item=>item.offerable!==false)){
   const baseId=item.baseId??item.id;

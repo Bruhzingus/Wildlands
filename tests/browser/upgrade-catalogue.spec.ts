@@ -40,14 +40,14 @@ test('menu catalogue lists every document group, scrolls independently and filte
  await expect(page.locator('[data-catalogue-entry]')).toHaveCount(training.length);
  await expect(page.locator('[data-catalogue-entry]').first()).toHaveAttribute('data-rarity','legendary');
  const colors=await page.locator('.catalogue-entry .catalogue-badge').evaluateAll(badges=>new Set(badges.map(badge=>getComputedStyle(badge).color)).size);
- expect(colors).toBe(4);
+ expect(colors).toBe(new Set(training.flatMap(entry=>entry.rarities)).size);
  await mkdir('artifacts/browser',{recursive:true});
  await page.screenshot({path:'artifacts/browser/upgrade-catalogue-desktop.png'});
  await page.locator('[data-catalogue-filter="rarity"]').selectOption('legendary');
  await expect(page.locator('[data-catalogue-entry]')).toHaveCount(training.filter(entry=>entry.rarities.includes('legendary')).length);
  await page.locator('[data-catalogue-search]').fill('focus energy');
  await expect(page.locator('[data-catalogue-entry]')).toHaveCount(1);
- await expect(page.locator('[data-catalogue-entry]')).toContainText('+16% critical strike chance');
+ await expect(page.locator('[data-catalogue-entry]')).toContainText('+14% critical strike chance');
  await page.getByText('Details & progression',{exact:true}).click();
  await expect(page.locator('.catalogue-details')).toContainText('Base roll weights');
  await page.locator('[data-catalogue-reset]').first().click();

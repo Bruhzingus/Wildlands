@@ -1,4 +1,4 @@
-import {DESIGN} from '../../data/config.ts';
+import {DESIGN,ENDLESS_SCALING} from '../../data/config.ts';
 import {DIRECTOR_PHASES,DIRECTOR_VARIANTS,BOSS_RULES} from '../../data/director.ts';
 import type {RunState,Variant} from '../types.ts';
 import {clamp} from '../../utils/random.ts';
@@ -8,7 +8,7 @@ import {challengeRules} from '../../data/challenges.ts';
 export interface DirectorSnapshot {
  phaseId:string;title:string;elapsed:number;spawnInterval:number;batchSize:number;enemyBudget:number;
  speciesTier:'early'|'mid'|'late';variantWeights:Partial<Record<Variant,number>>;density:number;pressure:number;
- endlessScale:number;bossWarning:boolean;bossCountdown:number;spawned:number;denied:number;transitions:number;
+ endlessScale:number;endlessDamageScale:number;bossWarning:boolean;bossCountdown:number;spawned:number;denied:number;transitions:number;
 }
 /** Authoritative, inspectable director. Adapt future arrivals; never remove or move living actors. */
 export function updateDirector(state:RunState):DirectorSnapshot {
@@ -20,20 +20,22 @@ export function updateDirector(state:RunState):DirectorSnapshot {
  // The boss keeps its own lower arrival rate instead of easing the final approach.
  const nextPressure=next&&next.at<DESIGN.bossAtSeconds?next:undefined;
  const pacingProgress=progress*progress*(3-2*progress);
- const endlessScale=state.endless?1+Math.max(0,elapsed-DESIGN.bossAtSeconds)/600:1;
+ const endlessProgress=state.endless?Math.max(0,elapsed-DESIGN.bossAtSeconds)/ENDLESS_SCALING.intervalSeconds:0;
+ const endlessDamageScale=1+endlessProgress*ENDLESS_SCALING.damagePerInterval;
+ const endlessScale=Math.pow(1+endlessProgress,ENDLESS_SCALING.healthExponent);
  const phaseId=state.endless?'endless':phase.id;
  const pressure=clamp(1-state.player.hp/state.player.maxHp,0,1);
  const accessibility=pressure>.7?.85:1;
  const baseBudget=state.endless?140:phase.budget+(nextPressure?(nextPressure.budget-phase.budget)*pacingProgress:0);
  const enemyBudget=Math.min(DESIGN.maxEnemies,Math.round(baseBudget*accessibility));
  const living=state.enemies.reduce((count,enemy)=>count+(enemy.dead?0:1),0),density=living/Math.max(1,enemyBudget);
- const baseInterval=state.endless?Math.max(.32,.62/Math.sqrt(endlessScale)):phase.interval+(nextPressure?(nextPressure.interval-phase.interval)*pacingProgress:0);
+ const baseInterval=state.endless?Math.max(.32,.62/Math.sqrt(1+endlessProgress)):phase.interval+(nextPressure?(nextPressure.interval-phase.interval)*pacingProgress:0);
  const interval=baseInterval*(density>.78?1+(density-.78)*1.6:1)*(pressure>.7?1.18:1);
  const variantWeights:Partial<Record<Variant,number>>={};
  DIRECTOR_VARIANTS.forEach((variant,i)=>{variantWeights[variant]=phase.variants[i]+(next?(next.variants[i]-phase.variants[i])*progress:0);});
- if(state.endless){variantWeights.normal=Math.max(.18,.43-.07*(endlessScale-1));variantWeights.rocket=.20;variantWeights.dark=.20;variantWeights.rabid=.17;variantWeights.poisoned=.14;}
+ if(state.endless){variantWeights.normal=Math.max(.18,.43-.07*Math.max(0,elapsed-DESIGN.bossAtSeconds)/600);variantWeights.rocket=.20;variantWeights.dark=.20;variantWeights.rabid=.17;variantWeights.poisoned=.14;}
  const snapshot:DirectorSnapshot={phaseId,title:state.endless?'Endless wilds':phase.id==='legendary'?`${mapEncounter(state.mapId).boss.name} awakened`:phase.title,elapsed,spawnInterval:interval*challengeRules(state.challenge).spawnIntervalScale,
-  batchSize:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,
+  batchSize:1,enemyBudget,speciesTier:phase.tier,variantWeights,density,pressure,endlessScale,endlessDamageScale,
   bossWarning:(!state.bossSpawned&&elapsed>=DESIGN.bossAtSeconds-BOSS_RULES.warningSeconds)||(state.endless&&!state.enemies.some(enemy=>enemy.isBoss&&!enemy.dead)&&state.nextBossAt!==undefined&&elapsed>=state.nextBossAt-BOSS_RULES.warningSeconds),
   bossCountdown:Math.max(0,(state.endless&&state.nextBossAt!==undefined?state.nextBossAt:DESIGN.bossAtSeconds)-elapsed),spawned:previous?.spawned||0,denied:previous?.denied||0,
   transitions:(previous?.transitions||0)+(previous&&previous.phaseId!==phaseId?1:0)};

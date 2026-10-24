@@ -15,9 +15,9 @@ test('selecting a real recruit applies welcome effects once using the newly expa
  const simulation=new Simulation(1,901),s=simulation.state;s.items=['welcome-basket','exp-share'];s.player.hp=50;s.stats.elapsed=165;s.stats.level=4;
  const choices=makeChoices(s,simulation.rng);assert.ok(choices.every(choice=>choice.kind==='recruit'));
  simulation.enterChoice(choices);simulation.choose(choices[0].id);
- assert.equal(s.party.length,2);assert.equal(s.stats.recruits,1);assert.equal(s.player.hp,74);
- assert.equal(s.party.reduce((total,member)=>total+(member.xp??0),0),48,'Both level-one members receive full welcome XP');
- assert.equal(s.stats.xp,24,'The leader receives the full shared XP amount');
+ assert.equal(s.party.length,2);assert.equal(s.stats.recruits,1);assert.equal(s.player.hp,62);
+ assert.equal(s.party.reduce((total,member)=>total+(member.xp??0),0),24,'Both level-one members receive full welcome XP');
+ assert.equal(s.stats.xp,12,'The leader receives the full shared XP amount');
  assert.equal(s.stats.elapsed,165);assert.equal(s.phase,'playing');
  const before={hp:s.player.hp,xp:s.stats.xp};simulation.choose(choices[0].id);
  assert.deepEqual({hp:s.player.hp,xp:s.stats.xp},before,'repeated UI input must not replay the recruitment reward');
@@ -25,12 +25,12 @@ test('selecting a real recruit applies welcome effects once using the newly expa
 
 test('selecting a real evolution fires growth effects once and immediately updates evolution-sensitive items',()=>{
  const simulation=new Simulation(1,902),s=simulation.state;s.items=['growth-charm','nursery-stone'];s.player.hp=20;s.player.specialCooldown=12;s.party[0].hp=27;s.stats.elapsed=170;s.party[0].level=5;
- assert.equal(getBuildModifiers(s).power,.45);
+ assert.equal(getBuildModifiers(s).power,.225);
  const choice:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([choice]);simulation.choose(choice.id);
- assert.equal(s.party[0].speciesId,2);assert.equal(s.stats.evolutions,1);assert.equal(s.player.hp,55);assert.equal(s.player.maxHp,120);
- assert.equal(s.party[0].hp,63.75);assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.elapsed,170);
- assert.equal(getBuildModifiers(s).power,.7,'middle-stage members retain their legacy conditional bonus plus evolution power');
+ assert.equal(s.party[0].speciesId,2);assert.equal(s.stats.evolutions,1);assert.equal(s.player.hp,40);assert.equal(s.player.maxHp,120);
+ assert.equal(s.party[0].hp,48.75);assert.equal(s.player.specialCooldown,8);assert.equal(s.stats.elapsed,170);
+ assert.equal(getBuildModifiers(s).power,.475,'middle-stage members retain their legacy conditional bonus plus evolution power');
  const before={hp:s.player.hp,cooldown:s.player.specialCooldown,evolutions:s.stats.evolutions};
  simulation.enterChoice([choice]);simulation.choose(choice.id);
  assert.deepEqual({hp:s.player.hp,cooldown:s.player.specialCooldown,evolutions:s.stats.evolutions},before,'stale evolution cards cannot replay effects');
@@ -48,11 +48,11 @@ test('busy combat cannot suppress guaranteed recruit and evolution rewards durin
  const simulation=new Simulation(1,904),s=simulation.state;s.items=['kings-rock','frost-charm','toxic-barb','welcome-basket','growth-charm'];
  s.player.hp=50;s.stats.elapsed=165;s.stats.level=4;exhaustOffensiveBudget(simulation);
  const choices=makeChoices(s,simulation.rng);simulation.enterChoice(choices);simulation.choose(choices[0].id);
- assert.equal(s.player.hp,74);assert.equal(s.stats.xp,24);assert.equal(s.party[1].xp,24);assert.ok(s.build!.actionsInWindow>=12);
+ assert.equal(s.player.hp,62);assert.equal(s.stats.xp,12);assert.equal(s.party[1].xp,12);assert.ok(s.build!.actionsInWindow>=12);
  s.stats.elapsed=170;s.party[0].level=5;s.player.specialCooldown=12;exhaustOffensiveBudget(simulation);
  const evolution:UpgradeChoice={id:'evolve-1-2',kind:'evolve',title:'Evolve',description:'',rarity:'epic',speciesId:1,targetId:2,sourceSpeciesId:1};
  simulation.enterChoice([evolution]);simulation.choose(evolution.id);
- assert.equal(s.player.hp,Math.min(s.player.maxHp,74*1.25+30));assert.equal(s.player.specialCooldown,4);assert.equal(s.stats.evolutions,1);
+ assert.equal(s.player.hp,Math.min(s.player.maxHp,62*1.25+15));assert.equal(s.player.specialCooldown,8);assert.equal(s.stats.evolutions,1);
  assert.ok(s.build!.actionsInWindow>=12,'resource rewards remain exact during busy combat');
  assert.equal(dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onHit',targetId:s.enemies[0].uid}).length,3,'legitimate hit procs are no longer dropped by a global quota');
 });

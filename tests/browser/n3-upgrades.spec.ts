@@ -48,7 +48,7 @@ test('haste previews actual faster cadence and repeat relics apply and display t
   const g=(window as any).__WILDLANDS__,s=g.sim.state;g.sim.pause();g.ui.update(s);
   return {count:s.itemStacks.leftovers,legendary:s.itemStacks['leftovers-legendary'],recovery:getBuildModifiers(s).regenerationPercent,ids:s.items};
  });
- expect(build.count).toBe(2);expect(build.legendary).toBe(1);expect(build.recovery).toBeCloseTo(.032);
+ expect(build.count).toBe(2);expect(build.legendary).toBe(1);expect(build.recovery).toBeCloseTo(.016);
  expect(build.ids.filter((id:string)=>id==='leftovers')).toHaveLength(1);
  await expect(page.locator('[data-item="leftovers"] strong')).toContainText('×2');
  await page.screenshot({path:'artifacts/browser/n3-stacked-build.png'});

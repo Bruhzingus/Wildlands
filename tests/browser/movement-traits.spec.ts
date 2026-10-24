@@ -2,6 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
 async function start(page:Page,id:number){
+ await page.routeWebSocket('**',socket=>socket.close());
  await page.goto('/?dev=1');
  await game(page,`g=>{if(!g.ui.save.unlocked.includes(${id}))g.ui.save.unlocked.push(${id});g.ui.showTitle();}`);
  await expect(page.locator(`[data-starter="${id}"]`)).toContainText(id===25?'Run-up':id===129?'Splash leap':'Short flight');
@@ -11,18 +12,34 @@ async function start(page:Page,id:number){
  await game(page,`g=>{const s=g.sim.state;s.enemies=[];s.drops=[];s.terrainFeatures=[];g.sim.spawnAccum=-10000;s.player.iframes=10000;s.party[0].cooldown=10000;g.camera.alpha=-Math.PI/2;}`);
  await mkdir('artifacts/browser/movement-traits',{recursive:true});
 }
-test('Pikachu charges a straight run, loses it when turning and explains movement in menus',async({page})=>{
+test('Pikachu keeps run-up through mouse look and diagonal steering, then spends its attack charge',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await start(page,25);
+ await game(page,`async g=>{const {ObstacleField}=await import('/src/game/systems/environment.ts');g.sim.obstacles=new ObstacleField([]);}`);
  await page.keyboard.down('w');
  await expect.poll(()=>game(page,'g=>g.sim.state.player.movement?.boost??0')).toBeGreaterThan(.24);
  await expect.poll(()=>game(page,"g=>g.visuals.inspect()[0]?.requested")).toBe('walk');
  await expect.poll(()=>game(page,"g=>g.visuals.inspect()[0]?.resolved")).toBe('Walk');
  await expect(page.locator('#movement-trait')).toContainText('+25% SPEED');
+ await expect(page.locator('#movement-trait')).toContainText('NEXT ATTACK +50%');
+ const alpha=await game(page,'g=>g.camera.alpha');
+ await page.mouse.move(950,390,{steps:12});
+ expect(Math.abs(await game(page,'g=>g.camera.alpha')-alpha)).toBeGreaterThan(.1);
+ await page.waitForTimeout(200);expect(await game(page,'g=>g.sim.state.player.movement.boost')).toBe(.25);
+ await page.keyboard.down('d');
+ await page.waitForTimeout(200);expect(await game(page,'g=>g.sim.state.player.movement.boost')).toBe(.25);
  await page.screenshot({path:'artifacts/browser/movement-traits/runup.png'});
- await page.keyboard.up('w');await page.keyboard.down('d');
- await expect.poll(()=>game(page,'g=>g.sim.state.player.movement?.boost')).toBe(0);await page.keyboard.up('d');
+ const attack=await game(page,`async g=>{
+  const {createEnemy}=await import('/src/game/systems/spawning.ts');const s=g.sim.state,p=s.player;
+  const enemy=createEnemy(s,g.sim.rng,19,'normal',p.x+3,p.z);Object.assign(enemy,{hp:10000,maxHp:10000,speed:0,stunTime:100,attackCooldown:100,hitCooldown:100});s.enemies=[enemy];
+  s.party[0].cooldown=0;const events=[];const onEvent=g.sim.onEvent;g.sim.onEvent=e=>{events.push(e);onEvent(e);};
+  g.sim.update(.02,g.input());g.sim.onEvent=onEvent;s.party[0].cooldown=10000;
+  return {damage:events.find(e=>e.kind==='hit'&&e.damageTo==='enemy')?.amount,boost:p.movement.boost,time:p.movement.straightTime,animation:s.party[0].animation};
+ }`);
+ expect(attack.damage).toBeGreaterThan(0);expect(attack.boost).toBe(0);expect(attack.time).toBe(0);expect(attack.animation).toBe('attack');
+ await expect(page.locator('#movement-trait')).not.toContainText('NEXT ATTACK');
+ await page.keyboard.up('w');await page.keyboard.up('d');
  await page.keyboard.press('Escape');await expect(page.locator('.build-movement')).toContainText('Run-up');
- await expect(page.locator('.build-movement')).toContainText('1s');expect(errors).toEqual([]);
+ await expect(page.locator('.build-movement')).toContainText('1s');await expect(page.locator('.build-movement')).toContainText('+50% damage');expect(errors).toEqual([]);
 });
 test('holding Space flies over a real rock, animates native frames, pauses and descends on release',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await start(page,16);

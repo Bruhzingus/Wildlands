@@ -66,7 +66,22 @@ test('delayed projectiles and Q fields retain launch-time forms and enemy moves 
 test('relic damage is separate from triggering critical hit without double-counting',()=>{
  const {sim,s,combat}=arena(),enemy=foe(sim);s.items=['prism-shard'];s.itemStacks={'prism-shard':1};
  combat.damageEnemy(enemy,20,'normal',1,{},true,true,false,true,1,1,partyDamageSource(s,1,'Crit strike','signature'),1.85);
- const report=runAnalyticsReport(s),proc=report.outgoing.find(row=>row.source.origin==='proc');assert.ok(proc);assert.equal(proc.source.effectId,'item:prism-shard');near(proc.effective,7);near(report.totals.outgoing.effective,27);near(report.totals.outgoing.effective,s.stats.damageDealt);
+ const report=runAnalyticsReport(s),proc=report.outgoing.find(row=>row.source.origin==='proc');assert.ok(proc);assert.equal(proc.source.effectId,'item:prism-shard');near(proc.effective,3.5);near(report.totals.outgoing.effective,23.5);near(report.totals.outgoing.effective,s.stats.damageDealt);
+});
+
+test('fractional projectile relics preserve learned move attribution through impact',()=>{
+ for(const [roll,expectedShots] of [[.25,2],[.75,1]]){
+  const {sim,s,combat}=arena(),enemy=foe(sim),member=s.party[0];
+  s.items=['multi-lens'];sim.rng.next=()=>roll;
+  combat.fireLearnedMove(member,{moveId:'water-gun',rank:1,cooldown:0},enemy);
+  assert.equal(s.projectiles.length,expectedShots);
+  assert.ok(s.projectiles.every(projectile=>projectile.damageSource?.origin==='learned'&&projectile.damageSource?.move==='Water Gun'&&projectile.damageSource?.actorId===member.uid));
+  const launchSpecies=member.speciesId;member.speciesId=8;
+  combat.updateProjectiles(.2);
+  const report=runAnalyticsReport(s),row=report.outgoing.find(entry=>entry.source.move==='Water Gun');
+  assert.ok(row);assert.equal(row.source.origin,'learned');assert.equal(row.source.speciesId,launchSpecies);
+  near(row.effective,23*expectedShots);near(report.totals.outgoing.effective,s.stats.damageDealt);
+ }
 });
 
 test('successful acquisitions retain order/time and minute reports expose observed DPS/build/spawn tuning',()=>{

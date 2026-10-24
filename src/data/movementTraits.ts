@@ -1,7 +1,7 @@
 export type MovementTraitKind='normal'|'runup'|'flight'|'leap'|'teleport'|'burrow';
 export interface MovementTrait {kind:MovementTraitKind;name:string;description:string;boost?:number;airtime?:number;staminaRechargeMultiplier?:number;}
 export const MOVEMENT_TRAITS={
- runupDelay:1,runupRamp:.35,turnTolerance:Math.PI/12,
+ runupDelay:1,runupRamp:.35,turnTolerance:Math.PI/4,runupAttackBonus:.5,
  flightHold:.18,flightSeconds:2,flightRecharge:4,flightHeight:3,clearance:1.2,
  leapJumpMultiplier:1.35,
  burrowSeconds:.8,burrowSpeed:9,
@@ -11,7 +11,7 @@ const traits=new Map<number,MovementTrait>();
 // Strong evolved kits retain the identity with a smaller speed bonus.
 for(const [id,boost] of [[25,.25],[26,.18],[135,.18]])traits.set(id,{
  kind:'runup',name:'Run-up',boost,
- description:`Run straight for 1s to build up to +${Math.round(boost*100)}% movement speed. Turning, stopping, jumping or dodging resets the boost.`,
+ description:`Run for 1s to build up to +${Math.round(boost*100)}% movement speed and +${Math.round(MOVEMENT_TRAITS.runupAttackBonus*100)}% damage on your next attack. Look around freely and steer in 45° steps. Attacking consumes the charge and ends the run-up; sharp turns, stopping, jumping or dodging reset it.`,
 });
 for(const [id,airtime] of [[12,1.5],[16,2],[17,2],[18,2],[41,1.5],[42,1.5]])traits.set(id,{
  kind:'flight',name:'Short flight',airtime,

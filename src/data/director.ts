@@ -13,4 +13,4 @@ export const BOSS_RULES={warningSeconds:15,volleyWindup:.7,ringWindup:1.1,summon
  ringSpeed:7.8,ringMaxRadius:29,ringWidth:1.1,ringDamage:46,maxRings:4,jumpClearance:.9,
  volleyDamage:32,volleySpeed:10.5,volleyCooldown:2.35,ringCooldown:2.85,summonCooldown:3,
  burstWindup:1.1,burstCooldown:4.2,burstRadius:6,
- summonCount:4,summonMinDistance:24,summonMaxDistance:31,baseHp:60000,hpPerLevel:1200,contactDamage:48,speed:3.6} as const;
+ summonCount:4,summonMinDistance:24,summonMaxDistance:31,baseHp:280000,hpPerLevel:5600,contactDamage:48,speed:3.6} as const;

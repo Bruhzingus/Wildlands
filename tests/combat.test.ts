@@ -110,7 +110,7 @@ test('water-electric and poison-fire interactions multiply damage, and duration 
  assert.equal(enemy.slowTime,3.5);assert.equal(enemy.poisonTime,5.6);
  s.items=['binding-thread'];enemy.soakedTime=0;
  addProjectile(s,shot({vx:1000,type:'water',status:{soak:1}}));sim.update(.02,idle);
- assert.ok(Math.abs(enemy.soakedTime-4.48)<1e-9);
+ assert.ok(Math.abs(enemy.soakedTime-3.84)<1e-9);
 });
 
 test('DoT kills award XP and count damage exactly once without flooding hit visuals',()=>{
@@ -161,7 +161,7 @@ test('lobs explode on impact and expanded attack range has enough projectile lif
  const {sim,s}=arena(1),a=foe(sim,5),b=foe(sim,6),c=foe(sim,10);const hits:number[]=[];
  addProjectile(s,shot({kind:'lob',radius:2.1,vx:100}));stepProjectiles(s,.05,{hit:enemy=>hits.push(enemy.uid),hurtPlayer:()=>{}});
  assert.deepEqual(hits,[a.uid,b.uid]);assert.ok(!hits.includes(c.uid));assert.equal(s.projectiles.length,0);
- s.items=['wide-lens','long-barrel'];s.party[0].speciesId=7;s.party[0].cooldown=0;a.x=23.5;b.dead=true;c.dead=true;
+ s.items=['wide-lens','long-barrel'];s.party[0].speciesId=7;s.party[0].cooldown=0;a.x=19;b.dead=true;c.dead=true;
  sim.rng.next=()=>.99;sim.update(.02,idle);
  const projectile=s.projectiles[0],range=getAttackProfile(7).range*(1+getBuildModifiers(s).radius);
  assert.ok(projectile.ttl*Math.hypot(projectile.vx,projectile.vz)>=range-.6);
@@ -185,12 +185,12 @@ test('event-driven items affect actual attacks, critical procs, kills and the le
  s.party[0].cooldown=0;sim.rng.next=()=>0;const events:GameEvent[]=[];sim.onEvent=event=>events.push(event);
  sim.update(.02,idle);assert.ok(a.hp<a.maxHp&&b.hp<b.maxHp);assert.ok(events.some(event=>event.kind==='chain'));
  assert.ok(s.player.specialCooldown<7.98,'Critical hits reduce the ability cooldown');
- s.player.specialCooldown=0;sim.update(.02,{...idle,special:true});assert.equal(s.player.hp,60+s.player.maxHp*.12);
+ s.player.specialCooldown=0;sim.update(.02,{...idle,special:true});assert.equal(s.player.hp,60+s.player.maxHp*.06);
  const kills=arena();kills.s.player.hp=50;kills.s.items=['shell-bell'];const baseHp=kills.s.player.maxHp;
  for(let i=0;i<15;i++){const enemy=foe(kills.sim,3);enemy.hp=1;}
  addProjectile(kills.s,shot({vx:1000,penetration:20}));kills.sim.update(.02,idle);
  assert.equal(kills.s.stats.kills,15);
- assert.ok(Math.abs(kills.s.player.hp/kills.s.player.maxHp-(50/baseHp+.1))<1e-9,'Shell Bell healing retains its percentage through an automatic level');
+ assert.ok(Math.abs(kills.s.player.hp/kills.s.player.maxHp-(50/baseHp+.05))<1e-9,'Shell Bell healing retains its percentage through an automatic level');
 });
 
 test('a percentage-of-hit proc keeps its stated fraction after type and wet damage are resolved',()=>{
@@ -198,20 +198,20 @@ test('a percentage-of-hit proc keeps its stated fraction after type and wet dama
  const events:GameEvent[]=[];sim.onEvent=event=>events.push(event);sim.rng.next=()=>0;sim.update(.02,idle);
  const hits=events.filter(event=>event.kind==='hit'&&event.targetId===enemy.uid&&event.amount!==undefined);
  assert.equal(hits.length,2);assert.equal(hits[0].shape,'crit');
- assert.ok(Math.abs(hits[1].amount!-.35*hits[0].amount!)<1e-9,'The secondary hit must not multiply soaked/type bonuses twice');
+ assert.ok(Math.abs(hits[1].amount!-.175*hits[0].amount!)<1e-9,'The secondary hit must not multiply soaked/type bonuses twice');
 });
 
 test('movement, regeneration and XP use passive modifiers while recruit and evolve hooks apply real rewards',()=>{
  const base=arena(),fast=arena();fast.s.items=['float-stone','leftovers','lucky-egg','welcome-basket','growth-charm'];
- fast.s.player.hp=50;fast.sim.gainXP(20);assert.equal(fast.s.stats.xp,25);
+ fast.s.player.hp=50;fast.sim.gainXP(20);assert.equal(fast.s.stats.xp,22.5);
  for(let i=0;i<20;i++){base.sim.update(.04,{...idle,mx:1});fast.sim.update(.04,{...idle,mx:1});}
- assert.ok(fast.s.player.x>base.s.player.x);assert.ok(Math.abs(fast.s.player.hp-(50+fast.s.player.maxHp*.008*.8))<1e-8);
+ assert.ok(fast.s.player.x>base.s.player.x);assert.ok(Math.abs(fast.s.player.hp-(50+fast.s.player.maxHp*.004*.8))<1e-8);
  fast.s.stats.level=8;fast.s.stats.elapsed=190;fast.sim.debugLevel();fast.sim.update(.02,idle);
  const choice=fast.s.upgradeChoices[0];assert.equal(choice.kind,'recruit');const beforeXP=fast.s.stats.xp,beforeHP=fast.s.player.hp;
- fast.sim.choose(choice.id);assert.equal(fast.s.party.length,2);assert.equal(fast.s.player.hp,beforeHP+24);assert.ok(fast.s.stats.xp>beforeXP);
+ fast.sim.choose(choice.id);assert.equal(fast.s.party.length,2);assert.equal(fast.s.player.hp,beforeHP+12);assert.ok(fast.s.stats.xp>beforeXP);
  fast.s.party[0].speciesId=1;fast.s.party[0].level=5;fast.s.player.specialCooldown=12;
  fast.sim.enterChoice([{id:'evolve-1-2',kind:'evolve',speciesId:1,targetId:2,sourceSpeciesId:1,title:'Evolve',description:'',rarity:'epic'}]);
- const hp=fast.s.player.hp;fast.sim.choose('evolve-1-2');assert.equal(fast.s.party[0].speciesId,2);assert.equal(fast.s.player.specialCooldown,4);assert.equal(fast.s.player.hp,Math.min(fast.s.player.maxHp,hp*1.25+30));
+ const hp=fast.s.player.hp;fast.sim.choose('evolve-1-2');assert.equal(fast.s.party[0].speciesId,2);assert.equal(fast.s.player.specialCooldown,8);assert.equal(fast.s.player.hp,Math.min(fast.s.player.maxHp,hp*1.25+15));
 });
 
 test('an invalidated choice refreshes valid offers while the run stays paused',()=>{

@@ -167,7 +167,7 @@ test('endless remains bounded beyond twenty minutes while late recruitment gates
  const {sim,s}=arena();s.stats.bossKilled=true;s.bossSpawned=true;s.result='victory';s.stats.elapsed=900;sim.continueEndless();
  const early=updateDirector(s);s.stats.elapsed=1200;const late=updateDirector(s);
  assert.ok(late.endlessScale>early.endlessScale);assert.ok(late.spawnInterval<early.spawnInterval);assert.ok(late.enemyBudget<=DESIGN.maxEnemies);
- s.recruitCount=4;s.stats.level=29;s.stats.elapsed=1199;assert.equal(canRecruit(s),false);s.stats.elapsed=1200;assert.equal(canRecruit(s),true);
+ s.recruitCount=4;s.stats.level=42;s.stats.elapsed=1439;assert.equal(canRecruit(s),false);s.stats.elapsed=1440;assert.equal(canRecruit(s),true);
  s.player.iframes=1000;for(let i=0;i<1500;i++){if(s.phase==='choice')sim.choose(s.upgradeChoices[0].id);sim.update(.04,idle);assert.ok(s.enemies.length<=DESIGN.maxEnemies);assert.ok(Number.isFinite(s.player.x+s.stats.elapsed));}
- assert.ok(s.stats.elapsed>=1259.9);assert.equal(s.result,null);assert.equal(s.phase,'playing');
+ assert.ok(s.stats.elapsed>=1499.9);assert.equal(s.result,null);assert.equal(s.phase,'boss');
 });

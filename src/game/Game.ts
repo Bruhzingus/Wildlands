@@ -302,8 +302,8 @@ export class Game{
   const r=(down('KeyD')?1:0)-(down('KeyA')?1:0);
   const movement=cameraRelativeMovement(this.camera.alpha,f,r);
   const tap=(...codes:string[])=>codes.some(c=>this.justPressed.has(c));
-  // Camera aim is consumed only by directional/placed specials, including
-  // sustained casts. Ordinary and learned attacks acquire their own targets.
+  // Camera aim also keeps run-up steering independent of mouse look.
+  // Ordinary and learned attacks acquire their own targets.
   return {...movement,...cameraAimDirection(this.camera.alpha),jump:tap('Space'),jumpHeld:down('Space'),dodge:tap('ShiftLeft','ShiftRight'),special:tap('KeyQ'),interact:tap('KeyE')};
  }
  private frame(){const now=performance.now();const frameInterval=Math.max(0,(now-this.previous)/1000),dt=Math.min(.08,frameInterval);this.previous=now;

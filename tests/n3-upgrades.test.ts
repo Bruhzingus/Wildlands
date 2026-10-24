@@ -51,24 +51,24 @@ test('extreme cadence keeps logical casts and counters while packet work stays b
  const s=new Simulation(4,816).state;s.items=['healing-bead','healing-bead'];
  const actions=dispatchBuildEvent({state:s,rng:{next:()=>.99}},{kind:'onAttack',sourceId:1,count:casts});
  const heal=actions.find(action=>action.kind==='heal');assert.ok(heal?.kind==='heal');
- close(heal.maxHpFraction!,Math.floor(casts/12)*.03);
+ close(heal.maxHpFraction!,Math.floor(casts/12)*.015);
 });
 
 test('repeat normal and legendary relics add stats and produce accurate stack previews',()=>{
  const s=new Simulation(4,817).state;
  for(const id of ['life-orb','life-orb','life-orb-legendary'])assert.equal(applyChoice(s,ITEMS.find(choice=>choice.id===id)!).applied,true);
- close(getBuildModifiers(s).power,1.28);
+ close(getBuildModifiers(s).power,.64);
  assert.deepEqual(getBuildSummary(s).items.map(item=>[item.id,item.stacks]),[['life-orb',2],['life-orb-legendary',1]]);
  assert.ok(availableItemChoices(s).some(choice=>choice.id==='life-orb'));
  const snapshot=structuredClone(s),preview=upgradeStatPreview(s,ITEMS.find(choice=>choice.id==='life-orb')!);
  assert.deepEqual(s,snapshot);assert.ok(preview.some(row=>row.label==='Copies'&&row.before==='2'&&row.after==='3'));
- assert.ok(preview.some(row=>row.label==='Damage bonus'&&row.before==='128%'&&row.after==='160%'));
+ assert.ok(preview.some(row=>row.label==='Damage bonus'&&row.before==='64%'&&row.after==='80%'));
 });
 
 test('stacked relic procs add effect strength without multiplying callbacks or losing drawbacks',()=>{
  const s=new Simulation(4,818).state;s.items=['static-orb','static-orb','static-orb-legendary','life-orb','life-orb'];
  const arc=dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onCrit',sourceId:1,damage:100});
- close(arc.reduce((sum,action)=>sum+(action.kind==='chain'?action.damage:0),0),100);
+ close(arc.reduce((sum,action)=>sum+(action.kind==='chain'?action.damage:0),0),50);
  const costs=dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onAttack',sourceId:1,count:25});
  assert.equal(costs.length,1);assert.ok(costs[0].kind==='selfDamage');close(costs[0].amount,4);
  s.items=['kings-rock'];assert.equal(dispatchBuildEvent({state:s,rng:{next:()=>.1}},{kind:'onHit',sourceId:1,targetId:3}).length,0);
@@ -77,10 +77,10 @@ test('stacked relic procs add effect strength without multiplying callbacks or l
 
 test('percentage stats and triggered damage keep their value past former hidden caps',()=>{
  const sim=new Simulation(4,819),s=sim.state;s.buffs={xp:3,regenerationPercent:.08,duration:5};s.items=['long-barrel','long-barrel','long-barrel','long-barrel'];
- const mod=getBuildModifiers(s);close(mod.xp,3);close(mod.regenerationPercent,.08);close(mod.projectileSpeed,1.2);close(mod.duration,5);
+ const mod=getBuildModifiers(s);close(mod.xp,3);close(mod.regenerationPercent,.08);close(mod.projectileSpeed,.6);close(mod.duration,5);
  const enemy=createEnemy(s,sim.rng,19,'normal',3,0);applyStatusProcs(enemy,{poison:1},()=>0,6);close(enemy.poisonTime,24);
  s.items=['prism-shard','prism-shard'];const burst=dispatchBuildEvent({state:s,rng:{next:()=>0}},{kind:'onCrit',sourceId:1,damage:100000})[0];
- assert.ok(burst.kind==='area');close(burst.damage,70000);
+ assert.ok(burst.kind==='area');close(burst.damage,35000);
 });
 
 test('critical chance gives uncapped tiers and one fractional roll instead of changing critical damage',()=>{
@@ -104,7 +104,7 @@ test('offers reject dead benefits in no-healing and fully levelled builds',()=>{
  assert.equal(applyChoice(s,iron).applied,true);
  assert.equal(applyChoice(s,iron).applied,true,'Numeric heavy-attack bonuses and drawbacks also stack');
  assert.equal(applyChoice(s,ITEMS.find(choice=>choice.id==='iron-ball-legendary')!).applied,true);
- close(getBuildModifiers(s).power,2.72);close(1+getBuildModifiers(s).haste,.7**3);
+ close(getBuildModifiers(s).power,1.42);close(1+getBuildModifiers(s).haste,.7**3);
  s.buffs.haste=.4;close(1+getBuildModifiers(s).haste,1.4*.7**3);
  s.items.reverse();close(1+getBuildModifiers(s).haste,1.4*.7**3);
 });

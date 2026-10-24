@@ -406,8 +406,8 @@ test('Meowth companions automatically use Fury Swipes against their own target',
 test('special recharge relics reduce the triggering companion cooldown',()=>{
  const {sim,s}=arena(1),member=companion(sim,25,{specialCooldown:10});s.player.specialCooldown=12;
  s.items=['critical-capacitor'];(sim as any).buildEvent({kind:'onCrit',sourceId:member.uid});
- assert.equal(member.specialCooldown,9.5);assert.equal(s.player.specialCooldown,12);
+ assert.equal(member.specialCooldown,9.75);assert.equal(s.player.specialCooldown,12);
  s.items=['power-herb'];
  for(let i=0;i<3;i++)(sim as any).buildEvent({kind:'onAttack',sourceId:member.uid});
- assert.equal(member.specialCooldown,9.5*.97);assert.equal(s.player.specialCooldown,12);
+ assert.equal(member.specialCooldown,9.75*.985);assert.equal(s.player.specialCooldown,12);
 });

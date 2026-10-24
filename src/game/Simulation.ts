@@ -1,6 +1,6 @@
 import {challengeRules} from '../data/challenges.ts';
 import {evolutionReceipt,type EvolutionReceipt} from './evolution.ts';
-import {prepareMovement,recordRunUp,stepFlight,airborneTraversal,canReachAirbornePlayer,jumpVelocity,isBurrowed} from './systems/movement.ts';
+import {prepareMovement,recordRunUp,consumeRunUp,stepFlight,airborneTraversal,canReachAirbornePlayer,jumpVelocity,isBurrowed} from './systems/movement.ts';
 import {getMovementTrait,MOVEMENT_TRAITS} from '../data/movementTraits.ts';
 import {getSpecies,ELEMENT_COLORS, type AttackKind,type Element} from '../data/kanto.ts';
 import {ATTACK_ANIMATION,DESIGN,typeEffectiveness} from '../data/config.ts';
@@ -28,7 +28,7 @@ import {addProjectile,stepProjectiles} from './combat/projectiles.ts';
 import {getEliteAreaMove,resolveCommittedEnemyProfile} from '../data/enemyAttacks.ts';
 import {canStartEnemyMove,enemyMovementIntent,chooseEnemyAttack,prepareEnemyMove,enemyMoveTell,resolveEnemyMove} from './combat/enemies.ts';
 import {getEnemyTier} from '../data/enemyTiers.ts';
-import {getBuildModifiers,dispatchBuildEvent,metronomeDamageMultiplier,type BuildEvent,type BuildAction} from './systems/builds.ts';
+import {getBuildModifiers,dispatchBuildEvent,metronomeDamageMultiplier,rollExtraProjectiles,type BuildEvent,type BuildAction} from './systems/builds.ts';
 import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,rerollChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
 import {averagePartyLevel,enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
@@ -256,7 +256,7 @@ export class Simulation {
   this.updateDrops(dt);this.updateRegeneration(dt);
   this.spawnAccum+=dt;const interval=director.spawnInterval;
   while(this.spawnAccum>interval){this.spawnAccum-=interval;for(let i=0;i<director.batchSize;i++){
-   const enemy=spawnRandomEnemy(s,this.rng,{capacity:director.enemyBudget,speciesTier:director.speciesTier,variantWeights:director.variantWeights,statScale:director.endlessScale});
+   const enemy=spawnRandomEnemy(s,this.rng,{capacity:director.enemyBudget,speciesTier:director.speciesTier,variantWeights:director.variantWeights,healthScale:director.endlessScale,damageScale:director.endlessDamageScale});
    recordDirectorSpawn(s,!!enemy);if(enemy){s.enemies.push(enemy);s.lastEnemySpawn=s.stats.elapsed;
     if((enemy.combatTier??1)>=3)this.emit({kind:'log',label:`${enemy.combatTier===3?'Miniboss':'Rare threat'}: ${enemy.variant==='normal'?'':getVariant(enemy.variant).label+' '}${getSpecies(enemy.speciesId).name}`});
    }
@@ -310,7 +310,8 @@ export class Simulation {
    this.emit({kind:'dash',x:origin.x,z:origin.z,toX:abraTeleported?p.x:undefined,toZ:abraTeleported?p.z:undefined,shape:isBurrowed(p)?'burrow':abraTeleported?'teleport':undefined,color:isBurrowed(p)?'#b99763':'#eef7c0',sourceId:s.party[0].uid,speciesId:s.party[0].speciesId});
   }
   const dodge=p.dodgeTime>0;p.dodgeTime=Math.max(0,p.dodgeTime-dt);
-  const movement=prepareMovement(p,s.party[0].speciesId,nx,nz,len,dt,dodge||abraTeleported||tap.jump);
+  const runUpInterrupted=dodge||abraTeleported||tap.jump||s.party[0].attackTimer>0;
+  const movement=prepareMovement(p,s.party[0].speciesId,nx,nz,len,dt,runUpInterrupted);
   const above=airborneTraversal(p,s.party[0].speciesId);
   const shrineSlow=s.pois.some(poi=>shrineHazardZones(poi,s.stats.elapsed).some(zone=>zone.kind==='slow'&&!zone.warning&&distance2(p,zone)<=zone.radius));
   const speed=DESIGN.playerSpeed*(1+getBuildModifiers(s).speed)*(1+(movement?.boost??0))*(above?1:this.terrainSpeedFactor(p)*(shrineSlow?.65:1));
@@ -321,7 +322,7 @@ export class Simulation {
   const vx=dodge||burrowing?this.dodgeDirection.x*dashSpeed:abraTeleported?0:this.velocity.x,vz=dodge||burrowing?this.dodgeDirection.z*dashSpeed:abraTeleported?0:this.velocity.z;
   const next=this.obstacles.move(p,vx*dt,vz*dt,DESIGN.playerRadius,above);
   this.walking=Math.hypot(next.x-p.x,next.z-p.z)>.001;
-  recordRunUp(p,movement,next.x-p.x,next.z-p.z,dt,Math.hypot(vx,vz),len,dodge||abraTeleported||tap.jump);
+  recordRunUp(p,movement,next.x-p.x,next.z-p.z,dt,Math.hypot(vx,vz),len,runUpInterrupted);
   p.x=next.x;p.z=next.z;
   if(dodge||burrowing||abraTeleported)p.facing=Math.atan2(this.dodgeDirection.x,this.dodgeDirection.z);
   else if(len>0)p.facing=Math.atan2(nx,nz);
@@ -520,11 +521,11 @@ export class Simulation {
   const livingTarget=target&&!target.dead?target:this.attackTarget(member,profile.range*(1+mod.radius));
   if(!livingTarget&&profile.kind!=='heal')return;
   const tier=depth===0&&profile.kind!=='heal'?criticalTier(mod.critChance,()=>this.rng.next()):0,crit=tier>0;
-  const damage=Math.min(Number.MAX_VALUE,learnedMovePower(move.id,learned.rank)*levelPowerMultiplier(member.level)*(1+mod.power)*damageScale*criticalMultiplier(tier,mod.critDamage));
+  const damage=Math.min(Number.MAX_VALUE,learnedMovePower(move.id,learned.rank)*levelPowerMultiplier(member.level)*(1+mod.power)*damageScale*criticalMultiplier(tier,mod.critDamage)*this.runUpAttackMultiplier(member,depth,hitCount));
   if(depth===0)this.emit({kind:'cast',sourceId:member.uid,speciesId:member.speciesId});
   executePattern({member:{...member,attackLevel:learned.rank},target:livingTarget||{...member,dead:false},
    enemies:s.enemies,profile,element:move.element,damage,crit,depth,radiusScale:1+mod.radius,
-   extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,projectileSpeedScale:1+mod.projectileSpeed,
+   extraProjectiles:rollExtraProjectiles(mod.projectiles,()=>this.rng.next()),extraPierce:mod.pierce,extraChains:mod.chains,projectileSpeedScale:1+mod.projectileSpeed,
    hit:(enemy,amount)=>this.damageEnemy(enemy,amount,move.element,member.uid,profile.status,crit,depth===0,true,false,hitCount,tier,source,criticalMultiplier(tier,mod.critDamage)),
    projectile:projectile=>{addProjectile(s,{...projectile,moveName:move.name,hitCount,critTier:tier,damageSource:source,criticalMultiplier:criticalMultiplier(tier,mod.critDamage)});},
    visual:event=>this.emit({...event,label:move.name}),
@@ -541,6 +542,11 @@ export class Simulation {
  private animateAttack(actor:PartyMember|Enemy,facing:number,duration:number=ATTACK_ANIMATION.seconds){
   actor.attackTimer=duration;actor.attackDuration=duration;actor.animation='attack';actor.facing=facing;
  }
+ private runUpAttackMultiplier(member:PartyMember,depth=0,hitCount=1):number {
+  if(depth!==0||member!==this.state.party[0])return 1;
+  // A grouped packet represents several casts; only its first cast is charged.
+  return 1+consumeRunUp(this.state.player,member.speciesId)/hitCount;
+ }
  private fireFromMember(m:PartyMember,target:AttackTarget,damageScale=1,depth=0,hitCount=1,provenance?:DamageSource){
   const s=this.state;if(s.result!==null||target.dead)return;
   const profile=getAttackProfile(m.speciesId,m.attackLevel),type=profile.element??getSpecies(m.speciesId).types[0],mod=getBuildModifiers(s,m);
@@ -549,10 +555,10 @@ export class Simulation {
   for(const action of actions){if(s.result!==null)return;if(action.kind!=='echo')this.applyBuildAction(action);}
   if(s.result!==null||target.dead)return;
   const tier=depth===0&&profile.kind!=='heal'?criticalTier(mod.critChance,()=>this.rng.next()):0,crit=tier>0;
-  const damage=Math.min(Number.MAX_VALUE,memberDamage(m,profile.growth.damage,mod.power)*damageScale*criticalMultiplier(tier,mod.critDamage));
+  const damage=Math.min(Number.MAX_VALUE,memberDamage(m,profile.growth.damage,mod.power)*damageScale*criticalMultiplier(tier,mod.critDamage)*this.runUpAttackMultiplier(m,depth,hitCount));
   if(depth===0)this.emit({kind:'cast',sourceId:m.uid,speciesId:m.speciesId});
   executePattern({member:m,target,enemies:s.enemies,profile,element:type,damage,crit,depth,
-   radiusScale:1+mod.radius,extraProjectiles:mod.projectiles,extraPierce:mod.pierce,extraChains:mod.chains,
+   radiusScale:1+mod.radius,extraProjectiles:rollExtraProjectiles(mod.projectiles,()=>this.rng.next()),extraPierce:mod.pierce,extraChains:mod.chains,
    projectileSpeedScale:1+mod.projectileSpeed,
    hit:(enemy,amount)=>this.damageEnemy(enemy,amount,type,m.uid,profile.status,crit,depth===0,true,false,hitCount,tier,source,criticalMultiplier(tier,mod.critDamage)),
    projectile:projectile=>{addProjectile(s,{...projectile,moveName:getSpecies(m.speciesId).moveName,hitCount,critTier:tier,damageSource:source,criticalMultiplier:criticalMultiplier(tier,mod.critDamage)});},visual:event=>this.emit(event),
@@ -808,10 +814,11 @@ export class Simulation {
   const profile=getSpecialProfile(member.speciesId,member.attackLevel),element=profile.element??getSpecies(member.speciesId).types[0];
   member.attackSpecial=profile.kind;delete member.attackKind;
   this.animateAttack(member,member.facing,ATTACK_ANIMATION.specialSeconds);
+  const runUpMultiplier=this.runUpAttackMultiplier(member);
   this.buildEvent({kind:'onSpecial',sourceId:member.uid,element,damageSource:partyDamageSource(s,member.uid,profile.name,'q',element)});
   if(s.result!==null)return;
   castSpecial({state:s,member,profile,element,
-   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower),radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:mod.projectiles,
+   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower)*runUpMultiplier,radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:rollExtraProjectiles(mod.projectiles,()=>this.rng.next()),
    move:(dx,dz)=>this.obstacles.move(member===s.party[0]?s.player:member,dx,dz),
    hit:(enemy,damage,type,sourceId,status,source)=>this.damageEnemy(enemy,damage,type,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),

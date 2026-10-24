@@ -5,7 +5,7 @@ export const PROGRESSION = {
  rerolls:{starting:2,intervalSeconds:300},
  leveling:{maxLevel:100,trainingFocusLevel:45,healthPerLevel:.02,powerPerLevel:.02,firstMilestone:3,milestoneInterval:5,xpBase:80,xpLinear:10,xpQuadratic:1.6},
  evolution: {firstLevel:5, finalLevel:10, twoStageLevel:12, maturitySeconds:170, twoStageMaturitySeconds:240, healthGain:.25, powerGain:.25, moveRankGain:1},
- moves: {maxRank:Infinity, soloMaxRank:Infinity, soloTrainingLevel:5, soloRankGain:2, learnedSlots:3,learnLevels:[10,20,30],newMoveOfferChance:.3,damagePerRank:.2,speedPerRank:.08,rangePerRank:.06,maxCastPacketsPerStep:32},
+ moves: {maxRank:Infinity, soloMaxRank:Infinity, soloTrainingLevel:5, soloRankGain:2, learnedSlots:3,learnLevels:[10,20,30],newMoveOfferChance:.3,damagePerRank:.17,speedPerRank:.07,rangePerRank:.05,maxCastPacketsPerStep:32},
  rarityWeights: {common:55, uncommon:10, rare:35, epic:9.5, legendary:.5},
  luckRareScale:2, luckEpicScale:4,
 } as const;
@@ -54,14 +54,16 @@ export const TRAINING_UPGRADES:readonly TrainingUpgrade[] = [
 export const TRAINING_RARITY_MULTIPLIERS={common:1,uncommon:1.5,rare:2,epic:3,legendary:4} as const;
 
 /** Explicit curves and availability are shared by offers, validation and catalogues. */
-export function trainingVariants(upgrade:TrainingUpgrade):Array<{rarity:UpgradeChoice['rarity'];amount:number;rechargeReduction:number}> {
+export function trainingVariants(upgrade:TrainingUpgrade,personal=false):Array<{rarity:UpgradeChoice['rarity'];amount:number;rechargeReduction:number}> {
+ // Personal bonuses are 15% weaker, rounded to whole percentage points (or charges).
+ const tune=(value:number,flat=false)=>!personal||value===0?value:Math.max(flat?1:.01,Math.round(value*.85*(flat?1:100))/(flat?1:100));
  return (Object.keys(TRAINING_RARITY_MULTIPLIERS) as Array<keyof typeof TRAINING_RARITY_MULTIPLIERS>).flatMap(rarity=>{
   const amount=upgrade.amounts?upgrade.amounts[rarity]:rarity==='uncommon'?undefined:upgrade.amount*TRAINING_RARITY_MULTIPLIERS[rarity];
-  return amount===undefined?[]:[{rarity,amount:Number(amount.toFixed(4)),rechargeReduction:upgrade.rechargeReduction?.[rarity]??0}];
+  return amount===undefined?[]:[{rarity,amount:Number(tune(amount,upgrade.stat==='staminaCapacity').toFixed(4)),rechargeReduction:tune(upgrade.rechargeReduction?.[rarity]??0)}];
  });
 }
-export function trainingDescription(upgrade:TrainingUpgrade,rarity:UpgradeChoice['rarity']):string {
- const variant=trainingVariants(upgrade).find(entry=>entry.rarity===rarity);if(!variant)return '';
+export function trainingDescription(upgrade:TrainingUpgrade,rarity:UpgradeChoice['rarity'],personal=false):string {
+ const variant=trainingVariants(upgrade,personal).find(entry=>entry.rarity===rarity);if(!variant)return '';
  const percent=(value:number)=>`${Number((value*100).toFixed(2))}%`;
  if(upgrade.stat==='staminaCapacity')return `+${variant.amount} maximum stamina (dodge ${variant.amount===1?'charge':'charges'}).`;
  const primary=upgrade.description.replace(/\d+(?:\.\d+)?%/,percent(variant.amount));

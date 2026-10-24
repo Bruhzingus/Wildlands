@@ -29,6 +29,8 @@ Pokémon can reach level **100**; the leader should be around **25–35 at 15 mi
 
 ## Documentation
 
+The [late-run balance update](docs/LATE_RUN_BALANCE.md) halves relic benefits, reduces personal training, delays party growth, and adds continuing endless pressure. Reproduce the isolated level-48 fights with `node --experimental-strip-types scripts/late-run-balance.mjs` and the reported minute-33 composition with `node --experimental-strip-types scripts/endless-balance.mjs`.
+
 Read **[GAME_DESIGN_AND_ROADMAP.md](GAME_DESIGN_AND_ROADMAP.md)** first. It is the project's master specification and contains 19 sequential copy/paste prompts for Claude/Codex, test checklists, code architecture, release risks and a complete expansion roadmap.
 
 ## Assets & licensing

@@ -94,7 +94,7 @@ export function getBuildModifiers(state:RunState,owner?:PartyMember|number):Buil
  modifiers.critDamage*=1+Math.max(0,modifiers.critDamagePercent);
  for(const stat of Object.keys(modifiers) as BuildStat[]){
   modifiers[stat]=clamp(modifiers[stat],STAT_MIN[stat]??0,BUILD_STAT_CAPS[stat]);
-  if(stat==='projectiles'||stat==='pierce'||stat==='chains')modifiers[stat]=Math.floor(modifiers[stat]);
+  if(stat==='pierce'||stat==='chains')modifiers[stat]=Math.floor(modifiers[stat]);
  }
  modifiers.damageReduction=0;
  return modifiers;
@@ -102,14 +102,23 @@ export function getBuildModifiers(state:RunState,owner?:PartyMember|number):Buil
 function runtime(state:RunState):BuildRuntimeState{
  return state.build??= {counters:{},cooldownUntil:{},budgetWindow:-1,actionsInWindow:0};
 }
+/** Fractional projectile bonuses become a chance for one extra shot on each cast. */
+export function rollExtraProjectiles(bonus:number,roll:()=>number):number {
+ const whole=Math.floor(bonus),fraction=bonus-whole;
+ return whole+(fraction>0&&roll()<fraction?1:0);
+}
+/** A capped streak prevents sustained multi-hit attacks from growing without limit. */
+export const METRONOME_MAX_HITS=20;
 /** Returns the average damage multiplier for this hit packet and advances its shared target streak. */
 export function metronomeDamageMultiplier(state:RunState,targetId:number,hits=1):number{
  const bonus=ownedItems(state).reduce((total,item)=>total+(item.consecutiveTargetDamage??0)*itemStacks(state,item.id),0);
  if(bonus<=0||!Number.isFinite(targetId))return 1;
  const build=runtime(state),count=Math.max(1,Math.floor(finite(hits,1)));
  const previous=build.metronomeTargetId===targetId?Math.max(0,build.metronomeHits??0):0;
- build.metronomeTargetId=targetId;build.metronomeHits=previous+count;
- return 1+bonus*(previous+(count-1)/2);
+ build.metronomeTargetId=targetId;build.metronomeHits=Math.min(METRONOME_MAX_HITS,previous+count);
+ const rising=Math.min(count,Math.max(0,METRONOME_MAX_HITS-previous));
+ const streakTotal=rising*(previous+(rising-1)/2)+(count-rising)*METRONOME_MAX_HITS;
+ return 1+bonus*streakTotal/count;
 }
 const STATUS_FIELDS:Record<BuildStatus,keyof Pick<Enemy,'stunTime'|'slowTime'|'poisonTime'|'burnTime'|'soakedTime'>>={stun:'stunTime',slow:'slowTime',poison:'poisonTime',burn:'burnTime',soaked:'soakedTime'};
 function resolveAction(action:EffectAction,event:BuildEvent,state:RunState,sourceId:number,depth:number,scale=1):BuildAction|undefined{

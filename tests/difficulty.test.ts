@@ -31,8 +31,8 @@ test('ordinary tier-one and tier-two stats grow gradually within bounds while bo
    assert.equal(enemy.size,opening.size,'Elapsed time does not inflate a species silhouette');
    previous=enemy;
   }
-  assert.ok(previous.maxHp/opening.maxHp<6,'Endurance growth remains bounded over a complete run');
-  assert.ok(previous.damage/opening.damage<2.6,'Ordinary damage growth remains below the heavy encounter budget');
+  assert.ok(previous.maxHp/opening.maxHp<18,'Endurance growth remains bounded over a complete run');
+  assert.ok(previous.damage/opening.damage<3,'Ordinary damage growth remains below the heavy encounter budget');
   assert.ok(previous.speed/opening.speed<1.25,'Movement gains preserve readable attack tells');
  }
 });
@@ -56,8 +56,8 @@ test('all species and variants gain health and damage at three minutes, with gre
    assert.ok(elite[stat]>largeMiniboss[stat]);assert.ok(boss[stat]>elite[stat]);
   }
  }
- assert.deepEqual(lateEnemyScale(900,19,1),{health:1.6,damage:1.25});
- assert.deepEqual(lateEnemyScale(900,150,5),{health:2.44,damage:1.6});
+ assert.deepEqual(lateEnemyScale(900,19,1),{health:1.6*3,damage:1.25*1.15});
+ assert.deepEqual(lateEnemyScale(900,150,5),{health:2.44*3,damage:1.6*1.15});
  for(const id of [19,148,143,150]){
   let previous=lateEnemyScale(180,id,getEnemyTier(id));
   for(const seconds of [240,360,600,900]){

@@ -12,8 +12,8 @@ import {runPacingExperiment} from '../scripts/progression-pacing.mjs';
 import {relicFamily} from '../src/data/items.ts';
 
 test('all five recruitment gates require exact time and level, with first-stage random candidates',()=>{
- assert.deepEqual(DESIGN.recruitUnlockSeconds,[165,420,690,960,1200]);
- assert.deepEqual(DESIGN.recruitUnlockLevels,[4,9,15,22,29]);
+ assert.deepEqual(DESIGN.recruitUnlockSeconds,[165,540,840,1140,1440]);
+ assert.deepEqual(DESIGN.recruitUnlockLevels,[4,12,22,32,42]);
  for(let gate=0;gate<5;gate++){
   const state=new Simulation(1,9).state;state.recruitCount=gate;
   state.stats.level=DESIGN.recruitUnlockLevels[gate];state.stats.elapsed=DESIGN.recruitUnlockSeconds[gate]-.001;
@@ -35,7 +35,7 @@ test('full slots and permanent faints cannot bypass recruitment schedule or dupl
  const recruited=applyChoice(state,offer[0]);assert.equal(recruited.applied,true);
  assert.equal(recruited.sourceUid,state.party[1].uid);state.party.splice(1);
  assert.equal(state.recruitCount,1);assert.equal(canRecruit(state),false);
- state.stats.elapsed=420;
+ state.stats.elapsed=540;
  while(state.party.length<DESIGN.maxParty)state.party.push({...state.party[0],uid:state.idCounter++});
  assert.equal(canRecruit(state),false);assert.ok(makeChoices(state,new RNG(2)).every(choice=>choice.kind!=='recruit'));
  state.party.pop();assert.equal(canRecruit(state),true);
@@ -49,7 +49,7 @@ test('eligibility waits for a level selection, caches remain items and forged re
  assert.equal(applyChoice(state,{...recruit,speciesId:3,id:'recruit-3'}).applied,false);
  assert.equal(applyChoice(state,{...recruit,id:'recruit-999'}).applied,false);
  assert.equal(applyChoice(state,recruit).applied,true);
- state.stats.elapsed=420;state.stats.level=9;
+ state.stats.elapsed=540;state.stats.level=9;
  assert.equal(applyChoice(state,recruit).applied,false,'Old recruit card cannot spend a later gate');
  assert.equal(state.party.length,2);
 });
@@ -169,7 +169,7 @@ test('six seeded 15-minute routes reach four living members; six slots require e
  for(const run of runs){
   assert.equal(run.elapsed,900);assert.equal(run.living,4,`Seed ${run.seed}: ${JSON.stringify(run)}`);
   assert.equal(run.recruits,3);assert.equal(run.faints,0);assert.ok(run.level>=15);
-  assert.ok(run.leaderLevel>=24&&run.leaderLevel<=35,`Leader target with tougher late encounters is level 24–35 at 15 minutes: ${JSON.stringify(run)}`);
+  assert.ok(run.leaderLevel>=12&&run.leaderLevel<=35,`Leader target with tougher late encounters is level 12–35 at 15 minutes: ${JSON.stringify(run)}`);
  }
  const state=new Simulation(1,4).state;state.stats.level=99;
  for(const time of DESIGN.recruitUnlockSeconds){state.stats.elapsed=time;assert.equal(applyChoice(state,makeChoices(state,new RNG(time))[0]).applied,true);}

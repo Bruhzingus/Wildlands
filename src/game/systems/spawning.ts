@@ -3,7 +3,7 @@ import {ENEMY_TIER_TUNING,getEnemyTier,type EnemyTier} from '../../data/enemyTie
 import {ELITE_THREAT,maximumEncounterThreat,selectEncounter,type SpeciesTier} from '../../data/encounters.ts';
 import {challengeRules} from '../../data/challenges.ts';
 import {RNG,clamp} from '../../utils/random.ts';
-import {DESIGN,DIFFICULTY,LATE_ENEMY_SCALING,ordinaryThreatScale} from '../../data/config.ts';
+import {DESIGN,DIFFICULTY,LATE_ENEMY_SCALING,ENDGAME_SCALING,ordinaryThreatScale} from '../../data/config.ts';
 import {getVariant,SPAWN_VARIANTS,variantThreat,variantWeights} from '../../data/variants.ts';
 import type {Enemy,Player,RunState,Variant,Vec2} from '../types.ts';
 import {getBuildModifiers} from './builds.ts';
@@ -20,8 +20,9 @@ export function lateEnemyScale(elapsed:number,speciesId:number,tier:EnemyTier):{
  const progress=clamp((elapsed-tuning.startsAt)/(DESIGN.runSeconds-tuning.startsAt),0,1);
  const strength=clamp((getEnemySpeciesProfile(speciesId).strength-1)/9,0,1);
  const emphasis=1+strength*tuning.strengthWeight+(tier-1)/4*tuning.tierWeight;
- return {health:1+(tuning.healthAtStart+(tuning.healthAtEnd-tuning.healthAtStart)*progress)*emphasis,
-  damage:1+(tuning.damageAtStart+(tuning.damageAtEnd-tuning.damageAtStart)*progress)*emphasis};
+ const endgame=Math.pow(clamp((elapsed-ENDGAME_SCALING.startsAt)/(DESIGN.runSeconds-ENDGAME_SCALING.startsAt),0,1),ENDGAME_SCALING.exponent);
+ return {health:(1+(tuning.healthAtStart+(tuning.healthAtEnd-tuning.healthAtStart)*progress)*emphasis)*(1+(ENDGAME_SCALING.healthAtEnd-1)*endgame),
+  damage:(1+(tuning.damageAtStart+(tuning.damageAtEnd-tuning.damageAtStart)*progress)*emphasis)*(1+(ENDGAME_SCALING.damageAtEnd-1)*endgame)};
 }
 /** Time drives endurance. Party investment adds at most 20% HP and 8% damage,
  * only to newly spawned enemies; movement and attack timing remain readable. */
@@ -87,7 +88,7 @@ export function enemySpawnPosition(player:Pick<Player,'x'|'z'|'facing'>,rng:RNG,
  const angle=Math.atan2(-player.x,-player.z),radius=rng.between(minDistance,maxDistance);
  return {x:player.x+Math.sin(angle)*radius,z:player.z+Math.cos(angle)*radius};
 }
-export interface SpawnTuning {variantWeights?:Partial<Record<Variant,number>>;capacity?:number;speciesTier?:SpeciesTier;statScale?:number;allowRare?:boolean;}
+export interface SpawnTuning {variantWeights?:Partial<Record<Variant,number>>;capacity?:number;speciesTier?:SpeciesTier;statScale?:number;healthScale?:number;damageScale?:number;allowRare?:boolean;}
 export function spawnRandomEnemy(state:RunState,rng:RNG,tuning:SpawnTuning={}):Enemy|null{
  // Reserve one actor for the scheduled boss instead of exceeding the entity budget.
  const capacity=Number.isFinite(tuning.capacity)?clamp(Math.floor(tuning.capacity!),0,DESIGN.maxEnemies):DESIGN.maxEnemies;
@@ -105,7 +106,8 @@ export function spawnRandomEnemy(state:RunState,rng:RNG,tuning:SpawnTuning={}):E
  const enemy=createEnemy(state,rng,id,variant,x,z,rare||(canBeElite&&rng.next()<.003+t/200000));
  if(enemy.combatTier===3)state.lastTier3Spawn=t;
  if(enemy.combatTier===4)state.lastTier4Spawn=t;
- const scale=Number.isFinite(tuning.statScale)?clamp(tuning.statScale!, .25,8):1;
- enemy.hp*=scale;enemy.maxHp*=scale;enemy.damage*=scale;return enemy;
+ const scale=(value:number|undefined)=>Number.isFinite(value)?Math.max(.25,value!):1;
+ const health=scale(tuning.healthScale??tuning.statScale),damage=scale(tuning.damageScale??tuning.statScale);
+ enemy.hp*=health;enemy.maxHp*=health;enemy.damage*=damage;return enemy;
 }
 export function spawnInterval(t:number):number {return Math.max(DESIGN.spawnEndInterval,DESIGN.spawnStartInterval*Math.exp(-t/430));}

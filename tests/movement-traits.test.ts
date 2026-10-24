@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Simulation,type MoveInput} from '../src/game/Simulation.ts';
+import {Simulation,type MoveInput,type GameEvent} from '../src/game/Simulation.ts';
+import {cameraAimDirection,cameraRelativeMovement} from '../src/game/input.ts';
 import {DESIGN} from '../src/data/config.ts';
 import {WORLD} from '../src/data/world.ts';
 import {getMovementTrait,MOVEMENT_TRAITS} from '../src/data/movementTraits.ts';
@@ -11,12 +12,24 @@ import {chooseEnemyAttack,prepareEnemyMove} from '../src/game/combat/enemies.ts'
 import {addProjectile} from '../src/game/combat/projectiles.ts';
 import {migrateSave,exportSave,importSave} from '../src/game/save.ts';
 import {upgradeStatPreview} from '../src/ui/upgradePreview.ts';
+import {runAnalyticsReport} from '../src/game/analytics.ts';
 const idle:MoveInput={mx:0,mz:0,jump:false,dodge:false,special:false,interact:false};
 function arena(id:number,obstacles:Obstacle[]=[]){
  const sim=new Simulation(id,4),s=sim.state;s.enemies=[];s.terrainFeatures=[];s.party[0].cooldown=10000;
  Object.assign(sim,{obstacles:new ObstacleField(obstacles),spawnAccum:-10000});return sim;
 }
 function step(sim:Simulation,seconds:number,input:Partial<MoveInput>={}){for(let left=seconds;left>1e-8;left-=.02)sim.update(Math.min(.02,left),{...idle,...input});}
+function target(sim:Simulation){
+ const s=sim.state,enemy=createEnemy(s,sim.rng,19,'normal',s.player.x+3,s.player.z);
+ Object.assign(enemy,{hp:1e6,maxHp:1e6,speed:0,stunTime:10000,attackCooldown:10000,hitCooldown:10000});s.enemies.push(enemy);
+ return enemy;
+}
+function attackArena(runTime=1.6){
+ const sim=arena(25);step(sim,runTime,{mx:1});Object.assign(sim.rng,{next:()=>.99});
+ const enemy=target(sim),hits:GameEvent[]=[];
+ sim.onEvent=event=>{if(event.kind==='hit'&&event.damageTo==='enemy')hits.push(event);};
+ return {sim,s:sim.state,enemy,hits};
+}
 test('straight travel builds a bounded run-up only after one second and preserves percentage speed gains',()=>{
  const sim=arena(25),normal=arena(1);step(sim,.98,{mx:1});assert.equal(sim.state.player.movement?.boost,0);
  step(sim,.7,{mx:1});step(normal,1.68,{mx:1});
@@ -26,14 +39,95 @@ test('straight travel builds a bounded run-up only after one second and preserve
  step(sim,.1,{mx:1});assert.ok(Math.abs((sim.state.player.x-fast)/.1-DESIGN.playerSpeed*3*1.25)<1e-8);
  assert.ok(getMovementTrait(25).boost!>getMovementTrait(26).boost!,'Early lower-power kits have the larger traversal budget');
 });
-test('turns, stops, dodges, blocked travel and gradual curves cannot retain or farm a run-up',()=>{
- for(const input of [{mx:-1},{},{mx:1,dodge:true},{mx:1,jump:true}]){
+test('sharp turns, stops, dodges, jumps and blocked travel reset run-up',()=>{
+ for(const input of [{mx:-1},{mz:1},{},{mx:1,dodge:true},{mx:1,jump:true}]){
   const sim=arena(25);step(sim,1.6,{mx:1});assert.ok(sim.state.player.movement!.boost>0);
   sim.update(.02,{...idle,...input});assert.equal(sim.state.player.movement?.boost,0);
  }
  const blocked=arena(25,[{kind:'circle',x:4,z:0,radius:2}]);step(blocked,3,{mx:1});assert.equal(blocked.state.player.movement?.boost,0);
+});
+
+test('mouse look, gradual curves and successive 45 degree steering preserve run-up without diagonal overspeed',()=>{
+ for(const id of [25,26,135]){
+  const sim=arena(id),boost=getMovementTrait(id).boost;
+  // Sweep the camera through full rotations during both charge-up and running.
+  for(let i=0;i<200;i++){
+   const alpha=-Math.PI/2+i*.04;
+   sim.update(.02,{...idle,...cameraRelativeMovement(alpha,1,0),...cameraAimDirection(alpha)});
+   if(i>75)assert.equal(sim.state.player.movement?.boost,boost);
+  }
+  const alpha=-Math.PI/2+199*.04;
+  for(const [forward,right] of [[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1],[1,0]]){
+   const input={...cameraRelativeMovement(alpha,forward,right),...cameraAimDirection(alpha)};
+   step(sim,.2,input);assert.equal(sim.state.player.movement?.boost,boost);
+   const before={...sim.state.player};step(sim,.02,input);
+   assert.ok(Math.abs(Math.hypot(sim.state.player.x-before.x,sim.state.player.z-before.z)/.02-DESIGN.playerSpeed*(1+boost!))<1e-8);
+  }
+ }
  const curve=arena(25);for(let i=0;i<200;i++)curve.update(.02,{...idle,mx:Math.cos(i*.02),mz:Math.sin(i*.02)});
- assert.equal(curve.state.player.movement?.boost,0);
+ assert.equal(curve.state.player.movement?.boost,.25);
+});
+
+test('run-up charges basic, learned and special attacks, then ends when the attack fires',()=>{
+ for(const mode of ['basic','learned','special']){
+  for(const runTime of [1.1,1.6]){
+   const damage:number[]=[];
+   for(const charged of [false,true]){
+    const {sim,s,hits}=attackArena(runTime);
+    if(!charged){s.player.movement!.straightTime=0;s.player.movement!.boost=0;}
+    const expectedBonus=Math.min(1,(runTime+.02-MOVEMENT_TRAITS.runupDelay)/MOVEMENT_TRAITS.runupRamp)*MOVEMENT_TRAITS.runupAttackBonus;
+    if(mode==='basic')s.party[0].cooldown=0;
+    if(mode==='learned')s.party[0].learnedMoves=[{moveId:'quick-attack',rank:1,cooldown:0}];
+    sim.update(.02,{...idle,mx:1,special:mode==='special'});
+    assert.equal(hits.length,1,`${mode} must land`);damage.push(hits[0].amount!);
+    const report=runAnalyticsReport(s),row=report.outgoing[0];
+    assert.equal(row.source.origin,mode==='basic'?'signature':mode==='special'?'q':'learned');
+    assert.equal(row.source.actorId,s.party[0].uid);assert.equal(row.source.speciesId,25);
+    assert.ok(Math.abs(report.totals.outgoing.effective-hits[0].amount!)<1e-8);
+    assert.equal(s.player.movement?.boost,0);assert.equal(s.player.movement?.straightTime,0);
+    step(sim,.1,{mx:1});assert.equal(s.player.movement?.straightTime,0,'Attack recovery cannot charge a run-up');
+    if(charged)assert.ok(Math.abs(damage[1]/damage[0]-(1+expectedBonus))<1e-8,`${mode}: ${damage}`);
+   }
+  }
+ }
+});
+
+test('only the next leader attack is charged when several moves are ready together',()=>{
+ const {sim,s,hits}=attackArena();s.party[0].cooldown=0;
+ s.party[0].learnedMoves=[{moveId:'thunder-shock',rank:1,cooldown:0}];
+ sim.update(.02,{...idle,mx:1});assert.equal(hits.length,2);
+ const learnedDamage=hits[0].amount!,basicDamage=hits[1].amount!;
+ // Both moves can fire again immediately, but the consumed charge cannot repeat.
+ s.party[0].cooldown=0;s.party[0].learnedMoves[0].cooldown=0;
+ sim.update(.02,{...idle,mx:1});assert.equal(hits.length,4);
+ assert.ok(Math.abs(learnedDamage/hits[2].amount!-1.5)<1e-8);
+ assert.equal(basicDamage,hits[3].amount);
+});
+
+test('idle attack checks, companion casts and existing projectiles do not consume the leader charge',()=>{
+ const sim=arena(25),s=sim.state;s.party[0].cooldown=0;
+ s.party[0].learnedMoves=[{moveId:'thunder-shock',rank:1,cooldown:0}];
+ step(sim,1.6,{mx:1});assert.equal(s.player.movement?.boost,.25,'No target means no attack');
+ s.party[0].cooldown=10000;s.party[0].learnedMoves[0].cooldown=10000;
+ const enemy=target(sim),companion={...s.party[0],uid:s.idCounter++,x:enemy.x,z:enemy.z-2,cooldown:0,learnedMoves:[]};s.party.push(companion);
+ addProjectile(s,{x:enemy.x-1,z:enemy.z,vx:100,vz:0,ttl:1,damage:10,size:.2,kind:'bolt',type:'normal',penetration:0,friendly:true,sourceId:s.party[0].uid,poisonChance:0});
+ sim.update(.02,{...idle,mx:1});assert.ok(enemy.hp<enemy.maxHp);assert.ok(companion.attackTimer>0);
+ assert.equal(s.player.movement?.boost,.25);assert.equal(s.player.movement?.straightTime,MOVEMENT_TRAITS.runupDelay+MOVEMENT_TRAITS.runupRamp);
+ s.phase='paused';const before=structuredClone(s);step(sim,2,{mx:1,special:true});assert.deepEqual(s,before);
+});
+
+test('batched rapid casts apply the run-up bonus to a single cast',()=>{
+ const damage:number[]=[];
+ for(const charged of [false,true]){
+  const {sim,s,hits}=attackArena();
+  if(!charged){s.player.movement!.straightTime=0;s.player.movement!.boost=0;}
+  s.buffs.haste=1000;s.party[0].cooldown=0;
+  sim.update(.02,{...idle,mx:1});damage.push(hits.reduce((sum,hit)=>sum+hit.amount!,0));
+  assert.equal(s.player.movement?.boost,0);
+ }
+ const {sim,s,hits}=attackArena();s.player.movement!.straightTime=0;s.player.movement!.boost=0;s.party[0].cooldown=0;
+ sim.update(.02,{...idle,mx:1});assert.equal(hits.length,1);
+ assert.ok(Math.abs(damage[1]-damage[0]-hits[0].amount!*MOVEMENT_TRAITS.runupAttackBonus)<1e-8);
 });
 test('holding jump sustains a finite flight; release, recharge and a fresh takeoff are required',()=>{
  const sim=arena(16),p=sim.state.player;sim.update(.02,{...idle,jump:true,jumpHeld:true});

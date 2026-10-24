@@ -64,6 +64,18 @@ test('every tier spawns exactly its advertised encounter with a fixed health bud
  }
 });
 
+test('a late shrine allows a two-minute fight and fails only at its three-minute deadline',()=>{
+ const a=arena(9);a.start();
+ assert.equal(a.site.challenge!.endsAt,180);
+ for(const elapsed of [60,120,179.99]){
+  a.s.stats.elapsed=elapsed;(a.sim as any).updateExploration();
+  assert.ok(a.site.challenge,`The shrine must remain active after ${elapsed}s`);
+  assert.ok(a.s.enemies.some(enemy=>!enemy.dead));
+ }
+ a.s.stats.elapsed=180;(a.sim as any).updateExploration();
+ assert.equal(a.site.challenge,undefined);assert.ok(a.s.enemies.every(enemy=>enemy.dead));
+});
+
 test('multi-guardian trials award completion once, after the last guardian, and reserve all slots',()=>{
  const a=arena(6);a.start();a.kill(0);assert.ok(a.site.challenge);assert.equal(a.s.pendingSquadRewards,0);assert.equal(a.s.buffs.luck??0,0);
  assert.equal(a.s.drops.filter(drop=>drop.kind==='coin'||drop.kind==='item').length,0,'individual guardians cannot award shrine loot');

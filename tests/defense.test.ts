@@ -48,14 +48,14 @@ test('Team Battery requires three living members and scales dodge capacity with 
  assert.equal(applyChoice(s,choice).applied,false);
  for(let uid=2;uid<=3;uid++)s.party.push({...s.party[0],uid});
  assert.ok(availableItemChoices(s).some(item=>item.id===choice.id));
- assert.equal(applyChoice(s,choice).applied,true);close(getBuildModifiers(s).staminaCapacity,3);
+ assert.equal(applyChoice(s,choice).applied,true);close(getBuildModifiers(s).staminaCapacity,1.5);
  s.enemies=[];s.pois=[];
  for(let i=0;i<4;i++){sim.update(.01,{...input,dodge:true});sim.update(.01,input);}
  assert.equal(s.player.dodgeCharges,0);
  sim.update(.01,{...input,dodge:true});assert.equal(s.player.dodgeCharges,0);
  for(let i=0;i<80;i++)sim.update(.05,input);
  assert.equal(s.player.dodgeCharges,1);
- s.party.pop();close(getBuildModifiers(s).staminaCapacity,2);
+ s.party.pop();close(getBuildModifiers(s).staminaCapacity,1);
  assert.equal(applyChoice(s,choice).applied,false);
 });
 
@@ -63,8 +63,8 @@ test('relic and reach balance changes are reflected in effective stats and offer
  const s=new Simulation(4,117).state,base=getBuildModifiers(s).critDamage;
  const claw=getItemDefinition('razor-claw')!;assert.equal(claw.rarity,'uncommon');
  s.buffs.critDamage=.5;const before=getBuildModifiers(s).critDamage;
- s.items=['razor-claw'];close(getBuildModifiers(s).critDamage,before*1.2);
- s.items=['razor-claw-legendary'];close(getBuildModifiers(s).critDamage,before*1.4);
+ s.items=['razor-claw'];close(getBuildModifiers(s).critDamage,before*1.1);
+ s.items=['razor-claw-legendary'];close(getBuildModifiers(s).critDamage,before*1.2);
  assert.ok(base>1);assert.ok(ITEMS.every(item=>!item.id.startsWith('long-barrel')));
  const radius=TRAINING_UPGRADES.find(entry=>entry.id==='radius')!;close(radius.amount,.18*.7);
  assert.equal(applyChoice(s,{...radius,kind:'stat'}).applied,true);close(getBuildModifiers(s).radius,.126);

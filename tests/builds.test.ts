@@ -31,8 +31,8 @@ test('item registry preserves legacy definitions while reward offers use the cur
 
 test('relic copies stack, unknown ids are ignored and buff aliases apply once',()=>{
  const s=state([1],['life-orb','life-orb','multi-lens','not-a-relic']);s.buffs={power:.18,haste:.14,crit:.06};
- const modifiers=getBuildModifiers(s);close(modifiers.power,.82);close(modifiers.haste,.14);close(modifiers.critChance,.11);
- assert.equal(modifiers.critDamage,1.85);assert.equal(modifiers.projectiles,1);
+ const modifiers=getBuildModifiers(s);close(modifiers.power,.5);close(modifiers.haste,.14);close(modifiers.critChance,.11);
+ assert.equal(modifiers.critDamage,1.85);assert.equal(modifiers.projectiles,.5);
  assert.deepEqual(getBuildSummary(s).items.map(item=>item.id),['life-orb','multi-lens']);
 });
 
@@ -49,15 +49,15 @@ test('training stats grow past old caps while relic budgets and invalid-input gu
 
 test('heavy attacks and unevolved investment have real, species-sensitive drawbacks',()=>{
  const s=state([1,3,83],['iron-ball','nursery-stone','eviolite']);
- close(getBuildModifiers(s,1).power,.65+.45+.22+.12);close(getBuildModifiers(s,1).haste,-.3);
- close(getBuildModifiers(s,2).power,.65-.2+.12);close(getBuildModifiers(s,3).power,.65-.2+.12);
- s.party[0].speciesId=3;close(getBuildModifiers(s,1).power,.65-.2+.12);
+ close(getBuildModifiers(s,1).power,.325+.225+.11+.12);close(getBuildModifiers(s,1).haste,-.3);
+ close(getBuildModifiers(s,2).power,.325-.2+.12);close(getBuildModifiers(s,3).power,.325-.2+.12);
+ s.party[0].speciesId=3;close(getBuildModifiers(s,1).power,.325-.2+.12);
 });
 
 test('assigned item ownership follows a member and deactivates on permanent faint',()=>{
  const s=state([1,4],['life-orb','echo-bell']);
  s.build={counters:{},cooldownUntil:{},budgetWindow:-1,actionsInWindow:0,itemOwners:{'life-orb':2,'echo-bell':2}};
- assert.equal(getBuildModifiers(s,1).power,0);close(getBuildModifiers(s,2).power,.32);
+ assert.equal(getBuildModifiers(s,1).power,0);close(getBuildModifiers(s,2).power,.16);
  for(let i=0;i<10;i++)assert.deepEqual(dispatchBuildEvent({state:s,rng:guaranteed},{kind:'onAttack',sourceId:1,targetId:40}),[]);
  for(let i=0;i<4;i++)assert.deepEqual(dispatchBuildEvent({state:s,rng:guaranteed},{kind:'onAttack',sourceId:2,targetId:40}),[]);
  assert.equal(dispatchBuildEvent({state:s,rng:guaranteed},{kind:'onAttack',sourceId:2,targetId:40})[0]?.kind,'echo');
@@ -79,9 +79,9 @@ test('all seven event hooks dispatch generic actions with damage attribution and
  const context={state:s,rng:guaranteed};
  const crit=dispatchBuildEvent(context,{kind:'onCrit',targetId:40,damage:100,element:'electric'});
  assert.deepEqual(crit.map(action=>action.kind),['chain','area']);assert.equal(crit[0].sourceId,1);assert.equal(crit[0].element,'electric');assert.equal(crit[0].depth,1);
- assert.equal(crit.find(action=>action.kind==='area')?.damage,35);
+ assert.equal(crit.find(action=>action.kind==='area')?.damage,17.5);
  assert.equal(crit.find(action=>action.kind==='area')?.damageIsFinal,true,'percentages of an actual hit must not apply type/status multipliers again');
- assert.equal(crit.find(action=>action.kind==='chain')?.damage,25);
+ assert.equal(crit.find(action=>action.kind==='chain')?.damage,12.5);
  assert.equal(crit.find(action=>action.kind==='chain')?.damageIsFinal,true,'arcs use a fraction of the final hit without repeating target multipliers');
  const hit=dispatchBuildEvent(context,{kind:'onHit',targetId:40});assert.equal(hit[0].kind,'status');
  s.stats.elapsed=.2;
@@ -102,9 +102,9 @@ test('proc recursion stays blocked while effect strength and duration keep scali
  assert.equal(actions,300);
  s.stats.elapsed=.11;
  const next=dispatchBuildEvent(context,{kind:'onHit',targetId:40});assert.equal(next.length,3);
- const poison=next.find(action=>action.kind==='status'&&action.status==='poison');assert.ok(poison&&poison.kind==='status');close(poison.duration,4.2);
+ const poison=next.find(action=>action.kind==='status'&&action.status==='poison');assert.ok(poison&&poison.kind==='status');close(poison.duration,1.8);
  for(const depth of [1,2,100,-1])assert.equal(dispatchBuildEvent(context,{kind:'onHit',targetId:40,depth}).length,0);
- const huge=dispatchBuildEvent(context,{kind:'onCrit',damage:1e12,targetId:40});assert.equal(huge[0]?.kind,'area');assert.ok(huge[0]?.kind==='area');assert.equal(huge[0].damage,3.5e11);
+ const huge=dispatchBuildEvent(context,{kind:'onCrit',damage:1e12,targetId:40});assert.equal(huge[0]?.kind,'area');assert.ok(huge[0]?.kind==='area');assert.equal(huge[0].damage,1.75e11);
  assert.equal(dispatchBuildEvent(context,{kind:'onHit',sourceId:999,targetId:40}).length,0);
 });
 
@@ -155,8 +155,8 @@ test('party changes refresh synergy contributors without leaking between runs or
  assert.ok(getActiveSynergies(first).some(synergy=>synergy.id==='storm-circuit'));assert.ok(!getActiveSynergies(second).some(synergy=>synergy.id==='storm-circuit'||synergy.id==='elemental-bond'));
  first.party[1].uid=55;assert.ok(getActiveSynergies(first).find(synergy=>synergy.id==='storm-circuit')?.members.includes(55));
  assert.ok(!getActiveSynergies(first).find(synergy=>synergy.id==='storm-circuit')?.members.includes(2));
- close(getBuildModifiers(first).power,.12);first.player.hp=30;close(getBuildModifiers(first).power,.37);
- first.buffs.power=.18;close(getBuildModifiers(first).power,.55);first.items=[];close(getBuildModifiers(first).power,.3);
+ close(getBuildModifiers(first).power,.12);first.player.hp=30;close(getBuildModifiers(first).power,.245);
+ first.buffs.power=.18;close(getBuildModifiers(first).power,.425);first.items=[];close(getBuildModifiers(first).power,.3);
  first.party[1].hp=0;close(getBuildModifiers(first).power,.18);assert.equal(getBuildModifiers(first).chains,0);
  second.party[1].speciesId=134;close(getBuildModifiers(second).power,.12);
 });
@@ -174,7 +174,7 @@ test('build summary is deterministic, serializable and reflects actual owned def
  const s=state([25,100],['storm-coil','multi-lens','storm-coil']);const before=JSON.stringify(s);const summary=getBuildSummary(s);
  assert.deepEqual(summary,getBuildSummary(s));assert.equal(JSON.stringify(s),before,'reading a summary must not mutate the run');
  assert.equal(summary.items.length,2);assert.equal(summary.items.find(item=>item.id==='storm-coil')!.stacks,2);assert.ok(summary.synergies.some(synergy=>synergy.id==='storm-circuit'));
- assert.equal(summary.modifiers.chains,6);assert.equal(summary.modifiers.projectiles,1);assert.ok(JSON.parse(JSON.stringify(summary)));
+ assert.equal(summary.modifiers.chains,4);assert.equal(summary.modifiers.projectiles,.5);assert.ok(JSON.parse(JSON.stringify(summary)));
  assert.equal(getSpecies(s.party[0].speciesId).types[0],'electric');
 });
 

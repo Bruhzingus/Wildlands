@@ -302,7 +302,7 @@ export class UI {
   this.refreshCooldown('dodge-cd',(p.dodgeCharges??0)>0?0:p.dodgeCooldown,`Shift dodge ready (${p.dodgeCharges??1} stamina)`,stats.elapsed);
   const trait=getMovementTrait(leader.speciesId),movement=p.movement,traitStatus=q('#movement-trait');
   traitStatus.classList.toggle('hidden',trait.kind==='normal');traitStatus.dataset.trait=trait.kind;traitStatus.title=trait.description;
-  const traitText=trait.kind==='runup'?(movement?.boost?`${trait.name.toUpperCase()} +${Math.round(movement.boost*100)}% SPEED`:`RUN STRAIGHT ${Math.min(MOVEMENT_TRAITS.runupDelay,movement?.straightTime??0).toFixed(1)} / ${MOVEMENT_TRAITS.runupDelay.toFixed(1)}s`)
+  const traitText=trait.kind==='runup'?(movement?.boost?`${trait.name.toUpperCase()} +${Math.round(movement.boost*100)}% SPEED / NEXT ATTACK +${Math.round(movement.boost/(trait.boost??1)*MOVEMENT_TRAITS.runupAttackBonus*100)}%`:`RUN ${Math.min(MOVEMENT_TRAITS.runupDelay,movement?.straightTime??0).toFixed(1)} / ${MOVEMENT_TRAITS.runupDelay.toFixed(1)}s`)
    :trait.kind==='flight'?(movement?.flying?`FLYING ${movement.flightRemaining.toFixed(1)}s`:movement?.flightCooldown?`FLIGHT RECHARGE ${movement.flightCooldown.toFixed(1)}s`:p.y>0&&!movement?.flightEligible?'FLIGHT / LAND FOR TAKEOFF':`HOLD SPACE / FLY ${trait.airtime}s`)
    :trait.kind==='burrow'?((p.burrowTime??0)>0?`BURROWED ${(p.burrowTime??0).toFixed(1)}s / PROTECTED`:'SHIFT / BURROW DASH')
    :trait.kind==='leap'?'SPACE / SPLASH LEAP':trait.kind==='teleport'?'SHIFT / TELEPORT':'';

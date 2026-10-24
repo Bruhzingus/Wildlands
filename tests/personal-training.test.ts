@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Simulation} from '../src/game/Simulation.ts';
-import {TRAINING_UPGRADES} from '../src/data/progression.ts';
+import {TRAINING_UPGRADES,trainingVariants} from '../src/data/progression.ts';
 import {getBuildModifiers} from '../src/game/systems/builds.ts';
 import {applyChoice,availableItemChoices,makeChoices,rerollChoices} from '../src/game/systems/progression.ts';
 import {upgradeStatPreview} from '../src/ui/upgradePreview.ts';
@@ -17,7 +17,7 @@ function squad(){
 function training(s:Simulation['state'],id:string){
  const owner=s.party.find(member=>member.uid===s.levelUpMemberId)!;
  const definition=TRAINING_UPGRADES.find(upgrade=>upgrade.id===id)!;
- return {...definition,id:definition.rarity==='common'?id:`${id}-${definition.rarity}`,kind:'stat' as const,speciesId:owner.uid,rank:(owner.trainingRanks?.[id]??0)+1};
+ return {...definition,...trainingVariants(definition,true).find(variant=>variant.rarity===definition.rarity)!,id:definition.rarity==='common'?id:`${id}-${definition.rarity}`,kind:'stat' as const,speciesId:owner.uid,rank:(owner.trainingRanks?.[id]??0)+1};
 }
 
 test('every level-up stat and its rank belongs only to the Pokémon earning it',()=>{
@@ -26,7 +26,7 @@ test('every level-up stat and its rank belongs only to the Pokémon earning it',
   makeChoices(s,new RNG(3));
   const other=structuredClone(follower),shared=structuredClone(s.buffs);
   assert.equal(applyChoice(s,training(s,definition.id)).applied,true);
-  close(leader.trainingBuffs![definition.stat],definition.amount);
+  close(leader.trainingBuffs![definition.stat],trainingVariants(definition,true)[0].amount);
   assert.equal(leader.trainingRanks![definition.id],1);
   assert.deepEqual(follower,other);assert.deepEqual(s.buffs,shared);
   s.levelUpMemberId=follower.uid;
@@ -44,8 +44,8 @@ test('follower HP and damage previews are personal and never mutate the run',()=
   assert.deepEqual(s,snapshot);assert.ok(preview.length);
   assert.equal(applyChoice(s,choice).applied,true);
  }
- close(follower.maxHp,hp*1.1);close(follower.hp/follower.maxHp,.4);
- close(getBuildModifiers(s,follower).power,.08);close(getBuildModifiers(s,leader).power,0);
+ close(follower.maxHp,hp*1.09);close(follower.hp/follower.maxHp,.4);
+ close(getBuildModifiers(s,follower).power,.07);close(getBuildModifiers(s,leader).power,0);
  assert.deepEqual(s.player,player);assert.deepEqual(leader,other);
 });
 
@@ -70,10 +70,10 @@ test('queued shrine training stays squad-wide alongside personal bonuses and rel
  assert.ok(s.upgradeChoices.every(choice=>choice.speciesId===undefined));
  const power=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='power')!;
  assert.equal(applyChoice(s,{...power,kind:'stat',rank:1}).applied,true);
- close(getBuildModifiers(s,leader).power,.08);close(getBuildModifiers(s,follower).power,.16);
+ close(getBuildModifiers(s,leader).power,.08);close(getBuildModifiers(s,follower).power,.15);
  const item=availableItemChoices(s).find(choice=>choice.id==='life-orb')!;
  assert.equal(applyChoice(s,item).applied,true);
- close(getBuildModifiers(s,leader).power,.4);close(getBuildModifiers(s,follower).power,.48);
+ close(getBuildModifiers(s,leader).power,.24);close(getBuildModifiers(s,follower).power,.31);
 });
 
 test('personal HP training is not inherited by recruits',()=>{
@@ -97,7 +97,7 @@ test('companions can train their special recharge and damage with personal previ
   if(id==='wise-glasses')assert.ok(preview.some(row=>row.label==='Special damage bonus'));
   assert.equal(applyChoice(s,choice).applied,true);
  }
- close(getBuildModifiers(s,follower).specialHaste,.25);close(getBuildModifiers(s,follower).specialPower,.1);
+ close(getBuildModifiers(s,follower).specialHaste,.21);close(getBuildModifiers(s,follower).specialPower,.09);
  assert.deepEqual(leader,original);
  follower.speciesId=113;
  assert.equal(applyChoice(s,training(s,'wise-glasses')).applied,false,'Support specials cannot use special damage training');

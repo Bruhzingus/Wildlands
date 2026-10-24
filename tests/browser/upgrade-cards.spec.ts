@@ -175,9 +175,9 @@ test('legendary training and relic cards preview additive percentages and preser
   return {power:s.buffs.power,items:[...s.items],elapsed:s.stats.elapsed};
  });
  await expect(page.locator('.rarity-label')).toHaveText(['COMMON','LEGENDARY','LEGENDARY']);
- await expect(page.locator('[data-choice="power"] .choice-preview')).toContainText('37% → 45%');
- await expect(page.locator('[data-choice="power-legendary"] .choice-preview')).toContainText('37% → 77%');
- await expect(page.locator('[data-choice="razor-claw-legendary"] .choice-preview')).toContainText('40%');
+ await expect(page.locator('[data-choice="power"] .choice-preview')).toContainText('21% → 29%');
+ await expect(page.locator('[data-choice="power-legendary"] .choice-preview')).toContainText('21% → 61%');
+ await expect(page.locator('[data-choice="razor-claw-legendary"] .choice-preview')).toContainText('20%');
  const colors=await page.locator('.choice-card').evaluateAll(cards=>cards.map(card=>getComputedStyle(card).borderLeftColor));
  expect(colors[0]).not.toEqual(colors[1]);expect(colors[1]).toEqual(colors[2]);
  await expectCardsToFit(page);

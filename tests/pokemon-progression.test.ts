@@ -92,7 +92,7 @@ test('single-stage mastery applies indefinitely to learned moves with accurate o
  const learned=member.learnedMoves![0];
  const card=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===learned.moveId)!;
  assert.ok(card);assert.equal(card.amount,2);assert.equal(card.rank,3);assert.equal(card.maxRank,undefined);
- assert.match(card.description,/\+40\.0% damage/);assert.match(card.description,/13\.8% shorter cooldown/);
+ assert.match(card.description,/\+34\.0% damage/);assert.match(card.description,/12\.3% shorter cooldown/);
  assert.match(card.description,/Rank 1 to 3\./);
  assert.equal(applyChoice(state,{...card,amount:1,rank:2}).applied,false);
  assert.equal(applyChoice(state,card).applied,true);assert.equal(learned.rank,3);
@@ -151,11 +151,11 @@ test('learned move upgrades apply the percentage gains printed on their cards',(
  for(const move of learnableMoves(member.speciesId).slice(0,3))assert.equal(applyChoice(state,learnCard(member,move.id)).applied,true);
  const moveId=member.learnedMoves![0].moveId;
  const card=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===moveId)!;
- assert.ok(card);assert.match(card.description,/\+20\.0% damage/);assert.match(card.description,/7\.4% shorter cooldown/);assert.match(card.description,/\+6\.0% reach/);
+ assert.ok(card);assert.match(card.description,/\+17\.0% damage/);assert.match(card.description,/6\.5% shorter cooldown/);assert.match(card.description,/\+5\.0% reach/);
  const from=getLearnedMoveProfile(moveId,1),basePower=learnedMovePower(moveId,1);
  assert.equal(applyChoice(state,card).applied,true);
  const to=getLearnedMoveProfile(moveId,2);
- close(learnedMovePower(moveId,2)/basePower,1.2);close(to.cooldown/from.cooldown,1/1.08);close(to.range/from.range,1.06);
+ close(learnedMovePower(moveId,2)/basePower,1.17);close(to.cooldown/from.cooldown,1/1.07);close(to.range/from.range,1.05);
  assert.equal(applyChoice(state,card).applied,false,'A stale rank cannot be purchased twice');
  assert.ok(learnedMovePower(moveId,999)>learnedMovePower(moveId,12));
 });
@@ -168,7 +168,7 @@ test('training keeps improving the build beyond old stat and move limits',()=>{
  assert.ok(choices.some(choice=>choice.kind==='attack'&&choice.rank===81));
  const before=getBuildModifiers(state);
  const defense=TRAINING_UPGRADES.find(upgrade=>upgrade.id==='haste')!;
- assert.equal(applyChoice(state,{...defense,kind:'stat',speciesId:member.uid,rank:31}).applied,true);
+ assert.equal(applyChoice(state,{...defense,amount:.07,kind:'stat',speciesId:member.uid,rank:31}).applied,true);
  assert.ok(getBuildModifiers(state).haste>before.haste);
  assert.ok(allOffers(state).some(choice=>choice.stat==='haste'));
  const cache=makeChoices(state,new RNG(1),'cache');assert.ok(cache.every(choice=>choice.kind==='item'));

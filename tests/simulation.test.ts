@@ -27,13 +27,13 @@ test('recruitment waits multiple minutes AND level gate',()=>{
  const result=applyChoice(s,opts[0]);assert.match(result.event,/joined/);assert.equal(s.party.length,2);
  assert.equal(getSpecies(s.party[1].speciesId).stage,1);
  s.stats.elapsed=200;assert.equal(canRecruit(s),false);
- s.stats.elapsed=421;s.stats.level=9;assert.equal(canRecruit(s),true);
+ s.stats.elapsed=541;s.stats.level=12;assert.equal(canRecruit(s),true);
 });
 test('typical run recruitment pacing: max 4 at fifteen minutes',()=>{
  const sim=new Simulation(4,300),s=sim.state;s.stats.level=99;
- for(const minute of [3,7,12]){s.stats.elapsed=minute*60;const c=makeChoices(s,sim.rng)[0];assert.equal(c.kind,'recruit');applyChoice(s,c);}
+ for(const minute of [3,9,14]){s.stats.elapsed=minute*60;const c=makeChoices(s,sim.rng)[0];assert.equal(c.kind,'recruit');applyChoice(s,c);}
  assert.equal(s.party.length,4);s.stats.elapsed=900;assert.equal(canRecruit(s),false);
- s.stats.elapsed=965;assert.equal(canRecruit(s),true);
+ s.stats.elapsed=1145;assert.equal(canRecruit(s),true);
 });
 test('evolution appears only after maturity, correct species link',()=>{
  const sim=new Simulation(4,77),s=sim.state,member=s.party[0];s.stats.level=99;

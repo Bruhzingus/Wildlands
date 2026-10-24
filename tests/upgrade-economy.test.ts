@@ -50,10 +50,10 @@ test('same-rarity stat passives never offer a strictly better version of another
 test('critical effects scale with the actual hit without applying target multipliers twice',()=>{
  const {state}=arena(['static-orb']);
  const first=dispatchBuildEvent({state,rng:guaranteed},{kind:'onCrit',sourceId:1,damage:100})[0];
- assert.equal(first.kind,'chain');assert.ok(first.kind==='chain');close(first.damage,25);assert.equal(first.damageIsFinal,true);
+ assert.equal(first.kind,'chain');assert.ok(first.kind==='chain');close(first.damage,12.5);assert.equal(first.damageIsFinal,true);
  state.stats.elapsed=1;
  const stronger=dispatchBuildEvent({state,rng:guaranteed},{kind:'onCrit',sourceId:1,damage:400})[0];
- assert.ok(stronger.kind==='chain');close(stronger.damage,100);
+ assert.ok(stronger.kind==='chain');close(stronger.damage,50);
 });
 
 test('death and special effects grow with primary move rank and percentage attack bonuses',()=>{
@@ -73,16 +73,16 @@ test('death and special effects grow with primary move rank and percentage attac
 test('healing effects preserve each target max-HP fraction and recovery has shared safety caps',()=>{
  const {state}=arena(['rescue-ribbon','leftovers']);
  const heal=dispatchBuildEvent({state,rng:guaranteed},{kind:'onSpecial'})[0];
- assert.ok(heal.kind==='heal');assert.equal(heal.amount,0);assert.equal(heal.maxHpFraction,.12);assert.equal(heal.target,'squad');
- close(getBuildModifiers(state).regenerationPercent,.008);close(getBuildModifiers(state).partyRegenerationPercent,.008);
+ assert.ok(heal.kind==='heal');assert.equal(heal.amount,0);assert.equal(heal.maxHpFraction,.06);assert.equal(heal.target,'squad');
+ close(getBuildModifiers(state).regenerationPercent,.004);close(getBuildModifiers(state).partyRegenerationPercent,.004);
  state.buffs={damageReduction:1e9,regenerationPercent:1e9,partyRegenerationPercent:1e9};
  const capped=getBuildModifiers(state);
- for(const stat of ['regenerationPercent','partyRegenerationPercent'] as const)close(capped[stat],1e9+.008);
+ for(const stat of ['regenerationPercent','partyRegenerationPercent'] as const)close(capped[stat],1e9+.004);
  assert.ok(capped.defense>=1e9);assert.equal(capped.damageReduction,0);
  assert.ok(!getBuildSummary(state).caps.includes('Damage reduction capped at 60%'));
  assert.equal(getBuildSummary(state).caps.length,0);
  state.buffs={damageReduction:NaN,regenerationPercent:Infinity,partyRegenerationPercent:-9};
- const safe=getBuildModifiers(state);assert.equal(safe.damageReduction,0);close(safe.regenerationPercent,.008);assert.equal(safe.partyRegenerationPercent,0);
+ const safe=getBuildModifiers(state);assert.equal(safe.damageReduction,0);close(safe.regenerationPercent,.004);assert.equal(safe.partyRegenerationPercent,0);
 });
 
 test('Leftovers restores the same fraction for differently sized party members in real simulation',()=>{
@@ -91,8 +91,8 @@ test('Leftovers restores the same fraction for differently sized party members i
   state.player.hp=80;state.player.maxHp=200;
   state.party.push({...state.party[0],uid:2,speciesId:7,hp:100,maxHp:400});simulation.update(.02,idle);
  }
- close(upgraded.state.player.hp-baseline.state.player.hp,200*.008*.02);
- close(upgraded.state.party[1].hp-baseline.state.party[1].hp,400*.008*.02);
+ close(upgraded.state.player.hp-baseline.state.player.hp,200*.004*.02);
+ close(upgraded.state.party[1].hp-baseline.state.party[1].hp,400*.004*.02);
 });
 
 test('Heal Bell restores each member own max-HP percentage when a special is used',()=>{
@@ -101,8 +101,8 @@ test('Heal Bell restores each member own max-HP percentage when a special is use
   state.player.hp=80;state.player.maxHp=200;
   state.party.push({...state.party[0],uid:2,speciesId:7,hp:100,maxHp:400});simulation.update(.02,{...idle,special:true});
  }
- close(upgraded.state.player.hp-baseline.state.player.hp,24);
- close(upgraded.state.party[1].hp-baseline.state.party[1].hp,48);
+ close(upgraded.state.player.hp-baseline.state.player.hp,12);
+ close(upgraded.state.party[1].hp-baseline.state.party[1].hp,24);
 });
 
 test('Big Root counts twelve learned casts separately for each attacker',()=>{
@@ -114,7 +114,7 @@ test('Big Root counts twelve learned casts separately for each attacker',()=>{
  }
  close(state.player.hp,100);
  for(const member of state.party)member.learnedMoves![0].cooldown=0;
- simulation.update(.01,idle);close(state.player.hp,106);
+ simulation.update(.01,idle);close(state.player.hp,103);
 });
 
 test('Life Orb combines learned casts and primary attacks in its squad counter',()=>{
@@ -138,7 +138,7 @@ test('Metronome repeats the learned attack at its scaled damage without counting
  assert.equal(state.projectiles.length,30,'nine Swift casts plus one three-projectile repeat');
  assert.ok(state.projectiles.every(projectile=>projectile.moveName==='Swift'),'a learned echo must never become the primary move');
  const echoes=state.projectiles.filter(projectile=>projectile.allowProcs===false);
- assert.equal(echoes.length,3);assert.ok(echoes.every(projectile=>Math.abs(projectile.damage-13)<1e-9));
+ assert.equal(echoes.length,3);assert.ok(echoes.every(projectile=>Math.abs(projectile.damage-6.5)<1e-9));
  // Let only the repeated center star hit. A guaranteed King's Rock roll must still stay inactive.
  const center=echoes.find(projectile=>Math.abs(projectile.vz)<1e-9)!;
  state.projectiles=[center];state.items=['kings-rock'];simulation.rng.next=()=>0;
@@ -156,5 +156,5 @@ test('a learned echo retargets after the original target dies',()=>{
  const next=createEnemy(state,simulation.rng,19,'normal',6.5,0);
  Object.assign(next,{hp:1000,maxHp:1000,speed:0,hitCooldown:1000,attackCooldown:1000});state.enemies.push(next);
  state.party[0].learnedMoves![0].cooldown=0;simulation.update(.01,idle);
- assert.equal(enemy.dead,true);close(next.hp,1000-30*.8*.65);
+ assert.equal(enemy.dead,true);close(next.hp,1000-30*.8*.325);
 });

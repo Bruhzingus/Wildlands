@@ -4,26 +4,37 @@ import {getSpecies} from '../../data/kanto.ts';
 import type {Player,MovementState,RunState,Enemy} from '../types.ts';
 
 /** Leader-only, authoritative state. It is serializable and uses active time. */
-export function prepareMovement(player:Player,speciesId:number,nx:number,nz:number,strength:number,dt:number,dodging:boolean){
+export function prepareMovement(player:Player,speciesId:number,nx:number,nz:number,strength:number,dt:number,interrupted:boolean){
  const trait=getMovementTrait(speciesId);
  if(trait.kind==='normal'||trait.kind==='teleport'||trait.kind==='burrow'){delete player.movement;return undefined;}
+ // Compare steering relative to the camera so mouse look never breaks a run.
+ const heading=Math.atan2(nx,nz)-(player.aimFacing??0);
  let m=player.movement;
- if(!m||m.speciesId!==speciesId)m=player.movement={speciesId,straightTime:0,heading:Math.atan2(nx,nz),boost:0,holdTime:0,flightRemaining:0,flightCooldown:0,flightEligible:false,flightUsed:false,flying:false};
+ if(!m||m.speciesId!==speciesId)m=player.movement={speciesId,straightTime:0,heading,boost:0,holdTime:0,flightRemaining:0,flightCooldown:0,flightEligible:false,flightUsed:false,flying:false};
  m.flightCooldown=Math.max(0,m.flightCooldown-dt);
  if(trait.kind==='runup'){
-  const turn=nx*Math.sin(m.heading)+nz*Math.cos(m.heading);
-  if(strength<.8||player.y>0||dodging||turn<Math.cos(MOVEMENT_TRAITS.turnTolerance)){
-   m.straightTime=0;m.boost=0;m.heading=Math.atan2(nx,nz);
+  const turn=Math.cos(heading-m.heading);
+  if(strength<.8||player.y>0||interrupted||turn<Math.cos(MOVEMENT_TRAITS.turnTolerance)-1e-8){
+   m.straightTime=0;m.boost=0;
   }
+  m.heading=heading;
  }
  return m;
 }
-export function recordRunUp(player:Player,m:MovementState|undefined,dx:number,dz:number,dt:number,expectedSpeed:number,strength:number,dodging:boolean){
+export function recordRunUp(player:Player,m:MovementState|undefined,dx:number,dz:number,dt:number,expectedSpeed:number,strength:number,interrupted:boolean){
  const trait=getMovementTrait(m?.speciesId??0);if(!m||trait.kind!=='runup')return;
- const distance=Math.hypot(dx,dz),direction=distance?(dx*Math.sin(m.heading)+dz*Math.cos(m.heading))/distance:0;
- if(strength>=.8&&player.y===0&&!dodging&&distance>=expectedSpeed*dt*.55&&direction>=Math.cos(MOVEMENT_TRAITS.turnTolerance))m.straightTime=Math.min(MOVEMENT_TRAITS.runupDelay+MOVEMENT_TRAITS.runupRamp,m.straightTime+dt);
+ const distance=Math.hypot(dx,dz);
+ if(strength>=.8&&player.y===0&&!interrupted&&distance>=expectedSpeed*dt*.55)m.straightTime=Math.min(MOVEMENT_TRAITS.runupDelay+MOVEMENT_TRAITS.runupRamp,m.straightTime+dt);
  else m.straightTime=0;
  m.boost=Math.max(0,Math.min(1,(m.straightTime-MOVEMENT_TRAITS.runupDelay)/MOVEMENT_TRAITS.runupRamp))*(trait.boost??0);
+}
+/** Only a committed leader cast consumes the charge, never a hit or an echo. */
+export function consumeRunUp(player:Player,speciesId:number):number {
+ const m=player.movement;
+ if(!m||m.speciesId!==speciesId||getMovementTrait(speciesId).kind!=='runup')return 0;
+ const bonus=Math.max(0,Math.min(1,(m.straightTime-MOVEMENT_TRAITS.runupDelay)/MOVEMENT_TRAITS.runupRamp))*MOVEMENT_TRAITS.runupAttackBonus;
+ m.straightTime=0;m.boost=0;
+ return bonus;
 }
 export function stepFlight(player:Player,m:MovementState|undefined,jumped:boolean,held:boolean,dt:number){
  if(!m||getMovementTrait(m.speciesId).kind!=='flight')return false;

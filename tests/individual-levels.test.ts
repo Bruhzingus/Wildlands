@@ -46,9 +46,9 @@ test('ordinary levels keep combat running, preserve health percentage and add mo
 
 test('Exp. Share boosts only behind teammates, without reducing anyone else’s XP',()=>{
  const {sim,s}=arena(),leader=s.party[0],follower=teammate(sim);leader.level=5;s.items=['exp-share'];
- sim.gainXP(100);close(leader.xp!,100);close(follower.xp!,135);
- follower.level=5;sim.gainXP(100);close(leader.xp!,200);close(follower.xp!,235);
- follower.level=4;sim.gainXP(100,follower.uid);close(follower.xp!,335);
+ sim.gainXP(100);close(leader.xp!,100);close(follower.xp!,117.5);
+ follower.level=5;sim.gainXP(100);close(leader.xp!,200);close(follower.xp!,217.5);
+ follower.level=4;sim.gainXP(100,follower.uid);close(follower.xp!,317.5);
 });
 
 test('independent levels queue their own move rewards while combat remains paused',()=>{
@@ -98,10 +98,10 @@ test('percentage defense and recovery scale with actual HP and incoming damage',
  (sim as any).hurtPlayer(100,false);close(s.player.hp,1000-100+getBuildModifiers(s).armor);
  follower.hp=follower.maxHp=2000;follower.iframes=0;(sim as any).hurtCompanion(follower,100);close(follower.hp,2000-100+getBuildModifiers(s,follower).armor);
  s.items=['leftovers'];s.player.hp=500;follower.hp=1000;
- (sim as any).updateRegeneration(1);close(s.player.hp,508);close(follower.hp,1016);
+ (sim as any).updateRegeneration(1);close(s.player.hp,504);close(follower.hp,1008);
  s.items=['rescue-ribbon'];s.player.hp=500;follower.hp=1000;
- (sim as any).buildEvent({kind:'onSpecial',sourceId:s.party[0].uid});close(s.player.hp,620);close(follower.hp,1240);
- s.challenge='famine';(sim as any).updateRegeneration(1);close(s.player.hp,620);
+ (sim as any).buildEvent({kind:'onSpecial',sourceId:s.party[0].uid});close(s.player.hp,560);close(follower.hp,1120);
+ s.challenge='famine';(sim as any).updateRegeneration(1);close(s.player.hp,560);
 });
 
 test('a learned move upgrade increases real projectile damage and shortens its independent cooldown',()=>{
@@ -112,7 +112,7 @@ test('a learned move upgrade increases real projectile damage and shortens its i
  const firstDamage=s.projectiles[0].damage,firstCooldown=leader.learnedMoves[0].cooldown;
  s.projectiles=[];leader.learnedMoves[0].rank=2;leader.learnedMoves[0].cooldown=0;
  (sim as any).updateLearnedMoves(leader,.04);
- close(s.projectiles[0].damage/firstDamage,1.2);assert.ok(leader.learnedMoves[0].cooldown<firstCooldown);
+ close(s.projectiles[0].damage/firstDamage,1.17);assert.ok(leader.learnedMoves[0].cooldown<firstCooldown);
 });
 
 test('single-stage mastery produces stronger learned projectiles through real level-up training',()=>{
@@ -130,8 +130,8 @@ test('single-stage mastery produces stronger learned projectiles through real le
  assert.equal(leader.learnedMoves[0].rank,3);
  s.projectiles=[];leader.learnedMoves[0].cooldown=0;
  (sim as any).updateLearnedMoves(leader,.04);
- close(s.projectiles[0].damage/firstDamage,1.4*levelPowerMultiplier(5)/levelPowerMultiplier(4));
- close((leader.learnedMoves[0].cooldown+.04)/(firstCooldown+.04),1/1.16);
+ close(s.projectiles[0].damage/firstDamage,1.34*levelPowerMultiplier(5)/levelPowerMultiplier(4));
+ close((leader.learnedMoves[0].cooldown+.04)/(firstCooldown+.04),1/1.14);
 });
 
 test('ordinary levels do not interrupt combat again between milestones, and the level cap is finite',()=>{

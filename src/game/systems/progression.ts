@@ -76,8 +76,8 @@ function trainingChoices(state:RunState):UpgradeChoice[] {
  if(state.choiceSource==='level'&&(!owner||owner.hp<=0))return [];
  const damaging=members.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
  const specialDamaging=members.some(member=>member.hp>0&&getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0);
- return TRAINING_UPGRADES.filter(upgrade=>(!owner||owner===state.party[0]||!['speed','staminaCapacity'].includes(upgrade.stat))&&(upgrade.stat!=='deflection'||members.some(member=>member.hp>0&&getBuildModifiers(state,member).deflection<.5-1e-9))&&(!['power','crit','radius'].includes(upgrade.stat)||damaging)&&(upgrade.stat!=='specialPower'||specialDamaging)).flatMap(upgrade=>trainingVariants(upgrade).map(({rarity,amount})=>{
-  const rank=trainingRank(state,upgrade,owner)+1,description=trainingDescription(upgrade,rarity).replace('for every squad member',owner?'for this Pokémon':'for every squad member');
+ return TRAINING_UPGRADES.filter(upgrade=>(!owner||owner===state.party[0]||!['speed','staminaCapacity'].includes(upgrade.stat))&&(upgrade.stat!=='deflection'||members.some(member=>member.hp>0&&getBuildModifiers(state,member).deflection<.5-1e-9))&&(!['power','crit','radius'].includes(upgrade.stat)||damaging)&&(upgrade.stat!=='specialPower'||specialDamaging)).flatMap(upgrade=>trainingVariants(upgrade,!!owner).map(({rarity,amount})=>{
+  const rank=trainingRank(state,upgrade,owner)+1,description=trainingDescription(upgrade,rarity,!!owner).replace('for every squad member',owner?'for this Pokémon':'for every squad member');
   return {id:rarity==='common'?upgrade.id:`${upgrade.id}-${rarity}`,kind:'stat' as const,stat:upgrade.stat,amount,
    ...(owner?{speciesId:owner.uid,sourceSpeciesId:owner.speciesId}:{}),
    title:upgrade.title,description:description+(owner?` Only ${getSpecies(owner.speciesId).name}.`:''),rarity,category:'training',rank};
@@ -425,8 +425,10 @@ function applyChoiceNow(state:RunState,choice:UpgradeChoice):ChoiceResult {
    if(definition.levelGain){
     for(const [index,member] of state.party.entries()){
      if((index===0?state.player.hp:member.hp)<=0||member.level>=PROGRESSION.leveling.maxLevel)continue;
-     let required=Math.max(0,(member.xpToNext??xpThreshold(member.level))-(member.xp??0));
-     for(let level=member.level+1;level<Math.min(PROGRESSION.leveling.maxLevel,member.level+definition.levelGain);level++)required+=xpThreshold(level);
+     const levels=Math.min(PROGRESSION.leveling.maxLevel-member.level,definition.levelGain),whole=Math.floor(levels);
+     let required=whole?Math.max(0,(member.xpToNext??xpThreshold(member.level))-(member.xp??0)):0;
+     for(let level=member.level+1;level<member.level+whole;level++)required+=xpThreshold(level);
+     required+=(levels-whole)*xpThreshold(member.level+whole);
      member.xp=(member.xp??0)+required;member.xpToNext=xpThreshold(member.level);
     }
    }
@@ -442,7 +444,7 @@ function applyChoiceNow(state:RunState,choice:UpgradeChoice):ChoiceResult {
    const rank=offered.rank!;
    const buffs=owner?(owner.trainingBuffs??={}):state.buffs;
    const previous=buffs[upgrade.stat]||0;
-   const recovery=trainingVariants(upgrade).find(variant=>variant.rarity===offered.rarity)!.rechargeReduction;
+   const recovery=trainingVariants(upgrade,!!owner).find(variant=>variant.rarity===offered.rarity)!.rechargeReduction;
    if(recovery)buffs.staminaRechargeReduction=1-(1-(buffs.staminaRechargeReduction||0))*(1-recovery);
    buffs[upgrade.stat]=upgrade.stat==='deflection'?Math.min(.5,previous+offered.amount!):previous+offered.amount!;
    const ranks=owner?(owner.trainingRanks??={}):(state.trainingRanks??={});

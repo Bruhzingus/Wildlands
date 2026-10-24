@@ -11,18 +11,18 @@ export const SHRINE_TIERS:readonly ShrineDefinition[]=[
  {tier:1,speciesId:66,count:1,level:5,radius:20,health:1350,damage:23,hazards:[],color:'#d1efe0',targetSeconds:[20,35]},
  {tier:2,speciesId:25,count:3,level:9,radius:20,health:1500,damage:18,hazards:[],color:'#b5e7ed',targetSeconds:[20,35]},
  {tier:3,speciesId:24,count:2,level:13,radius:18,health:1800,damage:24,hazards:['poison'],color:'#a8cfef',targetSeconds:[15,45]},
- {tier:4,speciesId:28,count:3,level:17,radius:17,health:2200,damage:26,hazards:['slow'],color:'#94b9e8',targetSeconds:[15,45]},
- {tier:5,speciesId:93,count:3,level:22,radius:19,health:2800,damage:29,hazards:['poison'],color:'#aa9ad9',targetSeconds:[15,45]},
- {tier:6,speciesId:68,count:2,level:27,radius:16,health:3400,damage:39,hazards:[],color:'#ad7dcc',targetSeconds:[15,45]},
- {tier:7,speciesId:38,count:2,level:32,radius:19,health:4200,damage:40,hazards:['fire'],color:'#c875aa',targetSeconds:[15,45]},
- {tier:8,speciesId:76,count:3,level:38,radius:16,health:5400,damage:43,hazards:['slow'],color:'#c35b78',targetSeconds:[15,45]},
- {tier:9,speciesId:130,count:1,level:44,radius:22,health:6500,damage:61,hazards:['poison'],color:'#b74758',targetSeconds:[15,45]},
- {tier:10,speciesId:3,count:2,level:50,radius:18,health:8200,damage:51,hazards:['poison','slow'],color:'#a23351',targetSeconds:[15,45]},
- {tier:11,speciesId:6,count:2,level:56,radius:20,health:10000,damage:57,hazards:['fire'],color:'#872439',targetSeconds:[15,45]},
- {tier:12,speciesId:149,count:2,level:63,radius:17,health:12500,damage:63,hazards:['fire','slow'],color:'#68233c',targetSeconds:[15,45]},
- {tier:13,speciesId:144,count:1,level:70,radius:18,health:16000,damage:82,hazards:['slow'],color:'#45213e',targetSeconds:[15,45]},
- {tier:14,speciesId:145,count:2,level:80,radius:17,health:20000,damage:75,hazards:['fire','poison'],color:'#271b30',targetSeconds:[15,45]},
- {tier:15,speciesId:150,count:1,level:90,radius:16,health:26000,damage:100,hazards:['slow','poison','fire'],color:'#09080e',targetSeconds:[15,45]},
+ {tier:4,speciesId:28,count:3,level:17,radius:17,health:3000,damage:26,hazards:['slow'],color:'#94b9e8',targetSeconds:[15,45]},
+ {tier:5,speciesId:93,count:3,level:22,radius:19,health:7500,damage:29,hazards:['poison'],color:'#aa9ad9',targetSeconds:[15,45]},
+ {tier:6,speciesId:68,count:2,level:27,radius:16,health:25000,damage:39,hazards:[],color:'#ad7dcc',targetSeconds:[15,45]},
+ {tier:7,speciesId:38,count:2,level:32,radius:19,health:80000,damage:40,hazards:['fire'],color:'#c875aa',targetSeconds:[15,45]},
+ {tier:8,speciesId:76,count:3,level:38,radius:16,health:220000,damage:43,hazards:['slow'],color:'#c35b78',targetSeconds:[15,45]},
+ {tier:9,speciesId:130,count:1,level:44,radius:22,health:3900000,damage:61,hazards:['poison'],color:'#b74758',targetSeconds:[105,135]},
+ {tier:10,speciesId:3,count:2,level:50,radius:18,health:4800000,damage:51,hazards:['poison','slow'],color:'#a23351',targetSeconds:[105,135]},
+ {tier:11,speciesId:6,count:2,level:56,radius:20,health:5700000,damage:57,hazards:['fire'],color:'#872439',targetSeconds:[105,135]},
+ {tier:12,speciesId:149,count:2,level:63,radius:17,health:6600000,damage:63,hazards:['fire','slow'],color:'#68233c',targetSeconds:[105,135]},
+ {tier:13,speciesId:144,count:1,level:70,radius:18,health:7500000,damage:82,hazards:['slow'],color:'#45213e',targetSeconds:[105,135]},
+ {tier:14,speciesId:145,count:2,level:80,radius:17,health:8400000,damage:75,hazards:['fire','poison'],color:'#271b30',targetSeconds:[105,135]},
+ {tier:15,speciesId:150,count:1,level:90,radius:16,health:9600000,damage:100,hazards:['slow','poison','fire'],color:'#09080e',targetSeconds:[105,135]},
 ];
 /** Each tier has several sculptures and matching guardians. Site identity keeps
  * the choice stable through previews, fights, retries and saved runs. */
@@ -31,7 +31,7 @@ export const SHRINE_SPECIES:readonly (readonly number[])[]=[
  [38],[76],[130],[3],[6],[149],[144],[145],[150],
 ];
 const SHRINE_VARIANTS=SHRINE_SPECIES.map((species,index)=>species.map(speciesId=>({...SHRINE_TIERS[index],speciesId})));
-export const SHRINE_RULES={levelWindow:10,previewRadius:12,timeLimit:60,hazardPeriod:4,hazardWarning:1.25,hazardActive:1.75} as const;
+export const SHRINE_RULES={levelWindow:10,previewRadius:12,timeLimit:180,hazardPeriod:4,hazardWarning:1.25,hazardActive:1.75} as const;
 export function shrineDefinition(tier=1):ShrineDefinition{return SHRINE_TIERS[Math.max(0,Math.min(SHRINE_TIERS.length-1,Math.floor(tier)-1))];}
 export function shrineLevelAllowed(playerLevel:number,definition:ShrineDefinition):boolean{return Math.abs(playerLevel-definition.level)<=SHRINE_RULES.levelWindow;}
 export function shrineForPOI(poi:POI):ShrineDefinition{

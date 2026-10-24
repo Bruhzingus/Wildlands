@@ -39,16 +39,16 @@ test('legendary relics inherit base unlocks and both versions remain repeatable'
   assert.equal(applyChoice(s,availableItemChoices(s).find(item=>item.id===id)!).applied,true);
   assert.equal(availableItemChoices(s).length,2);
   assert.equal(applyChoice(s,stale).applied,true);
-  close(getBuildModifiers(s).regenerationPercent,.024);
+  close(getBuildModifiers(s).regenerationPercent,.012);
  }
 });
 
 test('legendary relic procs apply their stronger effect through the real event interpreter',()=>{
  const state=new Simulation(4,57).state;state.items=['static-orb-legendary','rescue-ribbon-legendary'];
  const arc=dispatchBuildEvent({state,rng:{next:()=>0}},{kind:'onCrit',sourceId:1,damage:100})[0];
- assert.ok(arc.kind==='chain');close(arc.damage,50);
+ assert.ok(arc.kind==='chain');close(arc.damage,25);
  const heal=dispatchBuildEvent({state,rng:{next:()=>0}},{kind:'onSpecial',sourceId:1}).find(action=>action.kind==='heal');
- assert.ok(heal?.kind==='heal');close(heal.maxHpFraction!,.24);
+ assert.ok(heal?.kind==='heal');close(heal.maxHpFraction!,.12);
 });
 
 test('relic rolls never show sibling variants together and preserve legendary slots on reroll',()=>{
