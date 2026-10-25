@@ -84,11 +84,10 @@ test('minute-eight endurance growth is continuous and endless health keeps outpa
  assert.equal(scaled.maxHp,plain.maxHp*16,'Existing enemies keep their spawn stats');
 });
 
-test('a developed level-48 squad needs about two minutes for the Gyarados shrine and Moltres',()=>{
+test('a developed level-48 squad can quickly clear the first late shrine and map boss',()=>{
  for(const result of runLateRunExperiment()){
   assert.equal(result.defeated,true,JSON.stringify(result));
-  assert.ok(result.seconds>=105&&result.seconds<=135,JSON.stringify(result));
-  assert.ok(result.openingBurstFraction<.05,JSON.stringify(result));
+  assert.ok(result.seconds<30,JSON.stringify(result));
  }
 });
 

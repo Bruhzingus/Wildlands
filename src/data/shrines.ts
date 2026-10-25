@@ -6,7 +6,9 @@ export interface ShrineDefinition {
  tier:number;speciesId:number;count:number;level:number;radius:number;health:number;damage:number;
  hazards:readonly ShrineHazard[];color:string;targetSeconds:readonly [number,number];
 }
-/** Total encounter health is authored, not scaled to the player's build or the clock. */
+/** Total encounter health is authored, not scaled to the player's build or the clock.
+ * Late tiers use the reported ordinary build plus modest level/training growth;
+ * their duration budget includes real guardian movement and endless arrivals. */
 export const SHRINE_TIERS:readonly ShrineDefinition[]=[
  {tier:1,speciesId:66,count:1,level:5,radius:20,health:1350,damage:23,hazards:[],color:'#d1efe0',targetSeconds:[20,35]},
  {tier:2,speciesId:25,count:3,level:9,radius:20,health:1500,damage:18,hazards:[],color:'#b5e7ed',targetSeconds:[20,35]},
@@ -16,13 +18,13 @@ export const SHRINE_TIERS:readonly ShrineDefinition[]=[
  {tier:6,speciesId:68,count:2,level:27,radius:16,health:25000,damage:39,hazards:[],color:'#ad7dcc',targetSeconds:[15,45]},
  {tier:7,speciesId:38,count:2,level:32,radius:19,health:80000,damage:40,hazards:['fire'],color:'#c875aa',targetSeconds:[15,45]},
  {tier:8,speciesId:76,count:3,level:38,radius:16,health:220000,damage:43,hazards:['slow'],color:'#c35b78',targetSeconds:[15,45]},
- {tier:9,speciesId:130,count:1,level:44,radius:22,health:3900000,damage:61,hazards:['poison'],color:'#b74758',targetSeconds:[105,135]},
- {tier:10,speciesId:3,count:2,level:50,radius:18,health:4800000,damage:51,hazards:['poison','slow'],color:'#a23351',targetSeconds:[105,135]},
- {tier:11,speciesId:6,count:2,level:56,radius:20,health:5700000,damage:57,hazards:['fire'],color:'#872439',targetSeconds:[105,135]},
- {tier:12,speciesId:149,count:2,level:63,radius:17,health:6600000,damage:63,hazards:['fire','slow'],color:'#68233c',targetSeconds:[105,135]},
- {tier:13,speciesId:144,count:1,level:70,radius:18,health:7500000,damage:82,hazards:['slow'],color:'#45213e',targetSeconds:[105,135]},
- {tier:14,speciesId:145,count:2,level:80,radius:17,health:8400000,damage:75,hazards:['fire','poison'],color:'#271b30',targetSeconds:[105,135]},
- {tier:15,speciesId:150,count:1,level:90,radius:16,health:9600000,damage:100,hazards:['slow','poison','fire'],color:'#09080e',targetSeconds:[105,135]},
+ {tier:9,speciesId:130,count:1,level:44,radius:22,health:300000,damage:61,hazards:['poison'],color:'#b74758',targetSeconds:[60,150]},
+ {tier:10,speciesId:3,count:2,level:50,radius:18,health:500000,damage:51,hazards:['poison','slow'],color:'#a23351',targetSeconds:[60,150]},
+ {tier:11,speciesId:6,count:2,level:56,radius:20,health:700000,damage:57,hazards:['fire'],color:'#872439',targetSeconds:[60,150]},
+ {tier:12,speciesId:149,count:2,level:63,radius:17,health:750000,damage:63,hazards:['fire','slow'],color:'#68233c',targetSeconds:[60,150]},
+ {tier:13,speciesId:144,count:1,level:70,radius:18,health:800000,damage:82,hazards:['slow'],color:'#45213e',targetSeconds:[60,150]},
+ {tier:14,speciesId:145,count:2,level:80,radius:17,health:900000,damage:75,hazards:['fire','poison'],color:'#271b30',targetSeconds:[60,150]},
+ {tier:15,speciesId:150,count:1,level:90,radius:16,health:1000000,damage:100,hazards:['slow','poison','fire'],color:'#09080e',targetSeconds:[60,150]},
 ];
 /** Each tier has several sculptures and matching guardians. Site identity keeps
  * the choice stable through previews, fights, retries and saved runs. */

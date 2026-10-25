@@ -1,6 +1,6 @@
 # WILDLANDS — Master Game Design, Technical Specification & Agent Implementation Roadmap
 
-**Version:** 0.7 · **Status:** Phases 00–02 and 04–14 implemented; current verification and remaining limits recorded in [docs/PHASES_10_14_REPORT.md](docs/PHASES_10_14_REPORT.md), with earlier work in [docs/PHASES_07_09_REPORT.md](docs/PHASES_07_09_REPORT.md), [docs/PHASES_04_06_REPORT.md](docs/PHASES_04_06_REPORT.md) and [docs/IMPLEMENTATION_REPORT.md](docs/IMPLEMENTATION_REPORT.md) · **Format:** single source-of-truth document for the project and for sequential Claude / Codex work.
+**Updated:** October 24, 2026 · **Status:** Core roadmap phases 00–02 and 04–15 are implemented. Completed implementation prompts and historical reports have been retired. This document retains the design reference and optional future roadmap; current tuning lives in source, the [upgrade catalogue](UPGRADE_CATALOGUE.md) and [latest balance update](docs/LATE_RUN_BALANCE.md).
 
 > **Important:** This is an unofficial, noncommercial Pokémon fan prototype. The code and original game design can be adapted, but Pokémon names, characters, sprites, sounds and trademarks are not licensed by PokéAPI or SpriteCollab. A free public launch can still receive a takedown. SpriteCollab's community-work license generally requires attribution and noncommercial use; official sprites have additional rights holders. Maintain full attribution and an asset inventory. Do not monetize or treat a CC license on a repository as authorization from The Pokémon Company. For commercialization, replace these characters/assets with original content and obtain an IP review.
 
@@ -8,7 +8,7 @@
 
 ## 0. Read this first: how to use this project
 
-The repository contains the original core simulation and Babylon presentation layer, with phases 00–02 and 04–14 implemented. The [current handoff](docs/PHASES_10_14_REPORT.md) covers UX/audio, all-species content, replayable run telemetry, automatic graphics/reliability and finite collection/save progression. Detailed reports: [10](docs/PHASE_10_REPORT.md), [11](docs/PHASE_11_REPORT.md), [12](docs/PHASE_12_REPORT.md), [13](docs/PHASE_13_REPORT.md), [14](docs/PHASE_14_REPORT.md). Earlier reports cover [07–09](docs/PHASES_07_09_REPORT.md), [04–06](docs/PHASES_04_06_REPORT.md) and [00–02](docs/IMPLEMENTATION_REPORT.md). This does not mark phase 03 complete. Human comfort/balance sessions and target-device GPU measurements remain outstanding; scripted evidence is explicitly labeled. Asset sync and audit validate all 151 species' artwork and requested animations on this workspace; see [per-species coverage](docs/ASSET_COVERAGE.md). Downloaded image binaries remain ignored in version control. Run `npm run assets:sync` on a fresh checkout to reproduce the local cache. Without cached assets the renderer tries the documented remote sources, then keeps a visible generated fallback. Local availability is measured by the audit and can vary with the source hosts.
+The repository contains the TypeScript simulation and Babylon presentation layer, 151 species, progression and collection saves, optional challenges, recurring staged bosses, run analysis and suspended runs. Start with the [current documentation index](docs/README.md); [remaining improvements](IMPROVEMENT_DOC.md) and the newer balance proposals describe future work. Human comfort/balance sessions and target-device GPU measurements remain outstanding. [Asset coverage](docs/ASSET_COVERAGE.md) is reproducible with `npm run assets:sync` and `npm run assets:audit`; downloaded image binaries remain ignored. Without cached assets the renderer tries remote sources, then keeps a visible generated fallback.
 
 ### Start here
 
@@ -34,47 +34,7 @@ npm run preview     # Production bundle local preview
 
 ## 1. The creative vision
 
-**October 23, 2026 lighting/map follow-up:** All maps are a further 25% wider
-and deeper (359.375 metres per side, +56.25% area over phase 15).
-Directional sunlight, baked ground shade, layered atmospheric color and a
-gradient sky improve depth; continuous scenic foothills/ridges close all sides
-and corners beyond the soft/hard movement bounds. See
-[the handoff](docs/LIGHTING_AND_MAP_EDGES.md) for implementation and verification.
-
-**N1 movement presentation (October 21, 2026):** Renderer-owned travel sampling
-drives grounded walk cadence and facing, preserves loop phase through stops and
-attacks, and holds grounded frames during jumps. Walk foot anchors and contact
-shadows follow the shared terrain; native hovering sheets retain their timing.
-Controls, follower formation and simulation outcomes are preserved. See
-[the N1 handoff](docs/N1_IMPLEMENTATION_REPORT.md) for evidence and limits.
-
-**October 22 owner extension:** N1 additionally includes innate leader movement
-techniques to distinguish kits: Run-up, finite hold-Space flight, Splash leap,
-and the existing Abra teleport. Magikarp and Zubat are available through existing
-finite achievements. Movement changes are visible in starter cards, the HUD,
-pause, evolution previews and the catalogue. These mechanics were explicitly
-requested after the initial presentation-only N1 implementation.
-
-**N3 upgrade rework (October 21, 2026):** Attack speed keeps increasing actual
-cast rate; haste no longer adds hit/heal strength. Iron Defense is removed.
-Numeric relic bonuses and their drawbacks stack, including normal/Legendary
-copies. See [the N3 audit and handoff](docs/N3_IMPLEMENTATION_REPORT.md)
-for every upgrade disposition, uncapped stat/crit changes, verification and limits.
-
-**October 21, 2026 follow-up:** Improvement entries N2 (paused evolution
-presentation) and S1 (terrain/biome composition) are implemented. See
-[the N2/S1 handoff](docs/N2_S1_IMPLEMENTATION_REPORT.md) for changed behavior,
-validation, resource costs and remaining human review.
-
-**Upgrade follow-up (October 21, 2026):** Percentage bonuses add against the base
-stat: `100 * (1 + 0.05 + 0.10) = 115`. Training and relics now have very rare
-Legendary variants, and upgrade cards preview current and resulting percentages.
-See [the upgrade handoff](docs/LEGENDARY_UPGRADES_REPORT.md) and
-[the current catalogue](UPGRADE_CATALOGUE.md).
-
-The title and pause menus now include **Browse all upgrades**: a scrollable,
-colour-coded catalogue grouped like the document, with search, filters, sorting
-and expandable progression details. See [the menu handoff](docs/UPGRADE_CATALOGUE_MENU_REPORT.md).
+Current presentation includes terrain-driven movement, visible evolution, innate leader movement traits, larger maps, atmospheric lighting and sculpted shrines. These completed passes are part of the baseline. Foundational design goals below remain a reference; current source and the latest documentation take precedence for tuning.
 
 ### High concept
 
@@ -137,35 +97,35 @@ Player selects starter from an unlockable roster, appears in the forest, can fre
 
 Personal levels continue to **100**, with the leader targeting **25–35 at 15 minutes**. Evolution and significant new moves belong to the progression below level 45; from level 45 onward, milestones prioritize existing move upgrades and stat training. Level 100 is an extended-run goal, not the standard-run expectation. Aggregate squad progress remains separate from the leader's level.
 
-### 2:45–7:00 — First partnership
+### 2:45–9:00 — First partnership
 
 First new Pokémon becomes available once **both** elapsed time and player level thresholds are met. Recruitment is chosen from three first-stage species. A follower occupies a formation slot, attacks automatically, and has its own HP. Its position and attacks are visible in the party HUD. Starter may become eligible to evolve after sufficient run experience/time. From 6:00, an occasional tier-3 miniboss can appear among the ordinary enemies; these are individual encounters with more durability and two attacks.
 
-### 7:00–11:30 — Defining the build
+### 9:00–14:00 — Defining the build
 
 Second teammate becomes available. Variants are more frequent. A player may choose to focus an Electric pair, boost a projectile-heavy squad, search for an optional chest, or deliberately evolve the leader. Progress feels visibly faster; teammates can faint if left in danger.
 
-### 11:30–15:00 — High-intensity phase
+### 14:00–15:00 — High-intensity phase
 
 Third teammate can be recruited if the player has reached the associated level. A **four-member party** is a reasonable target for successful standard runs. Upgrades get dramatic, while tier-2 enemies remain the ordinary population and occasional tier-3 minibosses supply tougher encounters. Tier-4 enemies, including variants of tier-3 species and legendary birds, only enter the ordinary arrival lottery from 13:00 and remain very rare. An arena-wide legendary warning precedes the much tougher Mewtwo boss at 15:00, when ordinary arrivals ease and new tier-4 arrivals stop to make room for the boss.
 
 ### Beyond 15:00 — Endless
 
-Defeat Mewtwo; choose victory or continue. Fourth recruit eligibility at 16:00, fifth at 20:00. A full six-member party should feel like an achievement available mainly here. Further biome, boss and scaling improvements are on the roadmap. The system never requires six for the first boss.
+Defeat the map's Mewtwo or Moltres encounter; choose victory or continue. Fourth recruit eligibility starts at 19:00, fifth at 24:00, subject to squad progression. A full six-member party belongs to endless play. Recurring staged bosses and continuing enemy pressure are implemented. The system never requires six for the first boss.
 
 ### Current gates (one source of truth)
 
 Located in `src/data/config.ts`:
 
-| New recruit | Earliest clock | Earliest player level | Total team if nobody fainted |
+| New recruit | Earliest clock | Minimum squad progression | Total team if nobody fainted |
 |---|---:|---:|---:|
 | 1 | 2:45 | 4 | 2 |
-| 2 | 7:00 | 9 | 3 |
-| 3 | 11:30 | 15 | 4 |
-| 4 | 16:00 | 22 | 5 |
-| 5 | 20:00 | 29 | 6 |
+| 2 | 9:00 | 12 | 3 |
+| 3 | 14:00 | 22 | 4 |
+| 4 | 19:00 | 32 | 5 |
+| 5 | 24:00 | 42 | 6 |
 
-These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment opens **when eligible, after any current choice**, without spending a Pokémon milestone. Minimum levels use aggregate earned squad progress. Every living teammate receives full shared XP and levels independently; Exp. Share boosts teammates below the leader's level. Pokémon milestones prioritize existing moves and stat training, with occasional new moves after extra slots unlock at personal levels 10, 20 and 30, plus eligible evolution; elite/boss rewards offer squad training. Enemy coins fund supply chests, while free caches and rare enemy drops award relics. Adjust using session telemetry; do not hardcode unlocks in UI code. Recruitment remains first-stage only. Branching species show every evolution plus an option to keep training. See [the current progression rules](docs/UPGRADE_REWORK.md).
+These gates are tuning targets, not promises that every playthrough hits them exactly. Recruitment opens **when eligible, after any current choice**, without spending a Pokémon milestone. Minimum levels use aggregate earned squad progress. Every living teammate receives full shared XP and levels independently; Exp. Share boosts teammates below the leader's level. Pokémon milestones prioritize existing moves and stat training, with occasional new moves after extra slots unlock at personal levels 10, 20 and 30, plus eligible evolution; elite/boss rewards offer squad training. Enemy coins fund supply chests, while free caches and rare enemy drops award relics. Adjust using session telemetry; do not hardcode unlocks in UI code. Recruitment remains first-stage only. Branching species show every evolution plus an option to keep training. See [the current upgrade catalogue](UPGRADE_CATALOGUE.md).
 
 ---
 
@@ -178,8 +138,6 @@ These gates are tuning targets, not promises that every playthrough hits them ex
 **Mouse capture reliability:** Starting and resuming request raw relative pointer movement (`unadjustedMovement: true`) to avoid the adjusted cursor path during long camera swipes. `src/game/pointerLock.ts` retries standard pointer lock if raw movement is unsupported, preserves permission-denial handling and prevents cancelled requests from starting a fallback. This is a mitigation for reported trackpad stalls; physical trackpad verification remains outstanding. Automated tests for this change use simulated API responses without capturing the desktop cursor.
 
 **Targeting:** Every party member's primary and learned attacks select nearby enemies automatically, regardless of camera direction or movement. Mouse look supplies aim only to directional Q specials (cones, waves, fans, dashes and lances) or placed Q fields (garden, powder and hex). Thunder Circuit, orbiting Foxfire and healing remain automatic. The aiming mode for each special is explicit in `src/data/specials.ts`.
-
-The October 20, 2026 targeting correction and verification are recorded in [the auto-aim follow-up](docs/AUTO_AIM_FOLLOWUP.md).
 
 **Combat model:** Each party member has one named primary auto-attack defined by a reusable archetype: bolt, burst, slash, aura, chain, beam, lob, heal. The engine uses shared implementation; Pokémon IDs only select parameters and VFX. Damage may scale with a simplified element advantage. Optional status interactions include wet + electric, poison + fire, etc. Do not copy canon turn-based moveset rules.
 
@@ -214,7 +172,7 @@ Tier-3 enemies are minibosses with substantial added durability and two alternat
 
 Tier-4 attack progression also depends on strength: an enemy with authored strength at least 8 may carry three attacks from 14:00. A strength of at least 9.5 unlocks four attacks from 18:00 in endless. Shrine tiers 13–15 can grant four attacks to strength-8 or stronger legendary guardians before that clock gate. Earlier shrine guardians retain their natural combat rank; shrine Mewtwo uses rank 4 without becoming a scheduled boss. Attacks cycle through readable windups rather than firing all unlocked moves simultaneously.
 
-Shrines have [15 authored species tiers](docs/SHRINE_TIERS.md), with stone Pokémon sculptures, coloured magic dust, recommended levels 5–90, varied guardian counts and arena sizes, and telegraphed poison, fire and slow ground. Nearby previews show the actual encounter. The leader must be within 10 levels of its recommendation. Opening fights target 20–35 seconds with specials; later fights target 15–45 seconds depending on the build and matchup. Guardians award 2–3× equivalent wild XP, adjusted by ±2.5% per level of difference, capped at ±25%.
+Shrines have [15 authored species tiers](src/data/shrines.ts), with stone Pokémon sculptures, coloured magic dust, recommended levels 5–90, varied guardian counts and arena sizes, and telegraphed poison, fire and slow ground. Nearby previews show the actual encounter. The leader must be within 10 levels of its recommendation. Later tiers use the [latest endurance budgets](docs/LATE_RUN_BALANCE.md), with tiers 9–15 targeting 105–135 seconds and a 180-second trial limit. Guardians award 2–3× equivalent wild XP, adjusted by ±2.5% per level of difference, capped at ±25%.
 
 Naturally stronger ordinary species award more XP to preserve personal progression with fewer arrivals. Tier-3 minibosses and tier-4 elites receive a further shared XP multiplier to compensate for their durability; explicitly promoted shrine guardians use their actual combat tier. Weak opening rewards and scheduled boss rewards retain their established values; species, tier, faction and elite bonuses apply once to the shared instant/drop reward total.
 
@@ -281,9 +239,9 @@ Ordinary species strength plus variant threat must fit the elapsed threat ceilin
 - Opening and regular waves spawn 24–34 units from the player; scheduled bosses spawn 30–38 units away. Bounded sampling and an inward fallback preserve distance near arena edges. Spawn cadence and entity limits are preserved.
 - Visual tuning lives in `src/data/config.ts`; spawn placement lives in `src/game/systems/spawning.ts`. These requested refinements do not mark later roadmap phases complete.
 
-Audio refinement (2026-10-19): `src/data/audio.ts` owns species tonal profiles and an original 100 BPM musical phrase. Simulation emits successful `cast`, `jump` and `dash` events; visual chains and projectile effects do not retrigger party attack audio. Enemy defeats use a quiet, shared-budget pop. Sound/music reserve 8/4 voices within the existing 12-voice maximum; distance attenuation, overlap attenuation and shared impact timing keep crowds restrained. Existing quiet volume defaults and gesture/pause lifecycle remain. Verification and listening limitations are recorded in [audio polish](docs/AUDIO_POLISH.md). This is a requested audio refinement, not completion of a new roadmap phase.
+Audio refinement (2026-10-19): `src/data/audio.ts` owns species tonal profiles and an original 100 BPM musical phrase. Simulation emits successful `cast`, `jump` and `dash` events; visual chains and projectile effects do not retrigger party attack audio. Enemy defeats use a quiet, shared-budget pop. Sound/music reserve 8/4 voices within the existing 12-voice maximum; distance attenuation, overlap attenuation and shared impact timing keep crowds restrained. Existing quiet volume defaults and gesture/pause lifecycle remain. Full-run listening remains part of [S5](IMPROVEMENT_DOC.md#s5--keep-sound-and-impact-calm-early-richer-as-the-run-develops).
 
-Attack animation integration (2026-10-20): Party body poses now follow the actual learned move or special being cast. Overlapping automatic casts share a complete body motion while retaining independent damage, effects and cooldowns; Q starts its own pose immediately. Slash effects retain their own aim, and forward dash/trail damage is clipped ahead of its origin. Native sheets and reduced-motion behavior are preserved. Recovery notes, verification and remaining limits are in [the animation follow-up](docs/ATTACK_ANIMATION_FOLLOWUP.md).
+Attack animation integration (2026-10-20): Party body poses now follow the actual learned move or special being cast. Overlapping automatic casts share a complete body motion while retaining independent damage, effects and cooldowns; Q starts its own pose immediately. Slash effects retain their own aim, and forward dash/trail damage is clipped ahead of its origin. Native sheets and reduced-motion behavior are preserved.
 
 ### Future data schema
 
@@ -306,38 +264,17 @@ JSON values shown are example design data, not canon stats. Version schemas, wri
 
 ---
 
-## 6. Baseline feature inventory — what's in the repository now
+## 6. Current feature inventory
 
-**Implemented in source:**
+- 151 species with SpriteCollab animation metadata, official artwork and visible generated fallbacks.
+- Four map IDs, rolling terrain, themed scenery, optional discoveries, tiered shrines and terrain interactions.
+- Automatic signature/learned attacks, directional or placed Q specials, movement traits, evolution and personal progression.
+- Additive percentage training, repeatable numeric relics, critical tiers, synergies and an in-game upgrade catalogue.
+- Optional guardian, holdout and ring-run challenges; staged Mewtwo/Moltres encounters and recurring endless chapters.
+- Ranked damage analysis, downloadable balancing reports, portable suspended runs, finite starter/collection unlocks and local saves.
+- Quiet procedural audio, comfort controls, adaptive graphics, resource pools and deterministic/browser regression coverage.
 
-- Real Babylon.js world with generated rolling terrain and low-poly, instanced props.
-- Open meadow, Pinewood, Old Ruins and Lake Edge; shared rolling terrain, Great Pine/Broken Gate/Watchstones/Stillwater landmarks, safe spawn, clear site approaches, pond collision and soft square boundaries.
-- Twelve seeded optional caches/shrines/heals/elite sites, three rare event hooks and a north-up biome minimap with distinct symbols and overlap protection.
-- Free third-person camera, walking, jumping, Shift dodge with iframes and Q special.
-- Level-up modal with 3 choices and full simulation pause.
-- Authoritative 151 Generation 1 species catalog and evolution connections.
-- SpriteCollab idle/walk/attack animation metadata loader, artwork fallback and generated canvas fallback.
-- Party follower formations, auto-attacks, per-teammate HP and permanent fainting.
-- Data-driven bolt, burst, slash, aura, chain, beam, lob and heal attacks with species parameters and rank growth; boss volley and elite slam windups; capped, reused projectile/effect visuals.
-- A three-enemy opening, smoothly increasing arrival pressure through 3/7/11/13-minute landmarks, lower ordinary arrivals during the 15-minute boss, adaptive future-arrival budgets, runtime faction weights, spawn telemetry and bounded endless scaling after victory.
-- Species-specific enemy strength, size, bulk, damage, speed and rarity; weak normal arrivals retire by 3:00, tier-2 enemies remain the main population, tier-3 minibosses begin sparsely at 6:00, and tier-4 encounters stay rare until the final two minutes or very hard shrines.
-- Data-driven Dark/Rocket/Rabid/Poisoned factions with non-color glyphs, correct XP and persistent contact poison; normal factions retain shared attacks and species types.
-- Mewtwo warning before 15:00, a four-attack cycle with pausable/stunnable tells, substantially increased boss durability/damage and no new ordinary tier-4 arrivals during the fight.
-- Time- and level-gated first-stage recruitment; non-pausing personal levels and choices at levels 3, 5, 10, 15…; reliable optional milestone evolution (including branches).
-- 36 unique passive items, 12 composition synergies and seven build event hooks; item tradeoffs, stat/proc caps and pause/result build summaries.
-- Nine global training upgrades that stack indefinitely; signature and learned moves also have no rank ceiling. Each stat has Common, Rare and Epic versions worth 1×, 2× and 3×, with base rarity odds of 55%, 35% and 10%. Extra move slots unlock at levels 10, 20 and 30, with new-move offers appearing on 30% of eligible milestones that have room alongside training and evolution. Team-only relics require a living teammate. Evolution grants +25% maximum HP, +25% permanent attack damage and +1 rank to every known move. Non-evolving species gain +2 ranks per move training choice from their own level 5.
-- Free treasure caches, coin-funded supply chests, enemy coin/item drops, shrines, healing springs and elite squad-training rewards.
-- Win/loss screens, endless continuation, unlocked starter progression and local saves.
-- Clear health/XP hierarchy, numeric party HP/critical and permanent-faint notices, cooldown-ready feedback and numeric upgrade cards with semantic icons.
-- Original quiet synth cues and a gentle ambient motif; gesture unlock, independent volume sliders, bounded voices and complete pause/blur cleanup.
-- Minimal special/incoming-boss impact shake and 30–40ms hit pause; independent toggles, reduced flashes, system reduced-motion override and buffered action input.
-- QA dev flags, deterministic simulation tests, optional local 151 asset sync.
-
-**Verification:** See [the phase 10 report](docs/PHASE_10_REPORT.md) for current automated/browser verification; earlier reports retain their historical results. Asset availability is documented per species. Balance, subjective listening/comfort over human 15-minute sessions, fuller screen-reader alternatives, mobile controls and target-hardware performance remain future work.
-
-**Current simplifications to refine:** special ability remains a shared type-damage radial pulse; species moves reuse eight archetypes; biome layout is authored/random-decorated; some single-stage Pokémon need more differentiated roles; static collision currently covers the player against tree trunks, boulders and ruins; healing/invulnerability need balancing. Requested PMD states are audited with alias-aware metadata and source timing. Official artwork and generated fallbacks remain visible while sheets load.
-
-This transparency is intentional. A future coding agent should never mistake a roadmap goal for a feature already complete.
+Use the [README](README.md), [upgrade catalogue](UPGRADE_CATALOGUE.md), [latest balance update](docs/LATE_RUN_BALANCE.md) and current source for exact values. [Asset coverage](docs/ASSET_COVERAGE.md) records per-species cache availability. Human full-run balance, subjective audio/comfort and target-hardware performance remain unverified.
 
 ---
 
@@ -360,107 +297,11 @@ This transparency is intentional. A future coding agent should never mistake a r
 
 ---
 
-# 8. Sequenced Claude / Codex implementation prompts
+# 8. Optional future roadmap
 
-**Workflow:** The steps below are executable assignments, not loose suggestions. Use one prompt at a time, in order. Put this document in the repo and tell your agent to read it each session. The first three prompts are **mandatory validation/fix phases** for this supplied prototype, not feature expansion. Mark acceptance criteria with actual observed evidence, not assumptions.
+Completed phases 00–02 and 04–15 have been removed from the prompt queue. The old Phase 03 follower/control redesign is outside the owner's selected scope and is not an active assignment. Owner decisions in [the remaining improvement plan](IMPROVEMENT_DOC.md) take precedence.
 
-## Phase 00 — Clean checkout, honest verification (first prompt)
-
-```text
-You are the senior lead engineer responsible for Pokémon Wildlands. Read the entire GAME_DESIGN_AND_ROADMAP.md and inspect the existing Vite/TypeScript/Babylon.js project. Preserve architecture and current functionality. Install dependencies on Node 22+, run npm test, npm run typecheck, npm run build, start npm run dev, and use Chromium/Playwright to complete the following real smoke test: title screen -> select starter -> scene renders -> WASD/camera/jump/dodge/Q -> an enemy takes damage -> a level-up pauses fully -> choose card -> E landmark interaction -> ESC pause/resume -> restart. Fix every runtime/API/TypeScript issue you find. Do not replace Babylon with another engine. Log exact errors and the fixes. Run tests again. Add minimal Playwright smoke automation and screenshots in an ignored artifacts folder. Exit criteria: clean build plus demonstrated real browser gameplay; document any asset-network-dependent limitations. Do NOT claim 151 PMD sheets are complete without auditing them.
-```
-
-## Phase 01 — 151-Pokémon asset coverage and animation accuracy
-
-```text
-Audit AssetLibrary.ts, SpriteCollab AnimData.xml parsing and SpriteManager atlas usage. Run npm run assets:sync with internet and inspect the manifest and failure report for all 151 Kanto IDs. Verify sprite orientation, 8-direction row mapping, animation frame counts, frame duration, attack/walk fallback and sprite scale across at least 25 representative Pokémon (tiny, large, multi-stage, flying, legendary, Eevee branches). Prioritize local cached assets, then remote asset host, then official artwork, then generated visible fallback. Confirm no invisible actors or repeated network loops on failed animation loads. Add a small in-app dev asset gallery browsable by species ID and state, accessible only ?dev=1. Do not claim unavailable animations exist; produce an asset coverage report with per-species idle/walk/attack checks. Add image attribution metadata and source URLs. Success: every 151 ID is visible, missing PMD animations degrade gracefully, and loaded PMD atlases animate at correct timing.
-```
-
-## Phase 02 — Camera, movement and environmental collision feel
-
-```text
-Make the player controller feel as smooth and precise as a polished lightweight roguelite while preserving WASD + Space + Shift + Q + E. Inspect input tap events, relative-camera movement, acceleration/deceleration, dodge direction and i-frames, jump arc, ground height and camera smoothing. Add coyote time only if useful, no sprint or stamina mechanic. Stop player walking through large obstacles without introducing heavy physics; use low-cost collider primitives. Preserve useful vertical terrain. Add player ground contact and simple footstep/dodge particles. Implement mouse sensitivity and invert-Y settings as small persistent options. Success: 10-minute movement session has no jitter, clipping into ground or sudden camera jumps, no repeated Q while key is held, and camera still supports casual exploration.
-```
-
-## Phase 03 — Character visuals, formations and follower survival
-
-```text
-Refine six-member formation around the controlled leader. Keep follow motion non-physics, smooth and collision-light. Enemies may preferentially attack the leader, but some intentionally threaten followers. Implement readable follower HP/damage feedback, clear permanent faint animation and party slot removal, plus recovery from healing support or map healing before faint. Add group spacing heuristics to prevent dense sprite overlap and ground billboarding issues. Fix sprite facing when the camera rotates without movement. Ensure the entire system stays O(team_size) per frame, and changes do not rewrite Simulation. Write deterministic tests for fainting and formation changes. Success: multiple simultaneous squad members are visually distinguishable; one follower can faint without corrupting upgrade, targeting or later recruitment gates.
-```
-
-## Phase 04 — Data-driven attack archetypes and readable combat
-
-```text
-Separate attack calculations, target acquisition, projectile spawn, elemental status and visual events currently in Simulation.ts into cohesive, testable combat modules. Preserve the eight archetypes (bolt/burst/slash/aura/chain/beam/lob/heal), but allow data-configurable cooldown, projectile count, piercing, AoE radius, special hit proc, range and growth per Pokémon. Add explicit enemy windups and projectile silhouettes for hard hits. A friendly attack must not damage friends; enemy projectiles must not teleport. Add pooled/reused visuals. Keep arcade-like simplified Pokémon strengths, not the canonical full combat simulator. Implement no fewer than three noticeably different attack patterns and test projectile penetration, chain target uniqueness, DoT, slow and team synergies. Success: attacks are easy to read and satisfying even without audio.
-```
-
-## Phase 05 — Recruitment fairness, evolution and level-up economy
-
-```text
-Treat progression.ts/config.ts as the only source of recruitment/evolution timing and upgrade availability. Preserve recruitment from first-stage Kanto species ONLY and the 2:45 / 7:00 / 11:30 / 16:00 / 20:00 gates plus minimum levels, pending a tuning experiment. Mix scheduled eligibility with randomized candidate pools; no recruit choice before eligible. Handle no free slots and teammate faints. Evolve only via selected level-up choices after time/level conditions; support every Kanto branch (Eevee's Vaporeon/Jolteon/Flareon) with multiple explicit cards and avoid repeated stale choices. Every non-evolving species must have a viable growth plan. Add an upgrade taxonomy, rarity distribution, unlimited training, duplicate protection, and invalid-choice guards. Test expected team sizes over seeded simulated runs. Success: standard 15-minute runs average ~4 living party Pokémon for competent casual players and six is largely an endless achievement.
-```
-
-## Phase 06 — Deep build variety without bloating controls
-
-```text
-Expand items and synergy rules while preserving one leader ability and automatic squad attacks. Implement an event-driven effect system (onAttack, onCrit, onHit, onDeath, onSpecial, onRecruit, onEvolve) with ownership, stacking rules, caps and clear UI descriptions. Design at least 30 meaningful passive items and 8 meaningful team synergies; avoid a separate special-case function per item. Include at least two build-defining tradeoffs, e.g. slower attack speed for very high damage, or stronger unevolved teammates at the expense of evolution bonuses. Validate 'broken' combos against target FPS and visual spam caps. Add build summary at pause/end screen. Success: at least three viable archetypes (chain lightning, wide AoE, crit burst) feel different across multiple runs and work with a wide range of species.
-```
-
-## Phase 07 — Enemy factions and special variant behaviours
-
-```text
-Keep the five intended enemy kinds: normal, TCG-inspired Dark, Rocket-controlled, Rabid, Poisoned, plus Legendary as boss-tier. Dark/Rocket/Rabid must NOT gain novel attacks: they only change stats, animation speed/AI aggression and subtle readable visuals (TCG Dark style is NOT a Dark-type chart change). Rocket means a modified Pokémon, not an actual Rocket trainer character. Poisoned gets persistent poison status and optionally a small temporary poison hazard. Legendary bosses may have unique attacks with visible tells. Implement a data-driven variant multiplier definition, correct reward XP and spawn rarity, and a non-color-only visual cue so color-blind players can identify variants. Success: distinct variants are recognizable instantly but do not introduce content maintenance for each species × variant.
-```
-
-## Phase 08 — Multi-biome map polish and useful exploration
-
-```text
-Take the existing roughly 230×230m map and create a cohesive low-poly multi-biome space: open meadow/spawn, shadowy woodland, rocky ruins, lake edge. Establish natural navigational landmarks and modest rolling hills without procedural dungeon networks. Add soft collision boundaries, safe spawn region and scattered optional chests/shrines/healing/elite sites. Randomize encounter and treasure placements using the run seed. Add rare event hooks but NO quest checklist or mandatory objectives. Improve minimap clarity and anti-overlap. Avoid one mesh per blade of grass; keep instance sharing. Success: the player has optional directions worth exploring but can also remain around the starting area and still play a full run.
-```
-
-## Phase 09 — 15-minute pacing, legendary boss, endless difficulty
-
-```text
-Instrument the difficulty director with run-time spawn weights, entity-budget adaptation and phase transitions at ~3, 7, 11, 13 and 15 minutes. Gradually raise spectacle while keeping accessibility. Build a polished Mewtwo boss with 3 clearly telegraphed behaviours: aimed volley, expanding psychic ring, brief summon/charge phase. The boss must have readable HP and spawn warning. On death, present victory with the option to end or continue endless while retaining all accumulated items, party HP, species and upgrades. Increase endless difficulty, offer late fifth/sixth team slots, optionally schedule subsequent bosses. Success: 15-minute run has a distinct dramatic arc, final challenge fair to a 3–4 Pokémon team and endless stays playable beyond 20 minutes.
-```
-
-## Phase 10 — UX, upgrade pause and sound
-
-```text
-Polish existing screens rather than rebuilding them from scratch. Prioritize game readability: improve HP and XP hierarchy, party faint warnings, cooldown ready feedback, level-up cards with numeric descriptions, rarity color used sparingly and clear item/attack icons. Implement a short audio system using original sounds / appropriately licensed material, with sound and music sliders (default quiet), browser autoplay compliance, no duplicate audio events during pause. Add minimal screen shake and hit-stop on special/boss hits, toggleable in settings. Respect reduced motion. Success: the experience is understandable within 30 seconds without a tutorial wall and remains relaxing for most of the run.
-```
-
-## Phase 11 — Kanto roster completion and content balancing
-
-```text
-Audit all 151 species IDs against the original Gen 1 roster, types, evolution graph and SpriteCollab art. All must be representable as enemies in some spawn table, not just data entries. Ensure playable first-stage recruitment excludes stage-2+ forms but permits Kanto single-stage species when unlocked, with legendaries boss/rare-only. Introduce a curated data file for per-species attack parameters, roles and a small number of unique signatures while continuing to reuse attack archetypes. Make each evolved species feel stronger without implementing 151 handcrafted abilities. Ensure Eevee branch choices, trade evolutions and stone evolutions work with adapted game-specific run requirements. Balance extreme stat disparities to make weak starters viable. Add validation scripts for missing IDs, invalid evolutions, missing animation assets and duplicate move entries. Success: a content QA view can load/test every species and variant without exceptions.
-```
-
-## Phase 12 — Run metrics, balance experiments and difficulty tuning
-
-```text
-Build a local development-only simulation/telemetry harness that can run hundreds of deterministic seeds with configurable scripted player behaviors, without opening a WebGL scene. Track time per level, kills/minute, HP lost, follower faint rate, recruit offer times, party size at 15m, evolution count, item rarity, boss outcome and longest period without meaningful upgrades. Generate summary tables and optional CSV/JSON reports. Use real playtest sessions to calibrate: typical living party ~4 at 15m; first recruit never before 2:45; no long stretches of zero upgrades; early game calm; late game clear; victory rate reasonable for a casual player with dodging. Do not force mathematically 'perfect' fairness at the expense of fun. Success: balance changes are tied to measured hypotheses and regression checks.
-```
-
-## Phase 13 — Reliability, performance and memory tests
-
-```text
-Profile a long session with 200+ enemies, projectile caps, 6 follower sprites, 30 minutes of endless, and 10 consecutive restarts. Instrument active mesh counts, sprite managers, texture count, drop count, projectile count, JS heap and frame time. Avoid per-frame DOM rebuilding, redundant Vector3 allocations, animation requests on every frame, and global event-listener leaks. Replace high-volume collision scans with spatial partition only where profiling demonstrates a hot path. Add fixed-timestep accumulator / bounded substeps with interpolation if necessary. Add settings for graphics quality, VFX density and resolution. Success: stable memory and predictable FPS on agreed target hardware; no indefinite growth after restarting and no crashes from missing textures.
-```
-
-## Phase 14 — Meta-unlocks, achievements and save migration
-
-```text
-Expand the versioned local save schema without disrupting existing saves. Permanently unlock new starter options, item pool entries, maps and challenge modifiers via run accomplishments. Do NOT create a grinding system of infinite global +damage/+HP bonuses. Add a compact unlock library and 8–12 achievements, e.g. reach 15:00 with a Poison team, defeat 100 Rocket variants, survive 20 minutes endless, evolve both leader and a follower. Protect against damaged saves with schema migration and fallback. Support export/import save JSON as an optional user tool. Success: progression creates reasons to replay without trivializing combat.
-```
-
-## Phase 15 — New maps, bosses and replay hooks
-
-Implemented 2026-10-20, including the requested 25% expansion of every map. See [the phase 15 handoff](docs/PHASE_15_REPORT.md) for scope, exact verification and limitations.
-
-```text
-Create a clean MapDefinition and EncounterDefinition registry so new maps reuse the same movement/combat/progression engine. Add one fresh map (e.g. volcanic ridge or coastal marsh), not a massive open world, with a new environment palette, geography, spawn weighting, unique optional landmarks and legendary encounter. Ensure quality/pacing remains consistent. Add 2 challenge mutations (enemy speed +20%, no healing, etc.) and one alternate boss. Keep art cheap, mostly primitives and reusable materials. Success: maps can be added without changing core Simulation combat logic.
-```
+Phases 16–18 are optional future directions, not the next authorized work. Phase 16 is partially covered by existing comfort settings; scope any further input changes explicitly before implementation. The newer [starter-balance proposals](docs/STARTER_BALANCE_PROPOSALS/README.md) and [upgrade ideas](docs/POKEMON_UPGRADES_AND_RELICS_BRAINSTORM.md) are separate unimplemented candidates.
 
 ## Phase 16 — Accessibility, input support and player comfort
 
@@ -519,14 +360,14 @@ Regression checklist: [features confirmed intact]
 |---|---|
 | Average active party at standard-run end | About 4 Pokémon |
 | First recruit | Never before 2:45; most competent runs 2:45–4:30 |
-| Second recruit | Roughly 7–9 minutes |
-| Third recruit | Roughly 11:30–14 minutes |
+| Second recruit | Not before 9:00 and squad progression 12 |
+| Third recruit | Not before 14:00 and squad progression 22 |
 | Fourth/fifth recruits | Mostly endless mode |
 | Starter to first level-up | Within 30–50 seconds for active players |
 | Mid-run paused upgrade cadence | Roughly every 30–60 seconds, scaling appropriately |
 | Early enemy visibility | Sparse, very readable |
 | Mid-run enemies | Dense enough to reward range/AoE decisions |
-| Boss fight duration | Roughly 30–75 seconds for a viable 3–4 teammate build |
+| Boss fight duration | 105–135 seconds in the latest fixed-build throughput checks; human balance remains unverified |
 | Visual frame budget | ~16.7–20ms on target desktop; no unbounded VFX |
 | First-level min healthy player | Able to survive with basic movement and occasional dodges |
 | Distinct build archetypes | At least 3 competitive routes before expansion |

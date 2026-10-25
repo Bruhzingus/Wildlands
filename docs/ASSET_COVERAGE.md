@@ -1,6 +1,6 @@
 # Kanto asset coverage
 
-Reproduce with `npm run assets:sync` and `npm run assets:audit`. This report validates actual files, not just manifest names. Generated fallback visibility is provided by code for all 151 IDs. Browser verification is recorded in the implementation report separately.
+Reproduce with `npm run assets:sync` and `npm run assets:audit`. This report validates actual files, not just manifest names. Generated fallback visibility is provided by code for all 151 IDs. Browser rendering requires separate verification with `npm run test:browser`.
 
 - species: 151
 - staticArtwork: 151

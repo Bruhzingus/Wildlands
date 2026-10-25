@@ -30,7 +30,9 @@ import {canStartEnemyMove,enemyMovementIntent,chooseEnemyAttack,prepareEnemyMove
 import {getEnemyTier} from '../data/enemyTiers.ts';
 import {getBuildModifiers,dispatchBuildEvent,metronomeDamageMultiplier,rollExtraProjectiles,type BuildEvent,type BuildAction} from './systems/builds.ts';
 import {applyChoice,availableItemChoices,canRecruit,chestChoices,makeChoices,rerollChoices,weightedUpgradeChoices,xpThreshold} from './systems/progression.ts';
-import {averagePartyLevel,enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
+import {enemyProgressionScale,lateEnemyScale,createEnemy,createGuardian,enemySpawnPosition,spawnRandomEnemy} from './systems/spawning.ts';
+import {scheduledBossHealth,migrateFirstBossHealth} from './systems/bosses.ts';
+import {migrateActiveShrineHealth} from './systems/shrineHealth.ts';
 import {updateDirector,recordDirectorSpawn,movingRingIntersects} from './systems/director.ts';
 import {createEnvironment,createPOIs,rareEventFor,ObstacleField} from './systems/environment.ts';
 import {EnemyNavigation} from './systems/navigation.ts';
@@ -87,14 +89,14 @@ export class Simulation {
   const restored=deserializeRunState(snapshot.state),sim=new Simulation(restored.party[0].speciesId,restored.seed,{mapId:restored.mapId,challenge:restored.challenge,recruitUnlocks:restored.recruitUnlocks,itemUnlocks:restored.itemUnlocks});
   // Preserve the public RunState identity created by the constructor without retaining defaults.
   for(const key of Object.keys(sim.state))delete (sim.state as unknown as Record<string,unknown>)[key];
-  Object.assign(sim.state,restored);const b=snapshot.bookkeeping;
+  Object.assign(sim.state,restored);migrateFirstBossHealth(sim.state);migrateActiveShrineHealth(sim.state);const b=snapshot.bookkeeping;
   sim.rng.restoreState(b.rng);sim.lootRng.restoreState(b.lootRng);sim.spawnAccum=b.spawnAccum;
   for(const [target,owner] of b.statusOwners)sim.statusOwners.set(target,owner);
   sim.velocity={...b.velocity};sim.dodgeDirection={...b.dodgeDirection};sim.walking=b.walking;sim.rewardsDeferred=b.rewardsDeferred;
   sim.enemyNavigation.restoreSnapshot(b.navigation,sim.state.enemies,sim.obstacles);
   sim.snapshotMetadata=()=>structuredClone(snapshot.metadata);
   sim.rewindCheckpoints.length=0;
-  sim.rewindCheckpoints.push(structuredClone(snapshot));sim.nextCheckpointAt=sim.state.stats.elapsed+REWIND_CHECKPOINT_SECONDS;
+  sim.rewindCheckpoints.push(sim.exportSnapshot());sim.nextCheckpointAt=sim.state.stats.elapsed+REWIND_CHECKPOINT_SECONDS;
   if(options.paused!==false&&restored.result===null){sim.restoredResumePhase=b.resumePhase;sim.state.phase='paused';}
   return sim;
  }
@@ -267,8 +269,7 @@ export class Simulation {
    s.bossSpawned=true;s.activeBossEncounterId=boss.id;s.bossStage=0;s.phase='boss';const pos=enemySpawnPosition(s.player,this.rng,30,38);const e=createEnemy(s,this.rng,boss.speciesId,'legendary',pos.x,pos.z,true,true);
    const partyScale=enemyProgressionScale(s);
    const late=lateEnemyScale(s.stats.elapsed,boss.speciesId,5);
-   const repeatScale=1+round*.18;
-   e.hp=e.maxHp=(rules.baseHp+averagePartyLevel(s)*rules.hpPerLevel)*(1+partyScale.party)*late.health*repeatScale;e.damage=rules.contactDamage*partyScale.damage*challengeRules(s.challenge).damageScale*late.damage*(1+round*.08);e.speed=rules.speed*challengeRules(s.challenge).speedScale;e.bossCycle=0;e.bossStage=0;e.attackCooldown=1.6;s.enemies.push(e);
+   e.hp=e.maxHp=scheduledBossHealth(s,boss);e.damage=rules.contactDamage*partyScale.damage*challengeRules(s.challenge).damageScale*late.damage*(1+round*.08);e.speed=rules.speed*challengeRules(s.challenge).speedScale;e.bossCycle=0;e.bossStage=0;e.attackCooldown=1.6;s.enemies.push(e);
    updateDirector(s);this.emit({kind:'boss',label:`${boss.name.toUpperCase()} HAS AWAKENED — ${boss.stages[0].label}`});
   }
   if(this.finishDefeat())return;

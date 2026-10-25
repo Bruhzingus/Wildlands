@@ -126,7 +126,16 @@ export function estimatedBuildDps(state:RunState){
 }
 export function analyticsEnemies(state:RunState){
  const groups=new Map<string,{speciesId:number;name:string;variant:Variant;tier:number;bossStage?:number;count:number;hpMin:number;hpMax:number;damageMin:number;damageMax:number;speedMin:number;speedMax:number;lateScale:{health:number;damage:number}}>();
- for(const enemy of state.enemies){if(enemy.dead)continue;const key=`${enemy.speciesId}/${enemy.variant}/${enemy.combatTier}/${enemy.bossStage}`;let row=groups.get(key);if(!row){row={speciesId:enemy.speciesId,name:getSpecies(enemy.speciesId).name,variant:enemy.variant,tier:enemy.combatTier??1,bossStage:enemy.isBoss?(enemy.bossStage??0)+1:undefined,count:0,hpMin:enemy.maxHp,hpMax:enemy.maxHp,damageMin:enemy.damage,damageMax:enemy.damage,speedMin:enemy.speed,speedMax:enemy.speed,lateScale:lateEnemyScale(state.stats.elapsed,enemy.speciesId,enemy.combatTier??1)};groups.set(key,row);}row.count++;row.hpMin=Math.min(row.hpMin,enemy.maxHp);row.hpMax=Math.max(row.hpMax,enemy.maxHp);row.damageMin=Math.min(row.damageMin,enemy.damage);row.damageMax=Math.max(row.damageMax,enemy.damage);row.speedMin=Math.min(row.speedMin,enemy.speed);row.speedMax=Math.max(row.speedMax,enemy.speed);}
+ for(const enemy of state.enemies){
+  if(enemy.dead)continue;
+  const key=`${enemy.speciesId}/${enemy.variant}/${enemy.combatTier}/${enemy.bossStage}`;let row=groups.get(key);
+  if(!row){
+   const lateScale=lateEnemyScale(state.stats.elapsed,enemy.speciesId,enemy.combatTier??1);
+   if(enemy.isBoss&&!state.endless&&(state.stats.bossesDefeated??0)===0)lateScale.health=1;
+   row={speciesId:enemy.speciesId,name:getSpecies(enemy.speciesId).name,variant:enemy.variant,tier:enemy.combatTier??1,bossStage:enemy.isBoss?(enemy.bossStage??0)+1:undefined,count:0,hpMin:enemy.maxHp,hpMax:enemy.maxHp,damageMin:enemy.damage,damageMax:enemy.damage,speedMin:enemy.speed,speedMax:enemy.speed,lateScale};groups.set(key,row);
+  }
+  row.count++;row.hpMin=Math.min(row.hpMin,enemy.maxHp);row.hpMax=Math.max(row.hpMax,enemy.maxHp);row.damageMin=Math.min(row.damageMin,enemy.damage);row.damageMax=Math.max(row.damageMax,enemy.damage);row.speedMin=Math.min(row.speedMin,enemy.speed);row.speedMax=Math.max(row.speedMax,enemy.speed);
+ }
  return {alive:[...groups.values()],progressionScale:enemyProgressionScale(state)};
 }
 function makeSample(state:RunState,at:number):MinuteSample {

@@ -18,7 +18,8 @@ export const DIFFICULTY = {rampStartsAt:120,rampEndsAt:180,ordinaryDamage:1.20,h
  * strength and encounter tier. Full bonuses arrive at the standard run's end. */
 export const LATE_ENEMY_SCALING={startsAt:180,healthAtStart:.15,healthAtEnd:.6,damageAtStart:.08,damageAtEnd:.25,strengthWeight:.8,tierWeight:.6} as const;
 /** A continuous endurance ramp counters multi-move squads after minute eight.
- * It affects future spawns, including scheduled bosses, without faster tells. */
+ * It affects future ordinary spawns and endless bosses, without faster tells.
+ * The first scheduled boss has its own fixed health budget. */
 export const ENDGAME_SCALING={startsAt:480,healthAtEnd:3,damageAtEnd:1.15,exponent:1.25} as const;
 /** After the first legendary, durability grows quadratically and damage linearly.
  * Separate growth keeps late enemies alive without accelerating their movement. */

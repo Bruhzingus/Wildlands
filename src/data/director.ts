@@ -13,4 +13,7 @@ export const BOSS_RULES={warningSeconds:15,volleyWindup:.7,ringWindup:1.1,summon
  ringSpeed:7.8,ringMaxRadius:29,ringWidth:1.1,ringDamage:46,maxRings:4,jumpClearance:.9,
  volleyDamage:32,volleySpeed:10.5,volleyCooldown:2.35,ringCooldown:2.85,summonCooldown:3,
  burstWindup:1.1,burstCooldown:4.2,burstRadius:6,
- summonCount:4,summonMinDistance:24,summonMaxDistance:31,baseHp:280000,hpPerLevel:5600,contactDamage:48,speed:3.6} as const;
+ // The first encounter has a fixed budget: 894 observed boss DPS × 180s ≈ 160k.
+ summonCount:4,summonMinDistance:24,summonMaxDistance:31,baseHp:160000,contactDamage:48,speed:3.6} as const;
+/** Later chapters retain their separate level, party and late-run durability scaling. */
+export const ENDLESS_BOSS_HEALTH={baseHp:280000,hpPerLevel:5600,chapterGrowth:.18} as const;

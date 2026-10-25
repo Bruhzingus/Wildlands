@@ -115,15 +115,13 @@ test('miniboss and elite durability grow with their encounter windows and remain
  }
 });
 
-test('the scheduled Mewtwo has a separate durability budget above even a late Rocket Dragonite',()=>{
+test('the scheduled Mewtwo has a separate durability budget calibrated for an ordinary party',()=>{
  const sim=new Simulation(7,99),s=sim.state;s.stats.elapsed=899.99;s.enemies=[];s.pois=[];
  s.party[0].level=25;s.party[0].cooldown=1e6;
- const elite=createEnemy(s,new RNG(4),149,'rocket',0,0);
  sim.update(.02,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});
  const boss=s.enemies.find(enemy=>enemy.isBoss);
  assert.ok(boss);assert.equal(boss.combatTier,5);assert.equal(boss.speciesId,150);
- assert.ok(boss.maxHp>=90000,'A developed party faces a substantial final boss health pool');
- assert.ok(boss.maxHp>elite.maxHp*5,'Mewtwo remains a major step above a tier-four encounter');
+ assert.equal(boss.maxHp,160000,'Optional elite budgets must not force multi-million-HP scheduled bosses');
  assert.ok(boss.damage>=BOSS_RULES.contactDamage,'Final boss contact damage uses its dedicated tuning');
 });
 
@@ -133,7 +131,7 @@ test('elite encounters have substantial endurance and the final boss keeps reada
  assert.ok(Math.abs(elite.maxHp/ordinary.maxHp-DIFFICULTY.eliteHp)<1e-12);
  assert.ok(Math.abs(elite.damage/ordinary.damage-DIFFICULTY.eliteDamage)<1e-12);
  assert.equal(elite.speed,ordinary.speed);
- assert.ok(BOSS_RULES.baseHp>=12000&&BOSS_RULES.hpPerLevel>=250);
+ assert.equal(BOSS_RULES.baseHp,160000);
  assert.ok(BOSS_RULES.volleyDamage>=18&&BOSS_RULES.ringDamage>=26&&BOSS_RULES.summonCount>=4);
  assert.ok(BOSS_RULES.volleyWindup>=.7&&BOSS_RULES.ringWindup>=1.1&&BOSS_RULES.summonWindup>=1.5);
 });

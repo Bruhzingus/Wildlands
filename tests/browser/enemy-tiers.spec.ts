@@ -61,7 +61,7 @@ test('miniboss attack budgets produce distinct, correctly labelled committed mov
  expect(errors).toEqual([]);
 });
 
-test('the scheduled Mewtwo has a much larger health budget than a tier-four Dragonite',async({page})=>{
+test('the scheduled Mewtwo has its own health budget and four readable attacks',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/?dev=1');await page.locator('[data-starter="25"]').click();
  await expect.poll(()=>page.evaluate(()=>document.pointerLockElement?.id)).toBe('renderCanvas');
@@ -84,7 +84,7 @@ test('the scheduled Mewtwo has a much larger health budget than a tier-four Drag
   s.phase='boss';for(let tick=0;tick<100&&boss.windup;tick++)g.sim.update(.02,{mx:0,mz:0,jump:false,dodge:false,special:false,interact:false});s.phase='paused';
   return {rocket:rocket.maxHp,boss:boss.maxHp,tier:boss.combatTier,moves:getEnemyAttackLoadout(boss,900).length,fourth,nextCycle:boss.bossCycle};
  });
- expect(health.boss).toBeGreaterThan(60000);expect(health.boss).toBeGreaterThan(health.rocket*3);
+ expect(health.boss).toBe(160000);
  expect(health.tier).toBe(5);expect(health.moves).toBe(4);
  expect(health.fourth).toMatchObject({name:'Psyshock',label:'Psyshock',radius:6});
  expect(health.fourth.hint).toContain('PSYSHOCK');

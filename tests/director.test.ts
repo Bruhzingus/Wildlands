@@ -90,7 +90,7 @@ test('legendary warning emits once, spawn is distant and simultaneous level-up r
  s.stats.elapsed=899.99;sim.debugLevel();sim.update(.02,idle);
  const boss=s.enemies.find(enemy=>enemy.isBoss)!;assert.equal(boss.speciesId,150);
  assert.ok(Math.hypot(boss.x-s.player.x,boss.z-s.player.z)>=30);assert.equal(s.phase,'choice');
- assert.equal(boss.hp,(BOSS_RULES.baseHp+BOSS_RULES.hpPerLevel)*lateEnemyScale(s.stats.elapsed,150,5).health,'Boss endurance uses party level and the late enemy boost, not aggregate reward counts');
+ assert.equal(boss.hp,160000,'The first boss has its own budget without level, party or ordinary-enemy scaling');
  sim.choose(s.upgradeChoices[0].id);assert.equal(s.phase,'boss');
 });
 
