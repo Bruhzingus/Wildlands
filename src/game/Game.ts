@@ -8,6 +8,7 @@ import {DamageNumbers} from './render/DamageNumbers.ts';
 import {EvolutionEffect} from './render/EvolutionEffect.ts';
 import {UI} from '../ui/UI.ts';
 import {loadSave,type SaveData} from './save.ts';
+import {availableStarters,availableRecruitUnlocks} from './characterAccess.ts';
 import {ProgressionTracker} from './achievements.ts';
 import {MAP_OPTIONS} from '../data/unlocks.ts';
 import {cameraAimDirection,cameraRelativeMovement,keyboardLook,mouseLook} from './input.ts';
@@ -181,9 +182,9 @@ export class Game{
   },{signal,passive:false});
   this.canvas.addEventListener('contextmenu',e=>e.preventDefault(),{signal});
  }
- private start(starterId:number){if(!this.save.unlocked.includes(starterId))return;this.audio.unlock();this.cleanupRun();this.ended=false;
+ private start(starterId:number){if(!availableStarters(this.save).includes(starterId))return;this.audio.unlock();this.cleanupRun();this.ended=false;
   const map=MAP_OPTIONS.find(option=>option.id===this.save.selection.map)!;
-  this.sim=new Simulation(starterId,map.seed,{mapId:map.id,challenge:this.save.selection.challenge,itemUnlocks:[...this.save.unlockedItems],recruitUnlocks:[...this.save.unlockedRecruits]});
+  this.sim=new Simulation(starterId,map.seed,{mapId:map.id,challenge:this.save.selection.challenge,itemUnlocks:[...this.save.unlockedItems],recruitUnlocks:availableRecruitUnlocks(this.save)});
   this.progression=new ProgressionTracker(this.save,this.sim.state);this.ui.setProgressionResult([]);
   this.bindSnapshotAccounting();this.lastRecoveryWrite=0;
   this.attachRun();

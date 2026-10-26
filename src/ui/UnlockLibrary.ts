@@ -1,6 +1,7 @@
 import {ACHIEVEMENTS,CHALLENGE_OPTIONS,MAP_OPTIONS,rewardLabels,type RunOptions} from '../data/unlocks.ts';
 import {getSpecies,starterChoices} from '../data/kanto.ts';
 import {exportSave,importSave,selectRunOptions,type SaveData} from '../game/save.ts';
+import {TEMPORARY_FULL_CHARACTER_ACCESS} from '../game/characterAccess.ts';
 
 const esc=(text:string)=>text.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!));
 const time=(seconds:number)=>`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`;
@@ -10,7 +11,7 @@ const displayProgress=(id:string,value:number,target:number,unit:string)=>unit==
 export function renderUnlockLibrary(save:SaveData):string {
  const starters=starterChoices();
  return `<details class="unlock-library"><summary>Collection / ${save.unlocked.length} of ${starters.length} partners / ${save.achievements.length} of ${ACHIEVEMENTS.length} achievements</summary>
-  <p class="library-intro">Collect partners by completing runs in different ways. Unlocks add choices; your starting HP and damage stay the same.</p>
+  <p class="library-intro">${TEMPORARY_FULL_CHARACTER_ACCESS?'Temporary full character access is enabled for all partners and recruits. This collection tracks your earned unlocks.':'Collect partners by completing runs in different ways. Unlocks add choices; your starting HP and damage stay the same.'}</p>
   <ul class="partner-collection" aria-label="Partner collection">${starters.map(id=>{
    const unlocked=save.unlocked.includes(id),achievement=ACHIEVEMENTS.find(entry=>entry.reward.starters?.includes(id));
    return `<li class="${unlocked?'collected':'uncollected'}" data-collection-partner="${id}"><strong>${esc(getSpecies(id).name)}</strong><span>${unlocked?'COLLECTED':esc(achievement?.title??'Starting partner')}</span></li>`;

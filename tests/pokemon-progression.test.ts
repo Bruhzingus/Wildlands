@@ -151,11 +151,11 @@ test('learned move upgrades apply the percentage gains printed on their cards',(
  for(const move of learnableMoves(member.speciesId).slice(0,3))assert.equal(applyChoice(state,learnCard(member,move.id)).applied,true);
  const moveId=member.learnedMoves![0].moveId;
  const card=allOffers(state).find(choice=>choice.kind==='attack'&&choice.moveId===moveId)!;
- assert.ok(card);assert.match(card.description,/\+17\.0% damage/);assert.match(card.description,/6\.5% shorter cooldown/);assert.match(card.description,/\+5\.0% reach/);
+ assert.ok(card);assert.match(card.description,/\+17\.0% damage/);assert.match(card.description,/6\.5% shorter cooldown/);assert.match(card.description,/\+2\.2% reach/);
  const from=getLearnedMoveProfile(moveId,1),basePower=learnedMovePower(moveId,1);
  assert.equal(applyChoice(state,card).applied,true);
  const to=getLearnedMoveProfile(moveId,2);
- close(learnedMovePower(moveId,2)/basePower,1.17);close(to.cooldown/from.cooldown,1/1.07);close(to.range/from.range,1.05);
+ close(learnedMovePower(moveId,2)/basePower,1.17);close(to.cooldown/from.cooldown,1/1.07);close(to.range/from.range,16.35/16);
  assert.equal(applyChoice(state,card).applied,false,'A stale rank cannot be purchased twice');
  assert.ok(learnedMovePower(moveId,999)>learnedMovePower(moveId,12));
 });

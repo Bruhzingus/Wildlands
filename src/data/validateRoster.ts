@@ -2,10 +2,10 @@ import {KANTO,type Species} from './kanto.ts';
 import {getAttackProfile,ATTACK_ARCHETYPES} from './attacks.ts';
 import {ENCOUNTER_TABLES} from './encounters.ts';
 import {SPECIES_COMBAT,LEGENDARY_SPECIES,type SpeciesCombat} from './rosterContent.ts';
-import {getMovementTrait} from './movementTraits.ts';
+import {memberDamage} from '../game/combat/damage.ts';
 export interface RosterReference {id:number;name:string;types:string[];parent:number|null;}
 export function validateRoster(reference:readonly RosterReference[],species:readonly Species[]=KANTO,combat:readonly SpeciesCombat[]=SPECIES_COMBAT):string[] {
- const issues:string[]=[],byId=new Map(species.map(row=>[row.id,row])),moves=new Set<string>();
+ const issues:string[]=[],byId=new Map(species.map(row=>[row.id,row]));
  if(species.length!==151||byId.size!==151)issues.push('Roster must contain 151 unique species IDs');
  if(combat.length!==151||new Set(combat.map(row=>row.id)).size!==151)issues.push('Loadouts must contain 151 unique species IDs');
  const normalized=(name:string)=>name.replace(/[’']/g,"'");
@@ -20,11 +20,9 @@ export function validateRoster(reference:readonly RosterReference[],species:read
   if(row.stage!==1+(expected.parent?byId.get(expected.parent)?.stage??0:0))issues.push(`#${id} invalid evolution stage`);
   if(row.evolvesTo.some(target=>!byId.has(target)||target===id)||new Set(row.evolvesTo).size!==row.evolvesTo.length)issues.push(`#${id} invalid or duplicate evolution target`);
   if(loadouts.length!==1){issues.push(`#${id} missing or duplicate move entry`);continue;}
-  const loadout=loadouts[0],move=loadout.moveName.trim().toLowerCase(),profile=getAttackProfile(id);
-  // Shared canonical names (Bite, Swift) are valid when handling differs.
-  // Still reject duplicate authored names within the same attack/movement kit.
-  const identity=`${move}/${profile.pattern??profile.kind}/${getMovementTrait(id).kind}`;
-  if(!move||moves.has(identity))issues.push(`#${id} empty or duplicate authored move name within one combat identity`);moves.add(identity);
+  const loadout=loadouts[0],move=loadout.moveName.trim().toLowerCase();
+  // Shared move names are valid and resolve to the same mechanics for all users.
+  if(!move||loadout.moveName!==row.moveName)issues.push(`#${id} empty, incorrect or duplicate authored move name for species`);
   if(!ATTACK_ARCHETYPES[loadout.attack]||loadout.attack!==row.attack||loadout.power<10||loadout.power>32||row.power<4||row.power>32)issues.push(`#${id} invalid arcade combat parameters`);
   if(row.recruitable!==(row.stage===1&&!LEGENDARY_SPECIES.includes(id)))issues.push(`#${id} invalid first-stage recruitment flag`);
  }
@@ -35,7 +33,7 @@ export function validateRoster(reference:readonly RosterReference[],species:read
  // signatures can improve crowd output further. Check both equal ranks.
  for(const parent of KANTO)for(const target of parent.evolvesTo)for(const rank of [1,8]){
   const child=KANTO.find(row=>row.id===target)!,a=getAttackProfile(parent.id,rank),b=getAttackProfile(target,rank);
-  const output=(row:Species,profile:typeof a)=>(row.power+9+(rank-1)*profile.growth.damage)*profile.damageScale/profile.cooldown;
+  const output=(row:Species,profile:typeof a)=>memberDamage({speciesId:row.id,level:1,attackLevel:rank},0,0)*profile.damageScale/profile.cooldown;
   if(output(child,b)+1e-9<output(parent,a)*1.02)issues.push(`#${parent.id}→${target} rank ${rank} loses attack output`);
  }
  return issues;

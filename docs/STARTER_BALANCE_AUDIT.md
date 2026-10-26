@@ -1,5 +1,7 @@
 # Starter balance audit
 
+**Historical snapshot:** the [October 26 move consistency fix](MOVE_CONSISTENCY.md) changes shared move definitions and damage scaling. The October 24 measurements below predate that implementation.
+
 For concrete follow-up changes, see the [three balance proposals and recommendation](STARTER_BALANCE_PROPOSALS/README.md). They compare conservative tuning, targeted kit redesigns, and a shared damage-budget system without applying gameplay changes.
 
 **Audited October 24, 2026, against the current working tree, including existing uncommitted gameplay changes.** This is an evaluation of all 17 selectable starters and their evolution branches. Gameplay tuning was not changed. Exact tables and reproducible measurements are in [STARTER_AUDIT_DATA.md](STARTER_AUDIT_DATA.md); regenerate them with `node --experimental-strip-types scripts/starter-audit.mjs`.

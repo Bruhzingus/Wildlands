@@ -74,8 +74,8 @@ test('reported damage supports a three-minute budget and the 15-minute party com
  for(const mapId of ['wildlands','volcanic-ridge'])for(const seed of [1883105034,8841]){
   const result=runReportedBossExperiment({mapId,seed});
   assert.equal(result.defeated,true,JSON.stringify(result));
-  assert.ok(result.seconds>=100&&result.seconds<=230,JSON.stringify(result));
+  assert.ok(result.seconds>=90&&result.seconds<=230,JSON.stringify(result));
   assert.ok(result.peakAdds>0&&result.reachedSecondStage,JSON.stringify(result));
-  assert.ok(Math.abs(result.estimatedDps-924.14)<.01,'Use the report at boss arrival, not the much stronger 23-minute party');
+  assert.ok(Math.abs(result.estimatedDps-1020.86)<.01,'Use the report at boss arrival with the shared move definitions');
  }
 });

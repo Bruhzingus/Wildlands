@@ -1,12 +1,13 @@
 import {getSpecies,type Element} from '../data/kanto.ts';
 import {getAttackProfile} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
-import {getLearnedMoveProfile,learnedMovePower} from '../data/moves.ts';
+import {getLearnedMoveProfile,getMoveDefinition} from '../data/moves.ts';
 import {getItemDefinition} from '../data/items.ts';
-import {PROGRESSION,levelPowerMultiplier} from '../data/progression.ts';
+import {levelPowerMultiplier} from '../data/progression.ts';
 import {getBuildModifiers,getBuildSummary,itemStacks} from './systems/builds.ts';
 import {enemyProgressionScale,lateEnemyScale} from './systems/spawning.ts';
-import {attackInterval} from './combat/cadence.ts';
+import {attackInterval,specialInterval} from './combat/cadence.ts';
+import {memberDamage,moveDamage} from './combat/damage.ts';
 import type {Enemy,PartyMember,RunState,UpgradeChoice,Variant} from './types.ts';
 
 export const ANALYTICS_LIMITS={sources:2048,recentHits:80,faints:100,acquisitions:20000,minutes:1440} as const;
@@ -15,6 +16,8 @@ export type DamageOrigin='signature'|'learned'|'q'|'proc'|'status'|'enemy'|'envi
 export interface DamageSource {
  origin:DamageOrigin;actorId?:number;speciesId?:number;name:string;move:string;element?:Element;
  variant?:Variant;bossStage?:number;effectId?:string;status?:string;rootOrigin?:DamageOrigin;
+ /** Native cast-time power keeps target-conditioned bonuses additive in flight. */
+ powerBonus?:number;
 }
 export interface DamageTotals {effective:number;attempted:number;mitigated:number;overkill:number;hits:number;kills:number;preCritical:number;postCritical:number;criticalHits:number;maxCriticalTier:number;}
 export interface DamageRow extends DamageTotals {key:string;source:DamageSource;recipient?:{uid:number;speciesId:number;leader:boolean};}
@@ -42,7 +45,8 @@ export function partyDamageSource(state:RunState,sourceUid:number|undefined,move
  const member=state.party.find(candidate=>candidate.uid===sourceUid);
  if(!member)return {...unknownDamageSource(move),actorId:sourceUid,element};
  const species=getSpecies(member.speciesId);
- return {origin,actorId:member.uid,speciesId:member.speciesId,name:species.name,move:move??species.moveName,element:element??species.types[0],rootOrigin:origin};
+ return {origin,actorId:member.uid,speciesId:member.speciesId,name:species.name,move:move??species.moveName,element:element??species.types[0],rootOrigin:origin,
+  ...(['signature','learned','q'].includes(origin)?{powerBonus:getBuildModifiers(state,member).power}:{})};
 }
 export function enemyDamageSource(enemy:Enemy|undefined,move?:string,element?:Element):DamageSource {
  if(!enemy)return unknownDamageSource(move);
@@ -116,11 +120,11 @@ export function estimatedBuildDps(state:RunState){
   if((index===0?state.player.hp:member.hp)<=0)continue;
   const mod=getBuildModifiers(state,member),profile=getAttackProfile(member.speciesId,member.attackLevel),whole=Math.floor(mod.critChance),fraction=mod.critChance-whole;
   const expectedCrit=Math.pow(mod.critDamage,whole)*(1-fraction+fraction*mod.critDamage);
-  const primary=(getSpecies(member.speciesId).power+9)*levelPowerMultiplier(member.level)*(1+PROGRESSION.moves.damagePerRank*Math.max(0,member.attackLevel-1))*(1+mod.power);
-  let dps=profile.kind==='heal'?0:primary*profile.damageScale/attackInterval(profile.cooldown,mod.haste,member.attackLevel);
-  for(const learned of member.learnedMoves??[]){const move=getLearnedMoveProfile(learned.moveId,learned.rank);if(move.kind!=='heal')dps+=learnedMovePower(learned.moveId,learned.rank)*levelPowerMultiplier(member.level)*(1+mod.power)*move.damageScale/attackInterval(move.cooldown,mod.haste);}
+  const primary=memberDamage(member,profile.growth.damage,mod.power);
+  let dps=profile.kind==='heal'?0:primary*profile.damageScale/attackInterval(profile.cooldown,mod.haste);
+  for(const learned of member.learnedMoves??[]){const move=getLearnedMoveProfile(learned.moveId,learned.rank),definition=getMoveDefinition(learned.moveId)!;if(move.kind!=='heal')dps+=moveDamage(member,definition.power,learned.rank,mod.power,move.kind)*move.damageScale/attackInterval(move.cooldown,mod.haste);}
   beforeCrits+=dps;afterCrits+=dps*expectedCrit;
-  if(index===0){const special=getSpecialProfile(member.speciesId,member.attackLevel);q=(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower)*special.damageScale*Math.max(1,special.pulses)/(special.cooldown/(1+mod.specialHaste));}
+  if(index===0){const special=getSpecialProfile(member.speciesId,member.attackLevel);q=(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower)*(1+mod.specialAmplification)*special.damageScale*Math.max(1,special.pulses)/specialInterval(special.cooldown,mod.specialHaste,mod.specialRate);}
  }
  return {beforeCrits:safe(beforeCrits),afterCrits:safe(afterCrits),withAbility:safe(afterCrits+q),ability:safe(q),assumptions:'Single-target connected casts at current stats; Q used on cooldown; excludes extra projectiles, relic procs, status damage, target matchup and travel. Use observed DPS for actual output.'};
 }

@@ -15,6 +15,8 @@ npm run dev
 
 Open http://localhost:5173. To test rapidly use `http://localhost:5173/?dev=1&speed=5`.
 
+**Temporary character access:** All 17 starter partners and all recruit species are currently available. To restore normal character unlock requirements, set `TEMPORARY_FULL_CHARACTER_ACCESS` to `false` in [`src/game/characterAccess.ts`](src/game/characterAccess.ts), then reload the game (rebuild when serving a production build). Earned unlocks, achievements and save exports stay intact; temporary access is never written into collection saves. Existing suspended runs keep the recruit pool they started with; new runs use the current switch.
+
 **Controls:** WASD move, arrow keys or FPS-style mouse look (cursor captured automatically when starting, resuming or choosing an upgrade), wheel zoom, Space jump, Shift dodge, Q special, E interact, ESC pause/release mouse, 1/2/3 choose level-up card. Click **Resume** or focus it and press Enter to return to play. If mouse capture is unavailable, play continues with keyboard camera controls. Mouse sensitivity and invert-Y are saved from the title/pause settings. With `?dev=1`: `]` advances 2 minutes; `[` grants a level, `\` heals. The developer asset gallery previews all 151 species in eight directions using the live game renderer.
 
 Primary and learned attacks automatically target nearby enemies. Camera look aims directional and placed Q specials; lightning chains, orbiting effects and healing stay automatic.

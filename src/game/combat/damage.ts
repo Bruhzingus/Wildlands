@@ -1,11 +1,19 @@
-import {getSpecies,type Element} from '../../data/kanto.ts';
+import {getSpecies,type AttackKind,type Element} from '../../data/kanto.ts';
+import {getSignatureMoveDefinition,SIGNATURE_BASE_POWER} from '../../data/moveDefinitions.ts';
 import {typeMultiplier} from '../../data/config.ts';
 import {PROGRESSION,levelPowerMultiplier} from '../../data/progression.ts';
 import type {StatusProc} from '../../data/attacks.ts';
 import type {Enemy,PartyMember} from '../types.ts';
 
-export function memberDamage(member:PartyMember,_growthDamage:number,power:number):number {
- return (getSpecies(member.speciesId).power+9)*levelPowerMultiplier(member.level)*(1+PROGRESSION.moves.damagePerRank*Math.max(0,member.attackLevel-1))*(1+power);
+export function memberDamage(member:Pick<PartyMember,'speciesId'|'level'|'attackLevel'>,_growthDamage:number,power:number):number {
+ const move=getSignatureMoveDefinition(getSpecies(member.speciesId).moveName);
+ return moveDamage(member,move.power,member.attackLevel,power,move.profile.kind);
+}
+/** Caster stats are applied equally to signature and learned versions of a move. */
+export function moveDamage(member:Pick<PartyMember,'speciesId'|'level'>,basePower:number,rank:number,power:number,kind:AttackKind):number {
+ const species=getSpecies(member.speciesId),ranged=['bolt','beam','lob','chain'].includes(kind);
+ const caster=(species.power+9)/SIGNATURE_BASE_POWER*(1+(species.stage-1)*.12)*(species.stage===1&&ranged?.8:1);
+ return basePower*caster*levelPowerMultiplier(member.level)*(1+PROGRESSION.moves.damagePerRank*Math.max(0,rank-1))*(1+power);
 }
 export function elementalDamage(amount:number,type:Element,enemy:Enemy,matchup=true):number {
  let total=amount*(matchup?typeMultiplier(type,getSpecies(enemy.speciesId).types):1);

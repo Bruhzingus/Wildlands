@@ -63,7 +63,7 @@ test('learned moves retain their own pose kind until recovery, then restore the 
 
 test('overlapping learned and primary casts complete one motion without delaying independent attacks',()=>{
  const {sim,s,leader,foe}=arena();s.buffs.haste=10;
- leader.learnedMoves=[{moveId:'hyper-beam',rank:1,cooldown:0},{moveId:'swift',rank:1,cooldown:.1},{moveId:'water-pulse',rank:1,cooldown:.2}];
+ leader.learnedMoves=[{moveId:'solar-beam',rank:1,cooldown:0},{moveId:'swift',rank:1,cooldown:.1},{moveId:'water-pulse',rank:1,cooldown:.2}];
  let casts=0;sim.onEvent=event=>{if(event.kind==='cast'&&event.sourceId===leader.uid)casts++;};
  sim.update(.02,idle);
  const duration=leader.attackDuration!,facing=leader.facing;assert.equal(casts,2);
@@ -74,7 +74,7 @@ test('overlapping learned and primary casts complete one motion without delaying
   assert.ok(Math.abs(leader.attackTimer-(duration-tick*.02))<1e-10);
   assert.equal(leader.attackDuration,duration);assert.equal(leader.facing,facing);assert.equal(leader.attackKind,'beam');
  }
- assert.equal(casts,7,'All three learned attacks and two primary attacks fire on their own cooldowns');
+ assert.equal(casts,8,'Every learned and primary attack fires on its own cooldown during the first motion');
  leader.cooldown=10;for(const learned of leader.learnedMoves)learned.cooldown=10;
  for(let i=0;i<5;i++)sim.update(.02,idle);
  assert.equal(leader.attackTimer,0);assert.notEqual(leader.animation,'attack');assert.equal(leader.attackKind,undefined);

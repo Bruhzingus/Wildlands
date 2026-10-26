@@ -6,6 +6,8 @@ import {Simulation} from '../src/game/Simulation.ts';
 import {createEnemy} from '../src/game/systems/spawning.ts';
 import {executePattern,type CombatVisual} from '../src/game/combat/patterns.ts';
 import {addProjectile,stepProjectiles,type ProjectileSpawn} from '../src/game/combat/projectiles.ts';
+import {memberDamage} from '../src/game/combat/damage.ts';
+import {getSignatureMoveDefinition} from '../src/data/moveDefinitions.ts';
 import type {Enemy} from '../src/game/types.ts';
 
 function arena(speciesId:number,rank=1){
@@ -24,9 +26,10 @@ function arena(speciesId:number,rank=1){
  return {state,member,add,hits,shots,visuals,cast,launch,step};
 }
 
-test('every starter has different handling and evolution ranks never remove earned attack capacity',()=>{
+test('different starter moves retain distinct handling and ranks never remove earned attack capacity',()=>{
  const identities=starterChoices().map(id=>{const profile=getAttackProfile(id);return profile.pattern||profile.kind;});
- assert.equal(new Set(identities).size,starterChoices().length);
+ assert.equal(new Set(identities).size,new Set(starterChoices().map(id=>getSpecies(id).moveName)).size);
+ assert.deepEqual(getAttackProfile(41),getAttackProfile(58),'Bite has the same handling on both starters');
  for(const id of [...starterChoices(),2,3,5,6,8,9,11,12,17,18,26,28,38,44,45,53,59,64,65,67,68,93,94,134]){
   assert.ok(describeAttackMechanic(id).length>30);
   for(let rank=2;rank<=8;rank++){
@@ -65,9 +68,13 @@ test('starter HP is reduced by 20% and first-stage ranged signatures deal 20% le
  assert.equal(twoStage.player.maxHp,120*.8*getSpecies(58).health);
  assert.equal(fish.player.maxHp,120*.8*getSpecies(129).health);
  assert.ok(fish.player.maxHp<threeStage.player.maxHp);
- assert.equal(getAttackProfile(4).damageScale,.48*.8);
- assert.equal(getAttackProfile(7).damageScale,.9*.8);
- assert.equal(getAttackProfile(25).damageScale,.8);
+ for(const id of [4,7,25]){
+  const member=new Simulation(id,4).state.party[0],move=getSignatureMoveDefinition(getSpecies(id).moveName);
+  assert.ok(Math.abs(memberDamage(member,0,0)-move.power*(getSpecies(id).power+9)/23*.8)<1e-10);
+ }
+ assert.equal(getAttackProfile(4).damageScale,.48);
+ assert.equal(getAttackProfile(7).damageScale,.9);
+ assert.equal(getAttackProfile(25).damageScale,1);
  assert.equal(getAttackProfile(58).damageScale,1.05*1.25);
 });
 

@@ -1,5 +1,9 @@
 import {test,expect,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {availableStarters} from '../../src/game/characterAccess.ts';
+import {DEFAULT_SAVE} from '../../src/game/save.ts';
+
+const starterCount=availableStarters(DEFAULT_SAVE).length;
 
 const game=(page:Page,fn:string)=>page.evaluate(expression=>{
  const g=(window as any).__WILDLANDS__;
@@ -18,7 +22,7 @@ test('real WebGL gameplay, camera, actions, full pause, interaction and restarts
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Date.now=()=>4;});
  await page.goto('/?dev=1');
- await expect(page.locator('[data-starter]')).toHaveCount(4);
+ await expect(page.locator('[data-starter]')).toHaveCount(starterCount);
  await mkdir('artifacts/browser',{recursive:true});
  await page.screenshot({path:'artifacts/browser/title.png'});
  await page.locator('[data-starter="25"]').click();
@@ -92,7 +96,7 @@ test('real WebGL gameplay, camera, actions, full pause, interaction and restarts
  // Compare against the live complete world (including berry palettes and sky),
  // rather than a cap predating those assets. Restarts must not accumulate them.
  expect(resources.materials).toBeLessThanOrEqual(materialBudget+1);expect(resources.textures).toBeLessThan(50);
- await page.locator('#restart-btn').click();await expect(page.locator('[data-starter]')).toHaveCount(4);
+ await page.locator('#restart-btn').click();await expect(page.locator('[data-starter]')).toHaveCount(starterCount);
  expect(errors).toEqual([]);
 });
 

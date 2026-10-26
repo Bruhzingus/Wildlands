@@ -1,11 +1,12 @@
 import {getSpecies,type Element} from '../../data/kanto.ts';
 import {getAttackProfile} from '../../data/attacks.ts';
-import {getItemDefinition,type BuildEventKind,type BuildStat,type BuildStatus,type EffectAction,type EffectRule,type ItemDefinition,type StatModifier} from '../../data/items.ts';
+import {getItemDefinition,relicFamily,type BuildEventKind,type BuildStat,type BuildStatus,type EffectAction,type EffectRule,type ItemDefinition,type StatModifier} from '../../data/items.ts';
 import {getActiveSynergies} from '../../data/synergies.ts';
 import type {Enemy,PartyMember,RunState} from '../types.ts';
 import {memberDamage} from '../combat/damage.ts';
 
 export type BuildModifiers=Record<BuildStat,number>;
+type BuildTarget=Pick<Enemy,'elite'|'isBoss'>;
 export interface BuildRuntimeState {
  counters:Record<string,number>;cooldownUntil:Record<string,number>;
  /** Optional explicit assignments; an assigned relic follows its member and goes inactive on faint. */
@@ -20,6 +21,7 @@ export type BuildAction=ActionSource & (
  |{kind:'echo';damageScale:number}
  |{kind:'chain';damage:number;jumps:number;range:number;damageIsFinal?:boolean}
  |{kind:'area';damage:number;radius:number;damageIsFinal?:boolean}
+ |{kind:'spill';damage:number;range:number}
  |{kind:'heal';amount:number;maxHpFraction?:number;target:'leader'|'squad'}
  |{kind:'selfDamage';amount:number}
  |{kind:'status';status:BuildStatus;duration:number;targetId:number}
@@ -34,11 +36,11 @@ export interface BuildSummary {
 }
 /** The shared window limits extra combat effects. Guaranteed resource changes always apply. */
 export const BUILD_LIMITS={maxProcDepth:2,maxActionsPerEvent:128,windowSeconds:.1,maxActionsPerWindow:Infinity,maxEffectDamage:Infinity,maxEffectRadius:Infinity,maxEffectJumps:8,maxStatusSeconds:Infinity} as const;
-export const BUILD_STAT_CAPS:BuildModifiers={staminaRechargeReduction:1,defense:Infinity,deflection:.5,staminaCapacity:Infinity,critDamagePercent:Infinity,power:Infinity,specialPower:Infinity,haste:Infinity,speed:Infinity,armor:Infinity,damageReduction:1,xp:Infinity,xpCatchup:Infinity,critChance:Infinity,critDamage:Infinity,radius:Infinity,magnet:Infinity,specialHaste:Infinity,stamina:Infinity,regeneration:Infinity,partyRegeneration:Infinity,regenerationPercent:Infinity,partyRegenerationPercent:Infinity,projectiles:Infinity,pierce:Infinity,chains:Infinity,projectileSpeed:Infinity,duration:Infinity};
+export const BUILD_STAT_CAPS:BuildModifiers={staminaRechargeReduction:1,defense:Infinity,deflection:.5,staminaCapacity:Infinity,critDamagePercent:Infinity,power:Infinity,specialPower:Infinity,specialAmplification:Infinity,specialRate:Infinity,specialHealthCost:Infinity,haste:Infinity,speed:Infinity,armor:Infinity,damageReduction:1,xp:Infinity,xpCatchup:Infinity,critChance:Infinity,critDamage:Infinity,radius:Infinity,magnet:Infinity,specialHaste:Infinity,stamina:Infinity,regeneration:Infinity,partyRegeneration:Infinity,regenerationPercent:Infinity,partyRegenerationPercent:Infinity,projectiles:Infinity,pierce:Infinity,chains:Infinity,projectileSpeed:Infinity,duration:Infinity};
 const STAT_MIN:Partial<BuildModifiers>={power:-.6,haste:-1+Number.EPSILON,speed:-.5,critDamage:1,radius:-.5,projectileSpeed:-.5};
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const finite=(value:number|undefined,fallback=0)=>value!==undefined&&Number.isFinite(value)?value:fallback;
-const initialModifiers=():BuildModifiers=>({staminaRechargeReduction:0,defense:0,deflection:0,staminaCapacity:0,critDamagePercent:0,power:0,specialPower:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,xpCatchup:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
+const initialModifiers=():BuildModifiers=>({staminaRechargeReduction:0,defense:0,deflection:0,staminaCapacity:0,critDamagePercent:0,power:0,specialPower:0,specialAmplification:0,specialRate:0,specialHealthCost:0,haste:0,speed:0,armor:0,damageReduction:0,xp:0,xpCatchup:0,critChance:.05,critDamage:1.85,radius:0,magnet:0,specialHaste:0,stamina:0,regeneration:0,partyRegeneration:0,regenerationPercent:0,partyRegenerationPercent:0,projectiles:0,pierce:0,chains:0,projectileSpeed:0,duration:0});
 const buffAliases:Record<string,BuildStat>={staminaRechargeReduction:'staminaRechargeReduction',defense:'defense',deflection:'deflection',staminaCapacity:'staminaCapacity',critDamagePercent:'critDamagePercent',duration:'duration',projectileSpeed:'projectileSpeed',critDamage:'critDamage',xpCatchup:'xpCatchup',projectiles:'projectiles',pierce:'pierce',chains:'chains',regeneration:'regeneration',partyRegeneration:'partyRegeneration',power:'power',specialPower:'specialPower',haste:'haste',speed:'speed',armor:'armor',damageReduction:'damageReduction',xp:'xp',crit:'critChance',radius:'radius',magnet:'magnet',stamina:'stamina',specialHaste:'specialHaste',regenerationPercent:'regenerationPercent',partyRegenerationPercent:'partyRegenerationPercent'};
 export function itemStacks(state:RunState,id:string):number {
  const definition=getItemDefinition(id),count=state.itemStacks?.[id]??state.items.filter(owned=>owned===id).length;
@@ -55,8 +57,9 @@ function ownedItems(state:RunState,source?:number):ItemDefinition[]{
   return [definition];
  });
 }
-function applyModifiers(target:BuildModifiers,modifiers:readonly StatModifier[]|undefined,state:RunState,owner:PartyMember|undefined,scale=1,penalties?:{haste:number}){
+function applyModifiers(target:BuildModifiers,modifiers:readonly StatModifier[]|undefined,state:RunState,owner:PartyMember|undefined,scale=1,penalties?:{haste:number},enemy?:BuildTarget){
  for(const modifier of modifiers||[]){
+  if(modifier.target==='elite'&&!enemy?.elite&&!enemy?.isBoss)continue;
   if(modifier.evolution){
    if(!owner)continue;
    const unevolved=getSpecies(owner.speciesId).evolvesTo.length>0;
@@ -69,12 +72,12 @@ function applyModifiers(target:BuildModifiers,modifiers:readonly StatModifier[]|
   else target[modifier.stat]+=amount;
  }
 }
-function rawModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
+function rawModifiers(state:RunState,owner?:PartyMember|number,enemy?:BuildTarget):BuildModifiers{
  const member=typeof owner==='number'?state.party.find(candidate=>candidate.uid===owner):owner||state.party[0];
  const modifiers=initialModifiers(),penalties={haste:1};
  modifiers.power+=finite(member?.evolutionPower);
  for(const [buff,stat] of Object.entries(buffAliases))if(stat!=='damageReduction')modifiers[stat]+=finite(state.buffs[buff])+finite(member?.trainingBuffs?.[buff]);
- for(const item of ownedItems(state,member?.uid))applyModifiers(modifiers,item.modifiers,state,member,itemStacks(state,item.id),penalties);
+ for(const item of ownedItems(state,member?.uid))applyModifiers(modifiers,item.modifiers,state,member,itemStacks(state,item.id),penalties,enemy);
  for(const synergy of getActiveSynergies(state)){
   applyModifiers(modifiers,synergy.modifiers,state,member,1,penalties);
   const required=Math.min(...synergy.requirements.map(requirement=>requirement.count));
@@ -84,8 +87,8 @@ function rawModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
  return modifiers;
 }
 /** Buffs and team bonuses are included. critChance and critDamage include their base values. */
-export function getBuildModifiers(state:RunState,owner?:PartyMember|number):BuildModifiers{
- const modifiers=rawModifiers(state,owner);
+export function getBuildModifiers(state:RunState,owner?:PartyMember|number,enemy?:BuildTarget):BuildModifiers{
+ const modifiers=rawModifiers(state,owner,enemy);
  // Legacy armor and reduction now contribute percentage defense growth.
  const member=typeof owner==='number'?state.party.find(candidate=>candidate.uid===owner):owner||state.party[0];
  const baseDefense=member?getSpecies(member.speciesId).defense:0;
@@ -124,9 +127,14 @@ const STATUS_FIELDS:Record<BuildStatus,keyof Pick<Enemy,'stunTime'|'slowTime'|'p
 function resolveAction(action:EffectAction,event:BuildEvent,state:RunState,sourceId:number,depth:number,scale=1):BuildAction|undefined{
  const source=state.party.find(member=>member.uid===sourceId);
  const element=('element' in action?action.element:undefined)||event.element||(source?getSpecies(source.speciesId).types[0]:'normal');
- const attributed=['echo','chain','area','selfDamage','status'].includes(action.kind);
+ const attributed=['echo','chain','area','spill','selfDamage','status'].includes(action.kind);
  const origin:ActionSource={sourceId,targetId:event.targetId,element,depth:depth+1,...(attributed&&event.damageSource?{damageSource:{...event.damageSource}}:{})};
  if(action.kind==='echo')return {...origin,kind:action.kind,damageScale:Math.max(0,finite(action.damageScale))*scale};
+ if(action.kind==='spill'){
+  const damage=Math.min(Number.MAX_VALUE,Math.max(0,finite(event.damage))*Math.max(0,finite(action.damageScale))*scale);
+  if(damage>0)return {...origin,kind:'spill',damage,range:Math.max(0,finite(action.range))};
+  return;
+ }
  if(action.kind==='chain'||action.kind==='area'){
   // Hit procs reuse the resolved hit; death/special procs scale with the source's move instead.
   const profile=source&&event.damage===undefined&&finite(action.damageScale)>0?getAttackProfile(source.speciesId,source.attackLevel):undefined;
@@ -180,7 +188,11 @@ export function dispatchBuildEvent(context:BuildContext,event:BuildEvent):BuildA
   const perHit=event.damage===undefined?event:{...event,damage:event.damage/occurrences};
   const resolved=resolveAction(rule.action,perHit,state,sourceId,depth,(rule.action.kind==='status'?1:stacks)*triggers);if(!resolved)continue;
   if(rule.cooldown)build.cooldownUntil[counterKey]=now+rule.cooldown;
-  if(['echo','chain','area','selfDamage','status'].includes(resolved.kind))resolved.effectId=key;
+  if(['echo','chain','area','spill','selfDamage','status'].includes(resolved.kind))resolved.effectId=resolved.kind==='spill'?`item:${relicFamily(key.slice(5))}`:key;
+  if(resolved.kind==='spill'){
+   const existing=result.find((action):action is Extract<BuildAction,{kind:'spill'}>=>action.kind==='spill'&&action.effectId===resolved.effectId&&action.sourceId===resolved.sourceId&&action.targetId===resolved.targetId);
+   if(existing){existing.damage=Math.min(Number.MAX_VALUE,existing.damage+resolved.damage);existing.range=Math.max(existing.range,resolved.range);continue;}
+  }
   result.push(resolved);build.actionsInWindow++;
  }
  return result;

@@ -51,7 +51,7 @@ function primary(speciesId,rank=1,level=1,positions=fixtures.close,options={}){
  });
  for(let frame=0;a.state.projectiles.length&&frame<2000;frame++)stepProjectiles(a.state,options.step??.01,{hit:(enemy,shot)=>a.hit(enemy,shot.damage),hurtPlayer:()=>assert.fail('Friendly fire')});
  assert.equal(a.state.projectiles.length,0,'All primary projectiles expire');
- const damage=a.hits.reduce((sum,hit)=>sum+hit.damage,0),interval=attackInterval(profile.cooldown,0,rank);
+ const damage=a.hits.reduce((sum,hit)=>sum+hit.damage,0),interval=attackInterval(profile.cooldown,0);
  return {damage:round(damage),dps:round(damage/interval),hits:a.hits.length,targets:new Set(a.hits.map(hit=>hit.uid)).size,shots};
 }
 
@@ -78,7 +78,7 @@ function snapshot(id,rank,level,evolutionPower=0){
   memberBookkeepingHp:round(132*species.health),element:attack.element??species.types[0],qElement:q.element??species.types[0],
   attackKind:attack.kind,catalogueAttackKind:species.attack,pattern:attack.pattern??attack.kind,
   damagePerHit:round(memberDamage({speciesId:id,level,attackLevel:rank},0,evolutionPower)*attack.damageScale),
-  cooldown:round(attackInterval(attack.cooldown,0,rank)),range:round(attack.range),radius:round(attack.radius),
+  cooldown:round(attackInterval(attack.cooldown,0)),range:round(attack.range),radius:round(attack.radius),
   projectiles:attack.projectiles,pierce:attack.pierce,chains:attack.chains,strikes:attack.strikes??1,status:attack.status,
   q:{name:q.name,kind:q.kind,cooldown:q.cooldown,range:q.range,radius:q.radius,pulses:q.pulses,projectiles:q.projectiles},movement:getMovementTrait(id),
   learnedMoves:learnableMoves(id,level).map(move=>({id:move.id,name:move.name,element:move.element})),
@@ -88,7 +88,7 @@ function snapshot(id,rank,level,evolutionPower=0){
  };
 }
 
-const sourcePaths=['src/data/kanto.ts','src/data/attacks.ts','src/data/rosterContent.ts','src/data/specials.ts','src/data/movementTraits.ts','src/data/progression.ts','src/data/config.ts','src/data/items.ts','src/data/enemySpecies.ts','src/data/moves.ts','src/data/learnsets.ts','src/data/evolutions.ts','src/data/synergies.ts','src/game/Simulation.ts','src/game/combat/patterns.ts','src/game/combat/projectiles.ts','src/game/combat/specials.ts','src/game/combat/damage.ts','src/game/combat/cadence.ts','src/game/combat/targeting.ts','src/game/systems/builds.ts','src/game/systems/progression.ts','src/game/systems/movement.ts'];
+const sourcePaths=['src/data/attackDefinitions.ts','src/data/moveDefinitions.ts','src/data/kanto.ts','src/data/attacks.ts','src/data/rosterContent.ts','src/data/specials.ts','src/data/movementTraits.ts','src/data/progression.ts','src/data/config.ts','src/data/items.ts','src/data/enemySpecies.ts','src/data/moves.ts','src/data/learnsets.ts','src/data/evolutions.ts','src/data/synergies.ts','src/game/Simulation.ts','src/game/combat/patterns.ts','src/game/combat/projectiles.ts','src/game/combat/specials.ts','src/game/combat/damage.ts','src/game/combat/cadence.ts','src/game/combat/targeting.ts','src/game/systems/builds.ts','src/game/systems/progression.ts','src/game/systems/movement.ts'];
 const fingerprints=Object.fromEntries(await Promise.all(sourcePaths.map(async path=>[path,createHash('sha256').update(await readFile(new URL('../'+path,import.meta.url))).digest('hex')])));
 const starters=starterChoices().map(id=>snapshot(id,1,1));
 const trained=starterChoices().flatMap(id=>[3,6,8].map(rank=>snapshot(id,rank,1)));

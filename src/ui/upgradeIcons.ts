@@ -33,9 +33,9 @@ export function upgradeIconName(choice:UpgradeChoice):IconName {
  if(choice.kind==='stat')return ({staminaRechargeReduction:'speed',defense:'shield',deflection:'shield',staminaCapacity:'speed',health:'heart',armor:'shield',damageReduction:'shield',regenerationPercent:'heal',partyRegenerationPercent:'heal',speed:'speed',haste:'speed',stamina:'speed',specialHaste:'bolt',specialPower:'power',magnet:'magnet',crit:'lens',radius:'aura',xp:'xp',luck:'xp'} as Record<string,IconName>)[choice.stat??'']??'power';
  const item=getItemDefinition(choice.id);
  const effect=item?.effects?.[0]?.action.kind;
- if(effect)return ({echo:'chain',chain:'chain',area:'burst',heal:'heal',selfDamage:'heart',status:'aura',xp:'xp',specialCharge:'bolt',specialCooldownPercent:'bolt'} as const)[effect];
+ if(effect)return ({echo:'chain',chain:'chain',area:'burst',spill:'chain',heal:'heal',selfDamage:'heart',status:'aura',xp:'xp',specialCharge:'bolt',specialCooldownPercent:'bolt'} as const)[effect];
  const stat=item?.modifiers?.[0]?.stat;
- return ({staminaRechargeReduction:'speed',defense:'shield',deflection:'shield',staminaCapacity:'speed',critDamagePercent:'lens',power:'power',specialPower:'power',haste:'speed',speed:'speed',armor:'shield',damageReduction:'shield',critChance:'lens',critDamage:'lens',radius:'aura',magnet:'magnet',xp:'xp',regeneration:'heal',partyRegeneration:'heal',regenerationPercent:'heal',partyRegenerationPercent:'heal',projectiles:'bolt',pierce:'beam',chains:'chain',specialHaste:'bolt',projectileSpeed:'speed',duration:'aura'} as Record<string,IconName>)[stat??'']??'relic';
+ return ({staminaRechargeReduction:'speed',defense:'shield',deflection:'shield',staminaCapacity:'speed',critDamagePercent:'lens',power:'power',specialPower:'power',specialAmplification:'heart',specialRate:'bolt',specialHealthCost:'heart',haste:'speed',speed:'speed',armor:'shield',damageReduction:'shield',critChance:'lens',critDamage:'lens',radius:'aura',magnet:'magnet',xp:'xp',regeneration:'heal',partyRegeneration:'heal',regenerationPercent:'heal',partyRegenerationPercent:'heal',projectiles:'bolt',pierce:'beam',chains:'chain',specialHaste:'bolt',projectileSpeed:'speed',duration:'aura'} as Record<string,IconName>)[stat??'']??'relic';
 }
 
 export function upgradeIcon(choice:UpgradeChoice):string {

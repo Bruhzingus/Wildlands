@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {availableStarters} from '../../src/game/characterAccess.ts';
+import {DEFAULT_SAVE} from '../../src/game/save.ts';
 
 test('offline portraits remain visible and evolution menus use species IDs with large party UIDs',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
@@ -7,7 +9,7 @@ test('offline portraits remain visible and evolution menus use species IDs with 
  await page.route('https://raw.githubusercontent.com/**',route=>route.abort());
  await page.goto('/');
  const portraits=page.locator('.starter-card img');
- await expect(portraits).toHaveCount(4);
+ await expect(portraits).toHaveCount(availableStarters(DEFAULT_SAVE).length);
  for(const portrait of await portraits.all()){
   await expect(portrait).toHaveAttribute('src',/^data:image\/svg\+xml/);
   await expect.poll(()=>portrait.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -40,7 +42,7 @@ test('offline portraits remain visible and evolution menus use species IDs with 
  await page.screenshot({path:'artifacts/browser/pause-small.png'});
  await page.locator('#restart-btn').click();
  // The injected 500-second run legitimately earns First watch when restarted.
- await expect(page.locator('.starter-card')).toHaveCount(6);
+ await expect(page.locator('.starter-card')).toHaveCount(availableStarters({unlocked:[...DEFAULT_SAVE.unlocked,16,27]}).length);
  await expect(page.locator('[data-starter="16"]')).toBeVisible();await expect(page.locator('[data-starter="27"]')).toBeVisible();
  await expect.poll(()=>page.locator('.starter-card img').evaluateAll(images=>images.every(img=>(img as HTMLImageElement).naturalWidth>0))).toBe(true);
  await page.screenshot({path:'artifacts/browser/title-small.png'});

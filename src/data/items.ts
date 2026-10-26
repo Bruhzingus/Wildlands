@@ -2,16 +2,19 @@ import type {Element} from './kanto.ts';
 import type {UpgradeChoice} from '../game/types.ts';
 
 /** Percentage bonuses add against the base stat; flat amounts retain their units. */
-export type BuildStat='staminaRechargeReduction'|'defense'|'deflection'|'staminaCapacity'|'critDamagePercent'|'power'|'specialPower'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'xpCatchup'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
+export type BuildStat='staminaRechargeReduction'|'defense'|'deflection'|'staminaCapacity'|'critDamagePercent'|'power'|'specialPower'|'specialAmplification'|'specialRate'|'specialHealthCost'|'haste'|'speed'|'armor'|'damageReduction'|'xp'|'xpCatchup'|'critChance'|'critDamage'|'radius'|'magnet'|'specialHaste'|'stamina'|'regeneration'|'partyRegeneration'|'regenerationPercent'|'partyRegenerationPercent'|'projectiles'|'pierce'|'chains'|'projectileSpeed'|'duration';
 export interface StatModifier {
  stat:BuildStat;amount:number;scale?:'party';evolution?:'unevolved'|'evolved';healthBelow?:number;
+ /** Target-conditioned power is resolved only for native damaging hits. */
+ target?:'elite';
 }
-export type BuildEventKind='onAttack'|'onCrit'|'onHit'|'onDeath'|'onSpecial'|'onRecruit'|'onEvolve';
+export type BuildEventKind='onAttack'|'onCrit'|'onHit'|'onDeath'|'onOverkill'|'onSpecial'|'onRecruit'|'onEvolve';
 export type BuildStatus='stun'|'slow'|'poison'|'burn'|'soaked';
 export type EffectAction=
  |{kind:'echo';damageScale:number}
  |{kind:'chain';damage?:number;damageScale?:number;jumps:number;range:number;element?:Element}
  |{kind:'area';damage?:number;damageScale?:number;radius:number;element?:Element}
+ |{kind:'spill';damageScale:number;range:number}
  |{kind:'heal';amount:number;maxHpFraction?:number;target:'leader'|'squad'}
  |{kind:'selfDamage';amount:number}
  |{kind:'status';status:BuildStatus;duration:number}
@@ -79,10 +82,18 @@ const BASE_ITEM_DEFINITIONS:readonly ItemDefinition[]=[
  item({id:'team-battery',title:'Team Battery',description:'+1 maximum stamina (dodge charge) per 2 current living party members, rounded down, including the leader. Requires at least 3 living members to acquire.',rarity:'rare',minimumParty:3,stacking:'unique',maxStacks:1,modifiers:[{stat:'staminaCapacity',amount:0.5,scale:'party'}]}),
  item({id:'healing-bead',title:'Big Root',description:'Every 12 attacks from each member restore 0.75% of the leader\'s max HP. Each member has their own attack counter.',rarity:'common',effects:[{event:'onAttack',every:12,counter:'source',action:{kind:'heal',amount:0,maxHpFraction:0.0075,target:'leader'}}]}),
  item({id:'power-herb',baseId:'power-herb',title:'Power Herb',description:'Every 3rd squad attack reduces your current special cooldown by 1.5%.',rarity:'rare',effects:[{event:'onAttack',every:3,action:{kind:'specialCooldownPercent',amount:0.015}}]}),
+ item({id:'expert-belt',title:'Expert Belt',description:'+25% native move damage against elites and bosses. Adds to other damage bonuses.',rarity:'rare',modifiers:[{stat:'power',amount:.25,target:'elite'}]}),
+ item({id:'spillstone',title:'Spillstone',description:'Native killing hits send 20% of overkill damage to the nearest other enemy within 4m. Spill damage cannot trigger relics or critical hits.',rarity:'epic',effects:[{event:'onOverkill',action:{kind:'spill',damageScale:.2,range:4}}]}),
 ];
 
 /** Families with authored rarity curves instead of the normal base/Legendary pair. */
 const AUTHORED_RARITY_VARIANTS:readonly ItemDefinition[]=[
+ item({id:'blood-pact',baseId:'blood-pact',title:'Blood Pact',description:'Your special deals double damage and takes half as long to recharge after other bonuses. Each cast costs 15% of the leader\'s max HP before casting and can be lethal. Unique; leader only.',rarity:'epic',ownership:'leader',stacking:'unique',maxStacks:1,modifiers:[{stat:'specialAmplification',amount:1},{stat:'specialRate',amount:1},{stat:'specialHealthCost',amount:.15}]}),
+ ...([{rarity:'common',amount:.2},{rarity:'rare',amount:.3},{rarity:'epic',amount:.4},{rarity:'legendary',amount:.6}] as const).map(({rarity,amount})=>item({
+  id:rarity==='common'?'berserker-emblem':`berserker-emblem-${rarity}`,baseId:'berserker-emblem',title:'Berserker Emblem',rarity,
+  description:`While the leader is below 50% HP: +${amount*100}% leader movement speed, +${amount*100}% squad defense and +${amount*100}% squad attack damage. Copies stack; bonuses end at 50% HP or above.`,
+  modifiers:[{stat:'speed',amount,healthBelow:.5},{stat:'defense',amount,healthBelow:.5},{stat:'power',amount,healthBelow:.5}],
+ })),
  item({id:'metronome-ramp',baseId:'metronome-ramp',title:'Metronome',description:'Consecutive squad hits on the same enemy deal +5% damage per prior uninterrupted hit, up to +100% per copy after 20 hits.',rarity:'legendary',consecutiveTargetDamage:0.05}),
  item({id:'lucky-egg-xp',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+1.5% XP earned from drops and defeats.',rarity:'common',modifiers:[{stat:'xp',amount:0.015}]}),
  item({id:'lucky-egg-xp-rare',baseId:'lucky-egg-xp',title:'Lucky Egg',description:'+3% XP earned from drops and defeats.',rarity:'rare',modifiers:[{stat:'xp',amount:0.03}]}),
@@ -96,6 +107,8 @@ const AUTHORED_RARITY_VARIANTS:readonly ItemDefinition[]=[
 ];
 
 const LEGENDARY_DESCRIPTIONS:Record<string,string>={
+ 'expert-belt':'+50% native move damage against elites and bosses. Adds to other damage bonuses.',
+ 'spillstone':'Native killing hits send 40% of overkill damage to the nearest other enemy within 4m. Spill damage cannot trigger relics or critical hits.',
  'echo-bell':'Every 5th squad attack repeats at 65% damage. Repeats cannot trigger more item effects.',
  'multi-lens':'Bolt, beam and lob attacks fire +1 projectile.',
  'static-orb':'Critical hits arc for 25% of hit damage through up to 2 enemies within 4.7m. 0.15s cooldown.',
@@ -127,6 +140,7 @@ function legendaryAction(action:EffectAction):EffectAction {
  switch(action.kind){
   case 'echo':return {...action,damageScale:action.damageScale*2};
   case 'chain':case 'area':return {...action,damage:action.damage===undefined?undefined:action.damage*2,damageScale:action.damageScale===undefined?undefined:action.damageScale*2};
+  case 'spill':return {...action,damageScale:action.damageScale*2};
   case 'heal':return {...action,amount:action.amount*2,maxHpFraction:action.maxHpFraction===undefined?undefined:action.maxHpFraction*2};
   case 'status':return {...action,duration:action.duration*2};
   case 'xp':case 'specialCharge':case 'specialCooldownPercent':return {...action,amount:action.amount*2};

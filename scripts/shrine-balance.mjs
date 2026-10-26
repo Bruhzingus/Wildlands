@@ -62,6 +62,7 @@ export function runShrineProgressionExperiment({tier=9,leaderLevel=40,seed=18831
  const guardians=s.enemies.filter(enemy=>enemy.shrineGuardian),started=s.stats.elapsed;
  if(healthOverride!==undefined)for(const enemy of guardians)enemy.hp=enemy.maxHp=healthOverride/definition.count;
  const health=guardians.reduce((sum,enemy)=>sum+enemy.maxHp,0),estimatedDps=estimatedBuildDps(s).withAbility;
+ const relicCopies=()=>Object.values(s.itemStacks??{}).reduce((sum,count)=>sum+count,0),startingRelics=relicCopies();
  let peakAdds=0;
  for(let tick=0;tick<Math.ceil(SHRINE_RULES.timeLimit/.04)+2&&site.challenge;tick++){
   const target=guardians.find(enemy=>!enemy.dead);if(!target)break;
@@ -75,7 +76,7 @@ export function runShrineProgressionExperiment({tier=9,leaderLevel=40,seed=18831
  const remaining=guardians.reduce((sum,enemy)=>sum+Math.max(0,enemy.hp),0);
  return {tier,leaderLevel,projected:leaderLevel>40,seed,health,completed:!!site.uses,
   seconds:Number((s.stats.elapsed-started).toFixed(2)),percentCleared:Number(((health-remaining)/health*100).toFixed(1)),
-  estimatedDps:Number(estimatedDps.toFixed(2)),peakAdds,incomingDamage:s.stats.damageTaken};
+  estimatedDps:Number(estimatedDps.toFixed(2)),peakAdds,incomingDamage:s.stats.damageTaken,relicCopiesGained:relicCopies()-startingRelics};
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)console.log(JSON.stringify({

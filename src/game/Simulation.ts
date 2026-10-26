@@ -16,11 +16,11 @@ import {RNG,distance2} from '../utils/random.ts';
 import {getAttackProfile,type StatusProc} from '../data/attacks.ts';
 import {getSpecialProfile} from '../data/specials.ts';
 import {castSpecial,stepSpecials} from './combat/specials.ts';
-import {getMoveDefinition,getLearnedMoveProfile,learnedMovePower} from '../data/moves.ts';
+import {getMoveDefinition,getLearnedMoveProfile} from '../data/moves.ts';
 import {getItemDefinition,relicFamily} from '../data/items.ts';
 import {recordDamage,recordFaint,partyDamageSource,enemyDamageSource,statusDamageSource,type DamageSource} from './analytics.ts';
-import {memberDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpeedFactor} from './combat/damage.ts';
-import {attackInterval,scheduleCasts} from './combat/cadence.ts';
+import {memberDamage,moveDamage,elementalDamage,applyStatusProcs,tickEnemyStatuses,enemySpeedFactor} from './combat/damage.ts';
+import {attackInterval,specialInterval,scheduleCasts} from './combat/cadence.ts';
 import {criticalTier,criticalMultiplier} from './combat/critical.ts';
 import {executePattern,executeChain,type AttackTarget} from './combat/patterns.ts';
 import {nearestEnemy,enemiesInRadius} from './combat/targeting.ts';
@@ -333,7 +333,7 @@ export class Simulation {
    p.vy-=DESIGN.gravity*dt;p.y=Math.max(0,p.y+p.vy*dt);if(p.y===0)p.vy=0;
   }
   if(p.y===0&&movement){movement.flightUsed=false;movement.flightEligible=false;movement.flying=false;}
-  if(tap.special&&p.specialCooldown===0&&!burrowing){p.specialCooldown=getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown/(1+getBuildModifiers(s).specialHaste)*Math.max(.2,1-.2*this.berryStacks('leppa'));s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
+  if(tap.special&&p.specialCooldown===0&&!burrowing){const mod=getBuildModifiers(s);p.specialCooldown=specialInterval(getSpecialProfile(s.party[0].speciesId,s.party[0].attackLevel).cooldown,mod.specialHaste,mod.specialRate)*Math.max(.2,1-.2*this.berryStacks('leppa'));s.lastSpecialAt=s.stats.elapsed;this.specialAttack();}
   if(s.result!==null)return;
   const interaction=s.pois.find(a=>siteAvailable(a,s.stats.elapsed)&&!a.used&&distance2(p,a)<DESIGN.interactionRadius);
   const beacon=(s.terrainFeatures||[]).find(feature=>feature.kind==='ruin-beacon'&&feature.state==='ready'&&distance2(p,feature)<DESIGN.interactionRadius+1.2);
@@ -485,7 +485,7 @@ export class Simulation {
    this.updateLearnedMoves(m,dt);
    if(s.result!==null)return;
    const profile=getAttackProfile(m.speciesId,m.attackLevel),mod=getBuildModifiers(s,m);
-   const cadence=attackInterval(profile.cooldown,mod.haste,m.attackLevel),schedule=scheduleCasts(m.cooldown,dt,cadence);m.cooldown=schedule.cooldown;
+   const cadence=attackInterval(profile.cooldown,mod.haste),schedule=scheduleCasts(m.cooldown,dt,cadence);m.cooldown=schedule.cooldown;
    for(const count of schedule.packets){
     const target=this.attackTarget(m,profile.range*(1+mod.radius))||(profile.kind==='heal'?{...m,uid:-1,dead:false}:undefined);
     if(!target){m.cooldown=Math.min(.3,dt+.12);break;}
@@ -522,7 +522,7 @@ export class Simulation {
   const livingTarget=target&&!target.dead?target:this.attackTarget(member,profile.range*(1+mod.radius));
   if(!livingTarget&&profile.kind!=='heal')return;
   const tier=depth===0&&profile.kind!=='heal'?criticalTier(mod.critChance,()=>this.rng.next()):0,crit=tier>0;
-  const damage=Math.min(Number.MAX_VALUE,learnedMovePower(move.id,learned.rank)*levelPowerMultiplier(member.level)*(1+mod.power)*damageScale*criticalMultiplier(tier,mod.critDamage)*this.runUpAttackMultiplier(member,depth,hitCount));
+  const damage=Math.min(Number.MAX_VALUE,moveDamage(member,move.power,learned.rank,mod.power,profile.kind)*damageScale*criticalMultiplier(tier,mod.critDamage)*this.runUpAttackMultiplier(member,depth,hitCount));
   if(depth===0)this.emit({kind:'cast',sourceId:member.uid,speciesId:member.speciesId});
   executePattern({member:{...member,attackLevel:learned.rank},target:livingTarget||{...member,dead:false},
    enemies:s.enemies,profile,element:move.element,damage,crit,depth,radiusScale:1+mod.radius,
@@ -575,18 +575,28 @@ export class Simulation {
    explode:projectile=>this.emit({kind:'attack',x:projectile.x,z:projectile.z,amount:projectile.radius,radius:projectile.radius,color:ELEMENT_COLORS[projectile.type],shape:'burst',sourceId:projectile.sourceId,moveName:projectile.moveName}),
   });
  }
- private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false,hitCount=1,tier=crit?1:0,provenance?:DamageSource,critMultiplier=1,splitSources?:{weight:number;source:DamageSource;criticalMultiplier?:number}[]){
+ private damageEnemy(e:Enemy,amount:number,type:Element,sourceId?:number,status:StatusProc={},crit=false,allowProcs=true,matchup=true,damageIsFinal=false,hitCount=1,tier=crit?1:0,provenance?:DamageSource,critMultiplier=1,splitSources?:{weight:number;source:DamageSource;criticalMultiplier?:number}[],allowDeathEffects=true){
   if(e.dead||this.state.result!==null)return;
-  const resolved=damageIsFinal?Math.max(0,Number.isFinite(amount)?amount:0):elementalDamage(amount,type,e,matchup);
+  const source=provenance??[...(splitSources??[])].reverse().find(part=>part.source.actorId===sourceId)?.source??partyDamageSource(this.state,sourceId,undefined,'unknown',type);
+  // Native target bonuses share the ordinary additive power pool. Secondary
+  // damage already inherits its source hit and must not receive the bonus again.
+  let targetPower=1;
+  if(allowProcs&&matchup&&!damageIsFinal&&(e.elite||e.isBoss)){
+   const power=getBuildModifiers(this.state,sourceId).power,bonus=getBuildModifiers(this.state,sourceId,e).power-power;
+   const inversePower=splitSources?.length?splitSources.reduce((total,part)=>total+part.weight/(1+(part.source.powerBonus??power)),0):1/(1+(source.powerBonus??power));
+   targetPower+=bonus*inversePower;
+  }
+  const resolved=damageIsFinal?Math.max(0,Number.isFinite(amount)?amount:0):elementalDamage(amount*targetPower,type,e,matchup);
   const effectiveness=matchup&&!damageIsFinal?typeEffectiveness(type,getSpecies(e.speciesId).types):'neutral';
   const metronome=allowProcs?metronomeDamageMultiplier(this.state,e.uid,hitCount):1;
-  const source=provenance??[...(splitSources??[])].reverse().find(part=>part.source.actorId===sourceId)?.source??partyDamageSource(this.state,sourceId,undefined,'unknown',type),before=e.hp,attempted=Math.min(Number.MAX_VALUE,resolved*hitCount*metronome);
+  const before=e.hp,attempted=Math.min(Number.MAX_VALUE,resolved*hitCount*metronome);
   let damage=Math.min(e.hp,resolved*hitCount*metronome),postMitigation=attempted;
   // A huge packet may earn a stage immediately, but cannot erase an unreadable
   // chapter. There is no transition lockout: the next hit can still land.
   if(e.isBoss){const next=this.activeBoss().stages[(e.bossStage??0)+1];const floor=next?e.maxHp*next.threshold:undefined;
    if(floor!==undefined&&e.hp>floor&&e.hp-damage<floor){damage=Math.max(0,e.hp-floor);postMitigation=damage;}
   }
+  const overkill=allowProcs&&matchup&&!damageIsFinal?Math.max(0,postMitigation-before):0;
   const observe=(attribution:DamageSource,weight=1,killed=false,multiplier=critMultiplier)=>recordDamage(this.state,{direction:'outgoing',source:attribution,attempted:attempted*weight,applied:postMitigation*weight,beforeHp:before*weight,afterHp:(before-damage)*weight,criticalTier:tier,preCritical:attempted*weight/Math.max(1,multiplier),hitCount:hitCount*weight,killed});
   if(splitSources?.length){splitSources.forEach((part,index)=>observe(part.source,part.weight,before-damage<=0&&index===splitSources.length-1,part.criticalMultiplier??critMultiplier));}else observe(source,1,before-damage<=0);
   if(damage<=0)return;e.hp-=damage;e.lastDamageSource={...source};this.state.stats.damageDealt+=damage;
@@ -602,9 +612,10 @@ export class Simulation {
    if(crit)this.buildEvent({kind:'onCrit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,critTier:tier,damageSource:source});
    this.buildEvent({kind:'onHit',sourceId,targetId:e.uid,damage,element:type,count:hitCount,damageSource:source});
   }
-  if(e.hp<=0)this.killEnemy(e,sourceId,allowProcs||!matchup);
+  if(e.hp<=0)this.killEnemy(e,sourceId,allowProcs||!matchup,allowDeathEffects);
+  if(overkill>0&&e.dead&&this.state.result===null)this.buildEvent({kind:'onOverkill',sourceId,targetId:e.uid,damage:overkill,element:type,damageSource:source});
  }
- private killEnemy(e:Enemy,sourceId?:number,allowProcs=true){if(e.dead)return;const s=this.state;
+ private killEnemy(e:Enemy,sourceId?:number,allowProcs=true,allowDeathEffects=true){if(e.dead)return;const s=this.state;
   const trialSite=e.shrineGuardian?s.pois.find(poi=>poi.uid===e.challengeSiteId||poi.challenge?.guardianId===e.uid):undefined;
   if(trialSite?.challenge&&(s.stats.elapsed>=trialSite.challenge.endsAt||distance2(s.player,trialSite)>shrineForPOI(trialSite).radius)){
    this.updateExploration();return;
@@ -635,7 +646,7 @@ export class Simulation {
    if(first){s.stats.bossKilled=true;s.result='victory';s.phase='result';this.emit({kind:'win',label:`${getSpecies(e.speciesId).name} defeated!`});}
    else {s.nextBossAt=s.stats.elapsed+420;s.player.hp=Math.min(s.player.maxHp,s.player.hp+36);for(const member of s.party)member.hp=Math.min(member.maxHp,member.hp+24);this.emit({kind:'win',label:`${getSpecies(e.speciesId).name} defeated — recover before the next chapter.`});}
   }
-  if(s.result===null)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1,damageSource:e.lastDamageSource});
+  if(s.result===null&&allowDeathEffects)this.buildEvent({kind:'onDeath',sourceId,targetId:e.uid,depth:allowProcs?0:1,damageSource:e.lastDamageSource});
  }
  private completeShrine(site:POI,label:string){const s=this.state,tier=site.challenge?.tier??1;
   const summoned=s.enemies.filter(enemy=>enemy.challengeSiteId===site.uid);for(const enemy of summoned){enemy.dead=true;this.statusOwners.delete(enemy.uid);}
@@ -733,6 +744,21 @@ export class Simulation {
     for(const enemy of enemiesInRadius(s.enemies,origin,action.radius))this.damageEnemy(enemy,action.damage,action.element,action.sourceId,{},false,false,true,action.damageIsFinal,1,0,this.procDamageSource(action));
     this.emit({kind:'attack',x:origin.x,z:origin.z,amount:action.radius,sourceId:action.sourceId,color:'#d7c69a',shape:'burst'});return;
    }
+   case 'spill':{
+    if(!target)return;
+    let next:Enemy|undefined,best=action.range;
+    for(const enemy of s.enemies){
+     if(enemy.uid===target.uid||enemy.dead||enemy.hp<=0)continue;
+     const distance=distance2(enemy,target);
+     if(distance<best||distance===best&&(!next||enemy.uid<next.uid)){next=enemy;best=distance;}
+    }
+    if(!next)return;
+    this.emit({kind:'chain',x:target.x,z:target.z,toX:next.x,toZ:next.z,sourceId:action.sourceId,targetId:next.uid,color:'#d7c69a',moveName:'Spillstone'});
+    // This is a share of resolved overkill: no second matchup, crit, on-hit,
+    // on-kill item effect or spill. Ordinary kill credit and loot still resolve.
+    this.damageEnemy(next,action.damage,action.element,action.sourceId,{},false,false,false,true,1,0,this.procDamageSource(action),1,undefined,false);
+    return;
+   }
    case 'heal':{
     if(s.challenge==='famine')return;
     if(s.player.hp>0)s.player.hp=Math.min(s.player.maxHp,s.player.hp+action.amount+s.player.maxHp*(action.maxHpFraction??0));
@@ -806,20 +832,27 @@ export class Simulation {
    if(profile.kind==='mend'){
     if(s.challenge==='famine'||(s.player.hp>=s.player.maxHp&&s.party.every(partner=>partner.hp>=partner.maxHp)))continue;
    }else if(!nearestEnemy(s.enemies,member,profile.range*(1+mod.radius)))continue;
-   member.specialCooldown=profile.cooldown/(1+mod.specialHaste)*Math.max(.2,1-.2*this.berryStacks('leppa'));
+   member.specialCooldown=specialInterval(profile.cooldown,mod.specialHaste,mod.specialRate)*Math.max(.2,1-.2*this.berryStacks('leppa'));
    this.specialAttack(member);
    if(s.result!==null)return;
   }
  }
- private specialAttack(member=this.state.party[0]){const s=this.state,mod=getBuildModifiers(s,member);
+ private specialAttack(member=this.state.party[0]){const s=this.state;
+  const cost=getBuildModifiers(s,member).specialHealthCost;
+  if(member===s.party[0]&&cost>0){
+   const source={...partyDamageSource(s,member.uid,'Blood Pact: special cost','self'),effectId:'item:blood-pact'};
+   this.hurtPlayer(s.player.maxHp*cost,false,true,true,undefined,source);
+   if(s.result!==null)return;
+  }
   const profile=getSpecialProfile(member.speciesId,member.attackLevel),element=profile.element??getSpecies(member.speciesId).types[0];
   member.attackSpecial=profile.kind;delete member.attackKind;
   this.animateAttack(member,member.facing,ATTACK_ANIMATION.specialSeconds);
   const runUpMultiplier=this.runUpAttackMultiplier(member);
   this.buildEvent({kind:'onSpecial',sourceId:member.uid,element,damageSource:partyDamageSource(s,member.uid,profile.name,'q',element)});
   if(s.result!==null)return;
+  const mod=getBuildModifiers(s,member);
   castSpecial({state:s,member,profile,element,
-   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower)*runUpMultiplier,radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:rollExtraProjectiles(mod.projectiles,()=>this.rng.next()),
+   damage:(32+(member.attackLevel-1)*2)*levelPowerMultiplier(member.level)*(1+mod.power)*(1+mod.specialPower)*(1+mod.specialAmplification)*runUpMultiplier,radiusScale:1+mod.radius,durationScale:1+mod.duration,extraProjectiles:rollExtraProjectiles(mod.projectiles,()=>this.rng.next()),
    move:(dx,dz)=>this.obstacles.move(member===s.party[0]?s.player:member,dx,dz),
    hit:(enemy,damage,type,sourceId,status,source)=>this.damageEnemy(enemy,damage,type,sourceId,status,false,true,true,false,1,0,source),
    visual:event=>this.emit(event),heal:amount=>this.healSpecial(amount),

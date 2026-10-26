@@ -2,6 +2,8 @@
 
 October 24, 2026. **Design ideas only. No gameplay changes or balance results.**
 
+Implementation follow-up, October 26: Expert Belt and Spillstone are now implemented alongside Blood Pact and Berserker Emblem; see the [relic additions report](RELIC_ADDITIONS_REPORT.md) for shipped values and behavior. The remaining ideas below are proposals.
+
 The aim is to make an early investment develop into a recognizable late-game build. A good upgrade should help when acquired, interact with later choices, and retain a useful job against elites and bosses. It does not have to be equally good in every encounter.
 
 “The whole game” here means the opening, the first 15-minute boss, and extended endless play. The recommendation is to preserve uncapped percentage training and move ranks, while keeping attack shapes and extra objects readable and finite.

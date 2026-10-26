@@ -17,6 +17,9 @@ export function bossHealthCalculation(sample=REPORTED_BOSS){
 export function createReportedBossRun({mapId='wildlands',seed=1883105034}={}){
  const sim=new Simulation(26,seed,{mapId}),s=sim.state;
  sim.gainXP=()=>{};sim.openNextLevelUp=()=>false;
+ // This is a fixed-build throughput benchmark: random item pickups would
+ // otherwise change its damage, healing and special HP costs mid-experiment.
+ s.itemUnlocks=[];
  s.enemies=[];s.pois=[];s.terrainFeatures=[];s.berryTrees=[];
  s.stats.elapsed=899.99;s.stats.level=95;s.recruitCount=3;s.idCounter=4000;
  s.buffs={luck:.39,specialHaste:1,radius:.504,crit:.04,specialPower:.2,deflection:.08,power:.3,haste:.08};

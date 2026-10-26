@@ -1,9 +1,10 @@
 import {version as gameVersion} from '../../package.json';
-import {getSpecies,ELEMENT_COLORS,starterChoices} from '../data/kanto.ts';
+import {getSpecies,ELEMENT_COLORS} from '../data/kanto.ts';
 import {DESIGN} from '../data/config.ts';
 import {PARTY_DAMAGE_COLORS} from '../data/damageNumbers.ts';
 import type {UpgradeChoice,RunState,PartyMember} from '../game/types.ts';
 import {persist,type SaveData} from '../game/save.ts';
+import {availableStarters} from '../game/characterAccess.ts';
 import {bindProgressionUI,renderProgressionResult,renderRunOptions,renderUnlockLibrary} from './UnlockLibrary.ts';
 import type {AchievementDefinition} from '../data/unlocks.ts';
 import './unlocks.css';
@@ -104,7 +105,7 @@ export class UI {
   clearTimeout(this.toastTimer);this.toastPriority=0;this.toastExpires=0;q('#toast').classList.remove('show');
   this.previousParty.clear();this.previousFaints=0;this.previousElapsed=0;this.faintUntil=0;this.faintNotice='';this.cooldowns={};this.readyNotice='';this.readyUntil=0;
   this.lastPhase='title';this.hud.classList.add('hidden');this.overlay.classList.remove('hidden');
-  const options=starterChoices().filter(id=>this.save.unlocked.includes(id));
+  const options=availableStarters(this.save);
   this.content.innerHTML=`<div class="front-page"><div class="eyebrow">KANTO SURVIVAL / <span class="game-version">v${esc(gameVersion)}</span></div><h1>WILD<span>LANDS</span></h1><p class="subtitle">Survive 15 minutes. Build your squad.</p><div class="front-launch"><button id="play-btn" class="btn btn-primary" type="button">Play as ${esc(getSpecies(options[0]).name)}</button><p>Choose a partner below to start with them.</p></div><h2>Choose your partner</h2><div class="starter-grid">${options.map(id=>this.pokemonCard(id)).join('')}</div>${renderRunOptions(this.save)}${renderUnlockLibrary(this.save)}<p class="control-help">${controls}</p>${this.settingsPanel()}<p class="disclaimer">Unofficial, noncommercial fan prototype. Pokémon names and artwork belong to their respective owners.</p></div>`;
   let selectedStarter=options[0];
   const play=this.content.querySelector<HTMLButtonElement>('#play-btn')!;

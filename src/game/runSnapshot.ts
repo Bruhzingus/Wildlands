@@ -69,7 +69,7 @@ const origins=['signature','learned','q','proc','status','enemy','environment','
 const variants=['normal','dark','rocket','rabid','poisoned','legendary'];
 const totalFields=['effective','attempted','mitigated','overkill','hits','kills','preCritical','postCritical','criticalHits','maxCriticalTier'];
 function validDamageSource(value:unknown):boolean {
- return object(value)&&oneOf(value.origin,origins)&&text(value.name)&&text(value.move)&&optional(value,'actorId',integer)&&optional(value,'speciesId',species)&&optional(value,'element',element=>own(ELEMENT_COLORS,element))&&optional(value,'variant',variant=>oneOf(variant,variants))&&optional(value,'rootOrigin',origin=>oneOf(origin,origins));
+ return object(value)&&oneOf(value.origin,origins)&&text(value.name)&&text(value.move)&&optional(value,'actorId',integer)&&optional(value,'speciesId',species)&&optional(value,'element',element=>own(ELEMENT_COLORS,element))&&optional(value,'variant',variant=>oneOf(variant,variants))&&optional(value,'rootOrigin',origin=>oneOf(origin,origins))&&optional(value,'powerBonus',power=>finite(power)&&power> -1);
 }
 const totals=(value:unknown)=>object(value)&&numbers(value,totalFields)&&totalFields.every(key=>(value[key] as number)>=0);
 const recipient=(value:unknown)=>object(value)&&positiveId(value.uid)&&species(value.speciesId)&&typeof value.leader==='boolean';

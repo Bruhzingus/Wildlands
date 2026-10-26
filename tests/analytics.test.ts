@@ -80,7 +80,7 @@ test('fractional projectile relics preserve learned move attribution through imp
   combat.updateProjectiles(.2);
   const report=runAnalyticsReport(s),row=report.outgoing.find(entry=>entry.source.move==='Water Gun');
   assert.ok(row);assert.equal(row.source.origin,'learned');assert.equal(row.source.speciesId,launchSpecies);
-  near(row.effective,23*expectedShots);near(report.totals.outgoing.effective,s.stats.damageDealt);
+  near(row.effective,14.4*expectedShots);near(report.totals.outgoing.effective,s.stats.damageDealt);
  }
 });
 

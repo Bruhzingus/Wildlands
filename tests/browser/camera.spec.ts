@@ -1,4 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
+import {availableStarters} from '../../src/game/characterAccess.ts';
+import {DEFAULT_SAVE} from '../../src/game/save.ts';
 
 const game=(page:Page,expression:string)=>page.evaluate(expression=>{
  const g=(window as any).__WILDLANDS__;
@@ -137,7 +139,7 @@ test(`${cancellation} cancels a pending capture and a late browser grant is rele
   await expect(page.locator('#resume-btn')).toBeVisible();
   expect(await game(page,'g=>g.sim.state.phase')).toBe('paused');await frozen(page);
  }else{
-  await expect(page.locator('[data-starter]')).toHaveCount(4);
+  await expect(page.locator('[data-starter]')).toHaveCount(availableStarters(DEFAULT_SAVE).length);
   expect(await game(page,'g=>g.sim')).toBeNull();
  }
 });

@@ -3,6 +3,10 @@ import {PROGRESSION} from '../../data/progression.ts';
 export function attackInterval(base:number,haste:number,rank=1):number {
  return base/Math.max(Number.EPSILON,1+haste)/(1+PROGRESSION.moves.speedPerRank*Math.max(0,rank-1));
 }
+/** Pact cast-rate bonuses multiply the cooldown after ordinary recharge bonuses. */
+export function specialInterval(base:number,haste:number,rate=0):number {
+ return base/Math.max(Number.EPSILON,1+haste)/Math.max(Number.EPSILON,1+rate);
+}
 /** All elapsed casts are preserved; only their visual/physics representation is grouped. */
 export function scheduleCasts(cooldown:number,elapsed:number,interval:number):{cooldown:number;packets:number[]} {
  const remaining=cooldown-elapsed;

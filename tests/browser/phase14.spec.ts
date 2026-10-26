@@ -1,6 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import {ITEM_DEFINITIONS} from '../../src/data/items.ts';
+import {starterChoices} from '../../src/data/kanto.ts';
 
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
 const capture=async(page:Page)=>{await expect.poll(()=>page.evaluate(()=>document.pointerLockElement?.id)).toBe('renderCanvas');await expect(page.locator('#overlay')).toBeHidden();};
@@ -8,7 +9,7 @@ const frame=(page:Page)=>game(page,'g=>{g.previous=performance.now()-16;g.frame(
 
 test('collection has10 readable achievements and reviewed safe import/export with mobile layout',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('/?dev=1');
- await page.locator('.unlock-library>summary').click();await expect(page.locator('[data-achievement]')).toHaveCount(10);await expect(page.locator('[data-collection-partner]')).toHaveCount(15);await expect(page.locator('.partner-collection .collected')).toHaveCount(4);
+ await page.locator('.unlock-library>summary').click();await expect(page.locator('[data-achievement]')).toHaveCount(10);await expect(page.locator('[data-collection-partner]')).toHaveCount(starterChoices().length);await expect(page.locator('.partner-collection .collected')).toHaveCount(4);
  const input=page.locator('[data-import-save]');
  await input.setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{broken')});await expect(page.locator('[data-save-status]')).toContainText('not valid JSON');await expect(page.locator('[data-confirm-import]')).toHaveCount(0);expect(await game(page,'g=>g.save.unlocked.length')).toBe(4);
  const oldSave={version:1,unlocked:[1,4,7,25,133],wins:0,games:6,bestKills:444,longestRun:888,settings:{volume:.45,camera:28,quality:'high'}};

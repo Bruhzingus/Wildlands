@@ -135,10 +135,10 @@ test('Metronome repeats the learned attack at its scaled damage without counting
  for(let index=0;index<9;index++){
   state.party[0].learnedMoves![0].cooldown=0;simulation.update(.01,idle);
  }
- assert.equal(state.projectiles.length,30,'nine Swift casts plus one three-projectile repeat');
+ assert.equal(state.projectiles.length,20,'nine Swift casts plus one two-star repeat');
  assert.ok(state.projectiles.every(projectile=>projectile.moveName==='Swift'),'a learned echo must never become the primary move');
  const echoes=state.projectiles.filter(projectile=>projectile.allowProcs===false);
- assert.equal(echoes.length,3);assert.ok(echoes.every(projectile=>Math.abs(projectile.damage-6.5)<1e-9));
+ assert.equal(echoes.length,2);assert.ok(echoes.every(projectile=>Math.abs(projectile.damage-3.64)<1e-9));
  // Let only the repeated center star hit. A guaranteed King's Rock roll must still stay inactive.
  const center=echoes.find(projectile=>Math.abs(projectile.vz)<1e-9)!;
  state.projectiles=[center];state.items=['kings-rock'];simulation.rng.next=()=>0;
@@ -148,7 +148,7 @@ test('Metronome repeats the learned attack at its scaled damage without counting
 });
 
 test('a learned echo retargets after the original target dies',()=>{
- const {simulation,state,enemy}=learnedArena(['echo-bell'],'body-slam');enemy.x=1;
+ const {simulation,state,enemy}=learnedArena(['echo-bell'],'fire-blast');enemy.x=1;
  for(let index=0;index<4;index++){
   state.party[0].learnedMoves![0].cooldown=0;simulation.update(.01,idle);
  }
@@ -156,5 +156,5 @@ test('a learned echo retargets after the original target dies',()=>{
  const next=createEnemy(state,simulation.rng,19,'normal',6.5,0);
  Object.assign(next,{hp:1000,maxHp:1000,speed:0,hitCooldown:1000,attackCooldown:1000});state.enemies.push(next);
  state.party[0].learnedMoves![0].cooldown=0;simulation.update(.01,idle);
- assert.equal(enemy.dead,true);close(next.hp,1000-30*.8*.325);
+ assert.equal(enemy.dead,true);close(next.hp,1000-38*.8*.325);
 });

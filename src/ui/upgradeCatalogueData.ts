@@ -2,8 +2,11 @@ import {KANTO,RECRUIT_POOL,getSpecies,starterChoices,type Element} from '../data
 import {ITEM_DEFINITIONS,type BuildStat} from '../data/items.ts';
 import {PROGRESSION,TRAINING_UPGRADES,trainingVariants,trainingDescription} from '../data/progression.ts';
 import {ACHIEVEMENTS,STARTING_PARTNERS,GATED_ITEMS,GATED_RECRUITS} from '../data/unlocks.ts';
+import {availableStarters,availableRecruitUnlocks} from '../game/characterAccess.ts';
 import {LEARNABLE_MOVES,learnableMoves,moveLearnLevel,getLearnedMoveProfile,learnedMovePower} from '../data/moves.ts';
 import {describeAttackMechanic,describeAttackUpgrade,getAttackProfile} from '../data/attacks.ts';
+import {getSignatureMoveDefinition} from '../data/moveDefinitions.ts';
+import {memberDamage} from '../game/combat/damage.ts';
 import {describeSpecialUpgrade,getSpecialProfile,specialAimMode} from '../data/specials.ts';
 import {evolutionRequirement,evolutionRule} from '../data/evolutions.ts';
 import {movementTraitLabel} from '../data/movementTraits.ts';
@@ -48,7 +51,7 @@ function unlock(kind:'items'|'recruits'|'starters',id:string|number):NonNullable
  const achievement=ACHIEVEMENTS.find(entry=>(entry.reward[kind] as readonly (string|number)[]|undefined)?.includes(id));
  return {kind,id,requirement:achievement?`${achievement.title}: ${achievement.description}`:'Available from the start.'};
 }
-const STAT_NAMES:Record<BuildStat,string>={staminaRechargeReduction:'Stamina recharge time reduction',defense:'Defense bonus',deflection:'Deflection chance',staminaCapacity:'Extra dodge charges',critDamagePercent:'Critical damage bonus',power:'Damage bonus',specialPower:'Special ability damage bonus',haste:'Attack speed bonus',speed:'Movement speed bonus',armor:'Defense threshold',damageReduction:'Damage reduction',xp:'XP bonus',xpCatchup:'Catch-up XP bonus',critChance:'Critical chance',critDamage:'Critical damage multiplier',radius:'Attack reach / radius bonus',magnet:'Pickup radius bonus',specialHaste:'Special recharge bonus',stamina:'Dodge recovery bonus',regeneration:'Leader HP / sec',partyRegeneration:'Teammate HP / sec',regenerationPercent:'Leader max HP / sec',partyRegenerationPercent:'Teammate max HP / sec',projectiles:'Extra projectiles',pierce:'Extra pierces',chains:'Extra chain jumps',projectileSpeed:'Projectile speed bonus',duration:'Status duration bonus'};
+const STAT_NAMES:Record<BuildStat,string>={staminaRechargeReduction:'Stamina recharge time reduction',defense:'Defense bonus',deflection:'Deflection chance',staminaCapacity:'Extra dodge charges',critDamagePercent:'Critical damage bonus',power:'Damage bonus',specialPower:'Special ability damage bonus',specialAmplification:'Special damage amplification',specialRate:'Special cast-rate multiplier bonus',specialHealthCost:'Max HP cost per special',haste:'Attack speed bonus',speed:'Movement speed bonus',armor:'Defense threshold',damageReduction:'Damage reduction',xp:'XP bonus',xpCatchup:'Catch-up XP bonus',critChance:'Critical chance',critDamage:'Critical damage multiplier',radius:'Attack reach / radius bonus',magnet:'Pickup radius bonus',specialHaste:'Special recharge bonus',stamina:'Dodge recovery bonus',regeneration:'Leader HP / sec',partyRegeneration:'Teammate HP / sec',regenerationPercent:'Leader max HP / sec',partyRegenerationPercent:'Teammate max HP / sec',projectiles:'Extra projectiles',pierce:'Extra pierces',chains:'Extra chain jumps',projectileSpeed:'Projectile speed bonus',duration:'Status duration bonus'};
 const FLAT_STATS=new Set<BuildStat>(['staminaCapacity','armor','critDamage','magnet','regeneration','partyRegeneration','projectiles','pierce','chains']);
 
 /** Complete finite definitions; unbounded ranks use rules and representative transitions. */
@@ -71,7 +74,7 @@ export function createUpgradeCatalogue():readonly CatalogueEntry[]{
    stats:[stat('Scope',item.ownership==='squad'?'Squad':'Leader'),stat('Stacking',item.stacking==='unique'?'Unique':'Repeatable')],
    details:[detail('Availability',item.offerable===false?'Retired. Resolves in legacy runs; never appears in new offers.':item.stacking==='unique'?'Unique mechanic: one copy per family per run. Base and Legendary versions share this limit.':'Additional copies add their bonuses. Base and Legendary versions can be combined and share the base relic unlock.'),
     ...(item.minimumParty?[detail('Party requirement',`At least ${item.minimumParty} living members to acquire. Party scaling uses the current living party, including the leader.`)]:[]),
-    ...(item.modifiers??[]).map(modifier=>detail(STAT_NAMES[modifier.stat],`${modifier.amount>=0?'+':''}${FLAT_STATS.has(modifier.stat)?n(modifier.amount):pct(modifier.amount)}${modifier.healthBelow===undefined?'':` while leader HP is below ${pct(modifier.healthBelow)}`}${modifier.evolution?`; ${modifier.evolution} members`:''}`)),
+    ...(item.modifiers??[]).map(modifier=>detail(STAT_NAMES[modifier.stat],`${modifier.amount>=0?'+':''}${FLAT_STATS.has(modifier.stat)?n(modifier.amount):pct(modifier.amount)}${modifier.healthBelow===undefined?'':` while leader HP is below ${pct(modifier.healthBelow)}`}${modifier.target==='elite'?'; native hits against elites and bosses':''}${modifier.evolution?`; ${modifier.evolution} members`:''}`)),
     ...(item.effects??[]).map(effect=>detail('Trigger',[effect.event.replace(/^on/,'On '),effect.every?`every ${effect.every}`:'',effect.chance===undefined?'':`${pct(effect.chance)} chance`,effect.cooldown?`${n(effect.cooldown)}s cooldown`:'',effect.counter==='source'?'per attacker':'squad event'].filter(Boolean).join(' · ')))]});
  }
  const rules=[
@@ -83,10 +86,10 @@ export function createUpgradeCatalogue():readonly CatalogueEntry[]{
  ];
  for(const rule of rules)entries.push({id:`rule:${rule.id}`,group:'rules',title:rule.title,subtitle:'Progression rule',description:rule.description,rarities:rule.rarities,elements:[],stats:[],details:[]});
  for(const species of KANTO){
-  const profile=getAttackProfile(species.id,1),learned=learnableMoves(species.id);
+  const profile=getAttackProfile(species.id,1),move=getSignatureMoveDefinition(species.moveName),learned=learnableMoves(species.id);
   entries.push({id:`signature:${species.id}`,group:'signatures',title:species.moveName,subtitle:`#${String(species.id).padStart(3,'0')} ${species.name} · ${profile.kind}`,
-   description:describeAttackMechanic(species.id),rarities:['common','rare'],elements:species.types,level:1,
-   stats:[stat('R1 core power',n(species.power+9)),stat('Base interval',`${n(profile.cooldown)}s`),stat('Reach / radius',`${n(profile.range)} / ${n(profile.radius)}m`)],
+   description:describeAttackMechanic(species.id),rarities:['common','rare'],elements:[move.element],level:1,
+   stats:[stat('Move base power',n(move.power)),stat('R1 caster power',n(memberDamage({speciesId:species.id,level:1,attackLevel:1},0,0))),stat('Base interval',`${n(profile.cooldown)}s`),stat('Reach / radius',`${n(profile.range)} / ${n(profile.radius)}m`)],
    details:[detail('Rank 1 → 2',describeAttackUpgrade(species.id,1,2)),detail('Rank 3 → 4',describeAttackUpgrade(species.id,3,4)),detail('Rank 4 → 5',describeAttackUpgrade(species.id,4,5)),
     detail('Authored milestones',(profile.milestones??[]).map(milestone=>`R${milestone.rank}: ${milestone.description}`).join(' · ')||'No separate behavior milestones; numeric training continues indefinitely.'),
     detail('Learnable moves',learned.map(move=>`${move.name} [LV ${moveLearnLevel(move.id)}]`).join(', ')||'None for this form.'),
@@ -140,7 +143,7 @@ export function createUpgradeCatalogue():readonly CatalogueEntry[]{
 export function catalogueEntryLocked(entry:CatalogueEntry,save:SaveData):boolean {
  if(!entry.unlock)return false;
  const {kind,id}=entry.unlock;
- return kind==='items'?!save.unlockedItems.includes(id as string):kind==='recruits'?!save.unlockedRecruits.includes(id as number):!save.unlocked.includes(id as number);
+ return kind==='items'?!save.unlockedItems.includes(id as string):kind==='recruits'?!availableRecruitUnlocks(save).includes(id as number):!availableStarters(save).includes(id as number);
 }
 const normalize=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase();
 const rarityOrder:Record<UpgradeRarity,number>={common:1,uncommon:1.5,rare:2,epic:3,legendary:4};

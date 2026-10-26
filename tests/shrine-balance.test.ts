@@ -25,7 +25,8 @@ test('the reported ordinary build can clear tiers nine and ten with movement and
   assert.ok(result.seconds>=70&&result.seconds<=150,JSON.stringify(result));
   assert.ok(result.peakAdds>10,'Normal endless arrivals must remain active in the benchmark');
   assert.equal(result.incomingDamage,0,'Isolate damage throughput from survival');
-  assert.ok(Math.abs(result.estimatedDps-3032.62)<.01,'Use the actual saved build');
+  assert.equal(result.relicCopiesGained,0,'Keep the reported build fixed throughout the duration check');
+  assert.ok(Math.abs(result.estimatedDps-3962.27)<.01,'Use the actual saved build with the shared move definitions');
  }
 });
 
@@ -36,6 +37,7 @@ test('modest growth makes every later tier beatable with time left for repositio
   assert.ok(result.seconds>30&&result.seconds<=definition.targetSeconds[1],JSON.stringify(result));
   assert.ok(result.peakAdds>10,JSON.stringify(result));
   assert.equal(result.incomingDamage,0);
+  assert.equal(result.relicCopiesGained,0);
  }
 });
 

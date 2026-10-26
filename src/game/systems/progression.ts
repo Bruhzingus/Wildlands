@@ -118,10 +118,13 @@ function learnedMoveChoices(state:RunState):UpgradeChoice[] {
   for(const learned of known){
    const move=getMoveDefinition(learned.moveId),gain=moveRankGain(state,member,learned.rank);if(!move||gain<=0)continue;
    const rank=learned.rank+gain,from=getLearnedMoveProfile(move.id,learned.rank),to=getLearnedMoveProfile(move.id,rank);
-   const powerGain=(learnedMovePower(move.id,rank)/learnedMovePower(move.id,learned.rank)-1)*100;
+   const powerGain=(learnedMovePower(move.id,rank)*to.damageScale/(learnedMovePower(move.id,learned.rank)*from.damageScale)-1)*100;
    const cooldownReduction=(1-to.cooldown/from.cooldown)*100,reachGain=(to.range/from.range-1)*100;
    const extras=[to.projectiles>from.projectiles?`+${to.projectiles-from.projectiles} projectile`:null,
-    to.chains>from.chains?`+${to.chains-from.chains} chain target`:null].filter(Boolean);
+    to.chains>from.chains?`+${to.chains-from.chains} chain target`:null,
+    to.pierce>from.pierce?`+${to.pierce-from.pierce} pierce`:null,
+    to.radius>from.radius?`+${((to.radius/from.radius-1)*100).toFixed(1)}% area radius`:null,
+    ...(to.milestones??[]).filter(step=>step.rank>learned.rank&&step.rank<=rank).map(step=>step.description)].filter(Boolean);
    choices.push({id:`move-${member.uid}-${move.id}-${learned.rank}`,kind:'attack',speciesId:member.uid,sourceSpeciesId:species.id,
     moveId:move.id,amount:gain,title:`${move.name} ${toRoman(rank)}`,description:`${species.name}: +${powerGain.toFixed(1)}% damage, ${cooldownReduction.toFixed(1)}% shorter cooldown, +${reachGain.toFixed(1)}% reach${extras.length?`, ${extras.join(', ')}`:''}. Rank ${learned.rank} to ${rank}.${gain>1?` Single-stage mastery: +${gain} ranks per training choice.`:''}`,
     rarity:rank>=4||gain>1?'rare':'common',category:'move',rank});
@@ -192,7 +195,7 @@ function moveUsesModifier(profile:AttackDefinition,stat:BuildStat,currentBonus:n
  * benefit only if the player later happens to learn a compatible move. */
 function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
  const item=getItemDefinition(id);if(!item)return false;
- const hasDamage=state.party.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
+ const hasDamage=state.party.some(member=>member.hp>0&&(getAttackProfile(member.speciesId,member.attackLevel).kind!=='heal'||getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0||(member.learnedMoves??[]).some(move=>getLearnedMoveProfile(move.moveId,move.rank).kind!=='heal')));
  if(item.levelGain)return state.party.some((member,index)=>(index===0?state.player.hp:member.hp)>0&&member.level<PROGRESSION.leveling.maxLevel);
  if(item.consecutiveTargetDamage)return hasDamage;
  const teammates=state.party.slice(1).filter(member=>member.hp>0);
@@ -201,7 +204,7 @@ function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
   if(effect.action.kind==='selfDamage')return false;
   if(state.challenge==='famine'&&effect.action.kind==='heal')return false;
   const damaging=hasDamage;
-  if(['onCrit','onHit','onDeath'].includes(effect.event)&&!damaging)return false;
+  if(['onCrit','onHit','onDeath','onOverkill'].includes(effect.event)&&!damaging)return false;
   if(['area','chain'].includes(effect.action.kind)&&'damageScale' in effect.action&&effect.action.damageScale&&!damaging)return false;
   return true;
  }))return true;
@@ -215,6 +218,8 @@ function itemImprovesCurrentBuild(state:RunState,id:string):boolean {
    ...(member.learnedMoves||[]).flatMap(move=>getMoveDefinition(move.moveId)?[getLearnedMoveProfile(move.moveId,move.rank)]:[])];
   return (item.modifiers||[]).some(modifier=>{
    const stat=modifier.stat;
+   if(stat==='specialHealthCost')return false;
+   if(stat==='specialAmplification'||stat==='specialRate')return getSpecialProfile(member.speciesId,member.attackLevel).damageScale>0;
    if(state.challenge==='famine'&&['regeneration','partyRegeneration','regenerationPercent','partyRegenerationPercent'].includes(stat))return false;
    if((stat==='xp'||stat==='xpCatchup')&&!state.party.some(member=>member.hp>0&&member.level<PROGRESSION.leveling.maxLevel))return false;
    if(stat==='duration')return moves.some(profile=>Object.values(profile.status).some(chance=>chance!>0))||state.items.some(id=>getItemDefinition(id)?.effects?.some(effect=>effect.action.kind==='status'))||getSpecialProfile(member.speciesId,member.attackLevel).duration>0;

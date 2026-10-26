@@ -1,5 +1,8 @@
 import {test,expect,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {getSpecies} from '../../src/data/kanto.ts';
+import {availableStarters,availableRecruitUnlocks} from '../../src/game/characterAccess.ts';
+import {DEFAULT_SAVE} from '../../src/game/save.ts';
 
 const game=(page:Page,expression:string)=>page.evaluate(expression=>new Function('g',`return (${expression})(g)`)((window as any).__WILDLANDS__),expression);
 const activeVisuals=`g=>g.scene.meshes.filter(m=>m.name.startsWith('combat-special-')&&m.isEnabled()&&m.isVisible).map(m=>({name:m.name,x:m.position.x,z:m.position.z,scale:[m.scaling.x,m.scaling.y,m.scaling.z],vertices:m.getTotalVertices(),ready:m.material.isReady(m)}))`;
@@ -12,10 +15,14 @@ test('Play stays visible on the title screen and starts the chosen partner',asyn
  const play=page.locator('#play-btn');
  await expect(play).toBeInViewport();
  await expect(play).toHaveText('Play as Bulbasaur');
- await page.locator('[data-starter="4"]').focus();
- await expect(play).toHaveText('Play as Charmander');
+ const starters=availableStarters(DEFAULT_SAVE),chosen=starters[starters.length-1];
+ await expect(page.locator('[data-starter]')).toHaveCount(starters.length);
+ await page.locator(`[data-starter="${chosen}"]`).focus();
+ await expect(play).toHaveText(`Play as ${getSpecies(chosen).name}`);
  await play.click();
- await expect.poll(()=>game(page,'g=>g.sim?.state.party[0].speciesId')).toBe(4);
+ await expect.poll(()=>game(page,'g=>g.sim?.state.party[0].speciesId')).toBe(chosen);
+ expect(await game(page,'g=>g.sim.state.recruitUnlocks')).toEqual(availableRecruitUnlocks(DEFAULT_SAVE));
+ expect(await game(page,'g=>[g.save.unlocked,g.save.unlockedRecruits]')).toEqual([DEFAULT_SAVE.unlocked,DEFAULT_SAVE.unlockedRecruits]);
  await expect(page.locator('#overlay')).toBeHidden();
  await expect.poll(()=>game(page,'g=>g.sim?.state.phase')).toBe('playing');
  expect(errors).toEqual([]);
@@ -24,7 +31,7 @@ test('Play stays visible on the title screen and starts the chosen partner',asyn
 test('starter choices explain different attacks and the HUD names the equipped Q ability',async({page})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/?dev=1');
- const descriptions=await page.locator('.starter-card .starter-moves').allTextContents();
+ const descriptions=await Promise.all([1,4,7,25].map(id=>page.locator(`[data-starter="${id}"] .starter-moves`).textContent()));
  expect(descriptions).toHaveLength(4);expect(new Set(descriptions).size).toBe(4);
  for(const id of [1,4,7,25])await expect(page.locator(`[data-starter="${id}"] .starter-move`)).toHaveCount(id===25?3:2);
  await expect(page.locator('[data-starter="1"]')).toContainText('Bramble Garden');

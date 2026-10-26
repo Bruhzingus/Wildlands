@@ -152,9 +152,10 @@ test('player melee reaches 25% farther and its starting damage is 25% stronger',
  assert.equal(primary.radius,base.radius*1.25);
  assert.equal(primary.damageScale,base.damageScale*1.25);
  const learned=getLearnedMoveProfile('tackle');
- assert.equal(learned.range,base.range*1.25);
- assert.equal(learned.radius,base.radius*1.25);
- assert.equal(learned.damageScale,base.damageScale*1.25);
+ assert.equal(learned.range,2.7*1.25);
+ assert.equal(learned.radius,1.5*1.25);
+ assert.equal(learned.damageScale,.5*1.25);
+ assert.deepEqual(learned,getAttackProfile(129));
 });
 
 test('lobs explode on impact and expanded attack range has enough projectile lifetime to reach its target',()=>{

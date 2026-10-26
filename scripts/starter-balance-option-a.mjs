@@ -51,7 +51,7 @@ function primary(speciesId,rank=1,level=1,positions=fixtures.close,options={}){
  });
  for(let frame=0;a.state.projectiles.length&&frame<2000;frame++)stepProjectiles(a.state,options.step??.01,{hit:(enemy,shot)=>a.hit(enemy,shot.damage),hurtPlayer:()=>assert.fail('Friendly fire')});
  assert.equal(a.state.projectiles.length,0,'All primary projectiles expire');
- const damage=a.hits.reduce((sum,hit)=>sum+hit.damage,0),interval=attackInterval(profile.cooldown,0,rank);
+ const damage=a.hits.reduce((sum,hit)=>sum+hit.damage,0),interval=attackInterval(profile.cooldown,0);
  return {damage:round(damage),dps:round(damage/interval),hits:a.hits.length,targets:new Set(a.hits.map(hit=>hit.uid)).size,shots};
 }
 
@@ -78,7 +78,7 @@ function snapshot(id,rank,level,evolutionPower=0){
   memberBookkeepingHp:round(132*species.health),element:attack.element??species.types[0],qElement:q.element??species.types[0],
   attackKind:attack.kind,catalogueAttackKind:species.attack,pattern:attack.pattern??attack.kind,
   damagePerHit:round(memberDamage({speciesId:id,level,attackLevel:rank},0,evolutionPower)*attack.damageScale),
-  cooldown:round(attackInterval(attack.cooldown,0,rank)),range:round(attack.range),radius:round(attack.radius),
+  cooldown:round(attackInterval(attack.cooldown,0)),range:round(attack.range),radius:round(attack.radius),
   projectiles:attack.projectiles,pierce:attack.pierce,chains:attack.chains,strikes:attack.strikes??1,status:attack.status,
   q:{name:q.name,kind:q.kind,cooldown:q.cooldown,range:q.range,radius:q.radius,pulses:q.pulses,projectiles:q.projectiles},movement:getMovementTrait(id),
   learnedMoves:learnableMoves(id,level).map(move=>({id:move.id,name:move.name,element:move.element})),
@@ -89,6 +89,7 @@ function snapshot(id,rank,level,evolutionPower=0){
 }
 
 import {SPECIES_ATTACKS} from '../src/data/attacks.ts';
+import {getSignatureMoveDefinition} from '../src/data/moveDefinitions.ts';
 let proposed=false;
 function optionASpecialProfile(id,rank){
  const p=getSpecialProfile(id,rank);
@@ -103,7 +104,7 @@ function optionASpecialProfile(id,rank){
 const ids=starterChoices().flatMap(id=>[id,...terminalIds(id)]);
 const baseline=new Map(ids.map(id=>[id,snapshot(id,getSpecies(id).stage===1?1:8,getSpecies(id).stage===1?1:30,(getSpecies(id).stage-1)*.25)]));
 const baselineEevee=[133,134,135,136].map(id=>({id,...primary(id,id===133?8:9,35,fixtures.distant,{evolutionPower:id===133?0:.25})}));
-const patch=(id,changes)=>{SPECIES_ATTACKS[id]={...SPECIES_ATTACKS[id],...changes}};
+const patch=(id,changes)=>{SPECIES_ATTACKS[id]={...SPECIES_ATTACKS[id],...changes};Object.assign(getSignatureMoveDefinition(getSpecies(id).moveName).profile,changes)};
 for(const id of [1,2,3])patch(id,{range:11.2,damageScale:.95});
 for(const id of [9,134])patch(id,{projectiles:1,damageScale:.75,milestones:SPECIES_ATTACKS[7].milestones.map(m=>({...m}))});
 for(const id of [10,11,12])patch(id,{cooldown:.95});
@@ -128,7 +129,7 @@ const result=ids.map(id=>{
 });
 const afterEevee=[133,134,135,136].map(id=>({id,close:primary(id,id===133?8:9,35,fixtures.close,{evolutionPower:id===133?0:.25}),distant:primary(id,id===133?8:9,35,fixtures.distant,{evolutionPower:id===133?0:.25}),boss:primary(id,id===133?8:9,35,fixtures.boss,{evolutionPower:id===133?0:.25})}));
 const branchProgression=[1,2,3,4,5,6,7,8,9,12,20,50].map(rank=>({rank,eevee:primary(133,rank,35,fixtures.distant).dps,branches:[134,135,136].map(id=>({id,dps:primary(id,rank+1,35,fixtures.distant,{evolutionPower:.25}).dps}))}));
-const sourcePaths=['src/data/kanto.ts','src/data/attacks.ts','src/data/rosterContent.ts','src/data/specials.ts','src/data/progression.ts','src/game/combat/damage.ts','src/game/combat/cadence.ts','src/game/combat/patterns.ts','src/game/combat/projectiles.ts','src/game/combat/targeting.ts','src/game/combat/specials.ts'];
+const sourcePaths=['src/data/attackDefinitions.ts','src/data/moveDefinitions.ts','src/data/kanto.ts','src/data/attacks.ts','src/data/rosterContent.ts','src/data/specials.ts','src/data/progression.ts','src/game/combat/damage.ts','src/game/combat/cadence.ts','src/game/combat/patterns.ts','src/game/combat/projectiles.ts','src/game/combat/targeting.ts','src/game/combat/specials.ts'];
 const fingerprints=Object.fromEntries(await Promise.all(sourcePaths.map(async path=>[path,createHash('sha256').update(await readFile(new URL('../'+path,import.meta.url))).digest('hex')])));
 const output={fingerprints,branchProgression,label:'Isolated Option A candidate. Shared delivery fixes are NOT implemented in this probe.',rows:result,baselineEevee,afterEevee};
 await mkdir(new URL('../artifacts/',import.meta.url),{recursive:true});
